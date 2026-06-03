@@ -251,6 +251,7 @@
         "stack", "grid", "split_pane", "scroll_area",
         "list", "detail_panel", "timeline", "activity_feed",
         "form", "field_group", "menu", "toolbar", "button_group", "command_palette",
+        "modal", "drawer",
         "tabs", "stepper"
       ]
     },
@@ -260,7 +261,7 @@
         "metric_card", "data_table", "chart_placeholder",
         "text_input", "select", "checkbox", "radio_group", "toggle", "slider", "date_picker", "file_upload",
         "button", "icon_button",
-        "modal", "drawer", "toast", "alert", "empty_state", "loading_state", "error_state",
+        "toast", "alert", "empty_state", "loading_state", "error_state",
         "breadcrumb", "pagination", "nav_item"
       ]
     },

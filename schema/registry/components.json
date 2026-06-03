@@ -1,0 +1,95 @@
+{
+  "$schema": "../ui-blueprint.schema.json",
+  "version": "0.1.0",
+  "description": "Canonical registry of UI Blueprint component types. This file is the source of truth — the JSON Schema enum in ui-blueprint.schema.json must stay in sync. The editor (Phase 2) reads this file to render the component palette.",
+  "categories": [
+    {
+      "id": "layout",
+      "name": "Layout",
+      "description": "Containers and structural primitives. Arrange children in flex/grid. Never hold business content directly.",
+      "types": [
+        { "name": "app_shell", "displayName": "App Shell", "isContainer": true, "description": "Top-level layout container." },
+        { "name": "page", "displayName": "Page", "isContainer": true, "description": "A full-screen scrollable content area." },
+        { "name": "section", "displayName": "Section", "isContainer": true, "description": "Logical grouping of related nodes." },
+        { "name": "header", "displayName": "Header", "isContainer": true, "description": "Top region of a screen, usually with title and actions." },
+        { "name": "sidebar", "displayName": "Sidebar", "isContainer": true, "description": "Vertical navigation column." },
+        { "name": "top_bar", "displayName": "Top Bar", "isContainer": true, "description": "Horizontal header with logo, search, and user actions." },
+        { "name": "bottom_nav", "displayName": "Bottom Nav", "isContainer": true, "description": "Mobile-first horizontal nav at screen bottom." },
+        { "name": "stack", "displayName": "Stack", "isContainer": true, "description": "Generic flex container, defaults to column." },
+        { "name": "grid", "displayName": "Grid", "isContainer": true, "description": "CSS-grid container with declared columns." },
+        { "name": "split_pane", "displayName": "Split Pane", "isContainer": true, "description": "Master/detail two-pane layout." },
+        { "name": "scroll_area", "displayName": "Scroll Area", "isContainer": true, "description": "Scrollable region with fixed dimensions." }
+      ]
+    },
+    {
+      "id": "data",
+      "name": "Data",
+      "description": "Data display primitives. Bind to data sources, render collections and aggregates.",
+      "types": [
+        { "name": "metric_card", "displayName": "Metric Card", "isContainer": false, "description": "Single KPI with label, value, and delta.", "typicalContent": ["label", "data_binding"] },
+        { "name": "data_table", "displayName": "Data Table", "isContainer": false, "description": "Tabular data with declared columns, sort, filter.", "typicalContent": ["columns", "data_binding"] },
+        { "name": "list", "displayName": "List", "isContainer": true, "description": "Vertical collection of items." },
+        { "name": "detail_panel", "displayName": "Detail Panel", "isContainer": true, "description": "Right-side drawer or modal for row/record detail." },
+        { "name": "chart_placeholder", "displayName": "Chart Placeholder", "isContainer": false, "description": "Render slot for a chart library (recharts, visx, etc.)." },
+        { "name": "timeline", "displayName": "Timeline", "isContainer": true, "description": "Chronological event list." },
+        { "name": "activity_feed", "displayName": "Activity Feed", "isContainer": true, "description": "Reverse-chronological event stream." }
+      ]
+    },
+    {
+      "id": "form",
+      "name": "Form",
+      "description": "Form containers and inputs. Every input has a label and a value-binding path.",
+      "types": [
+        { "name": "form", "displayName": "Form", "isContainer": true, "description": "Form container with declared submit action.", "typicalContent": ["action"] },
+        { "name": "field_group", "displayName": "Field Group", "isContainer": true, "description": "Visually grouped fields with shared label/legend." },
+        { "name": "text_input", "displayName": "Text Input", "isContainer": false, "description": "Single-line text input.", "typicalContent": ["label", "placeholder"] },
+        { "name": "select", "displayName": "Select", "isContainer": false, "description": "Dropdown selector.", "typicalContent": ["label", "items"] },
+        { "name": "checkbox", "displayName": "Checkbox", "isContainer": false, "description": "Boolean toggle with label.", "typicalContent": ["label"] },
+        { "name": "radio_group", "displayName": "Radio Group", "isContainer": false, "description": "Single-choice from a set of options.", "typicalContent": ["label", "items"] },
+        { "name": "toggle", "displayName": "Toggle", "isContainer": false, "description": "On/off switch with label.", "typicalContent": ["label"] },
+        { "name": "slider", "displayName": "Slider", "isContainer": false, "description": "Numeric range input.", "typicalContent": ["label"] },
+        { "name": "date_picker", "displayName": "Date Picker", "isContainer": false, "description": "Calendar-based date input.", "typicalContent": ["label"] },
+        { "name": "file_upload", "displayName": "File Upload", "isContainer": false, "description": "Drag/drop or browse file input.", "typicalContent": ["label"] }
+      ]
+    },
+    {
+      "id": "action",
+      "name": "Action",
+      "description": "Triggers and actions. Always have an action intent and a target.",
+      "types": [
+        { "name": "button", "displayName": "Button", "isContainer": false, "description": "Primary action button. Must declare action intent.", "typicalContent": ["text", "action"] },
+        { "name": "icon_button", "displayName": "Icon Button", "isContainer": false, "description": "Icon-only button. Must have an accessible label.", "typicalContent": ["label", "action"] },
+        { "name": "button_group", "displayName": "Button Group", "isContainer": true, "description": "Cluster of related buttons." },
+        { "name": "menu", "displayName": "Menu", "isContainer": true, "description": "Dropdown menu of actions.", "typicalContent": ["label", "items"] },
+        { "name": "toolbar", "displayName": "Toolbar", "isContainer": true, "description": "Horizontal action bar." },
+        { "name": "command_palette", "displayName": "Command Palette", "isContainer": true, "description": "Cmd-K style searchable action list." }
+      ]
+    },
+    {
+      "id": "feedback",
+      "name": "Feedback",
+      "description": "User feedback surfaces — modals, toasts, alerts, and explicit state placeholders.",
+      "types": [
+        { "name": "modal", "displayName": "Modal", "isContainer": true, "description": "Centered blocking dialog." },
+        { "name": "drawer", "displayName": "Drawer", "isContainer": true, "description": "Side-sliding panel." },
+        { "name": "toast", "displayName": "Toast", "isContainer": false, "description": "Transient feedback message." },
+        { "name": "alert", "displayName": "Alert", "isContainer": false, "description": "Inline message (info/warn/error)." },
+        { "name": "empty_state", "displayName": "Empty State", "isContainer": false, "description": "Placeholder for empty collections. Must be wired via content.empty_state.", "typicalContent": ["text", "action"] },
+        { "name": "loading_state", "displayName": "Loading State", "isContainer": false, "description": "Placeholder for in-flight data." },
+        { "name": "error_state", "displayName": "Error State", "isContainer": false, "description": "Placeholder for fetch failure." }
+      ]
+    },
+    {
+      "id": "navigation",
+      "name": "Navigation",
+      "description": "Navigation primitives. Always link to a target screen or anchor.",
+      "types": [
+        { "name": "tabs", "displayName": "Tabs", "isContainer": true, "description": "Tabbed view selector." },
+        { "name": "breadcrumb", "displayName": "Breadcrumb", "isContainer": false, "description": "Hierarchical location indicator." },
+        { "name": "pagination", "displayName": "Pagination", "isContainer": false, "description": "Page navigation for collections." },
+        { "name": "stepper", "displayName": "Stepper", "isContainer": true, "description": "Multi-step flow indicator." },
+        { "name": "nav_item", "displayName": "Nav Item", "isContainer": false, "description": "Single link in a sidebar/top_nav. Must declare action.", "typicalContent": ["label", "action"] }
+      ]
+    }
+  ]
+}
