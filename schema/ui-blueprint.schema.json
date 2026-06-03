@@ -1,0 +1,572 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HenryLau1103/AUB/schema/ui-blueprint.schema.json",
+  "title": "UI Blueprint",
+  "description": "Structured specification of a UI screen for AI coding agents. Source of truth for layout, semantics, interactions, responsive rules, and acceptance criteria.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "screen", "viewports", "nodes", "interactions", "responsive", "acceptance"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Semantic version of the schema this document conforms to.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "examples": ["0.1.0", "1.0.0"]
+    },
+    "screen": {
+      "description": "Metadata about the screen this Blueprint describes.",
+      "$ref": "#/$defs/screen"
+    },
+    "viewports": {
+      "type": "array",
+      "description": "Named viewport sizes the responsive rules reference. At least one required.",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/viewport" }
+    },
+    "nodes": {
+      "type": "array",
+      "description": "Tree of semantic UI nodes composing the screen. The first node MUST be the root.",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "interactions": {
+      "type": "array",
+      "description": "User-driven interactions (click, hover, change, submit).",
+      "items": { "$ref": "#/$defs/interaction" }
+    },
+    "responsive": {
+      "type": "array",
+      "description": "Per-viewport rules that override or transform node layout/content.",
+      "items": { "$ref": "#/$defs/responsive" }
+    },
+    "acceptance": {
+      "type": "array",
+      "description": "Verifiable acceptance items. MUST be ≥5 per screen, must include layout, interaction, responsive, a11y categories.",
+      "minItems": 5,
+      "items": { "$ref": "#/$defs/acceptance" }
+    }
+  },
+  "$defs": {
+    "screen": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "type", "platform", "primary_user_goal"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique screen identifier (kebab or dot notation, e.g. 'dashboard.overview').",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name shown in editors and exports.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "type": {
+          "$ref": "#/$defs/screenType"
+        },
+        "platform": {
+          "type": "string",
+          "enum": ["web", "mobile-web", "ios", "android", "desktop"],
+          "description": "Target platform. Drives default responsive rules and component variant."
+        },
+        "primary_user_goal": {
+          "type": "string",
+          "description": "One-sentence description of what the user accomplishes on this screen. Used by agents to prioritize layout decisions.",
+          "minLength": 1,
+          "maxLength": 280
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional free-form notes for the implementing agent. Avoid putting layout intent here — use nodes and acceptance items."
+        }
+      }
+    },
+    "screenType": {
+      "type": "string",
+      "enum": [
+        "dashboard",
+        "form",
+        "landing",
+        "settings",
+        "admin_table",
+        "detail",
+        "auth",
+        "error",
+        "empty"
+      ]
+    },
+    "viewport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "width", "height"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Viewport identifier used by responsive rules.",
+          "enum": ["desktop", "tablet", "mobile", "wide"]
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 320,
+          "maximum": 7680
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 320,
+          "maximum": 4320
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "description": "A single UI element. Tree structure is encoded via parent_id + children.",
+      "additionalProperties": false,
+      "required": ["id", "type", "name", "role"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Globally unique node identifier within this Blueprint.",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "type": {
+          "$ref": "#/$defs/componentType"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name shown in editor tree.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "role": {
+          "type": "string",
+          "description": "Agent-facing role/intent. WHY this node exists, not WHAT it looks like.",
+          "minLength": 1,
+          "maxLength": 280
+        },
+        "parent_id": {
+          "type": ["string", "null"],
+          "description": "Parent node id. null only for the root node.",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "children": {
+          "type": "array",
+          "description": "Ordered list of child node ids. Container nodes only.",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          }
+        },
+        "layout": {
+          "$ref": "#/$defs/layout"
+        },
+        "content": {
+          "$ref": "#/$defs/content"
+        },
+        "style": {
+          "$ref": "#/$defs/style"
+        },
+        "states": {
+          "type": "array",
+          "description": "Visual/behavioral states this node can be in (e.g. default, hover, disabled, loading).",
+          "items": {
+            "type": "string",
+            "enum": ["default", "hover", "focus", "active", "disabled", "loading", "empty", "error", "selected"]
+          },
+          "uniqueItems": true
+        },
+        "constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Non-violable constraints the implementation must honor.",
+          "properties": {
+            "min_width": { "type": "integer", "minimum": 0 },
+            "max_width": { "type": "integer", "minimum": 0 },
+            "min_height": { "type": "integer", "minimum": 0 },
+            "max_height": { "type": "integer", "minimum": 0 },
+            "touch_target_min": {
+              "type": "integer",
+              "minimum": 24,
+              "description": "Minimum interactive area in pixels (Apple HIG 44, Material 48)."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "description": "Leaf nodes must not declare children.",
+          "if": {
+            "properties": {
+              "type": { "$ref": "#/$defs/leafComponentType" }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "properties": {
+              "children": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "description": "Container nodes must have at least one child when declared.",
+          "if": {
+            "properties": {
+              "type": { "$ref": "#/$defs/containerComponentType" }
+            },
+            "required": ["type"]
+          },
+          "then": {
+            "anyOf": [
+              { "required": ["children"] },
+              { "not": { "required": ["children"] } }
+            ]
+          }
+        }
+      ]
+    },
+    "componentType": {
+      "type": "string",
+      "enum": [
+        "app_shell", "page", "section", "header", "sidebar", "top_bar", "bottom_nav",
+        "stack", "grid", "split_pane", "scroll_area",
+        "metric_card", "data_table", "list", "detail_panel", "chart_placeholder", "timeline", "activity_feed",
+        "form", "field_group", "text_input", "select", "checkbox", "radio_group", "toggle", "slider", "date_picker", "file_upload",
+        "button", "icon_button", "button_group", "menu", "toolbar", "command_palette",
+        "modal", "drawer", "toast", "alert", "empty_state", "loading_state", "error_state",
+        "tabs", "breadcrumb", "pagination", "stepper", "nav_item"
+      ],
+      "description": "Registered semantic component type. Agents read this to know WHAT a node is."
+    },
+    "containerComponentType": {
+      "type": "string",
+      "enum": [
+        "app_shell", "page", "section", "header", "sidebar", "top_bar", "bottom_nav",
+        "stack", "grid", "split_pane", "scroll_area",
+        "list", "detail_panel", "timeline", "activity_feed",
+        "form", "field_group", "menu", "toolbar", "button_group", "command_palette",
+        "tabs", "stepper"
+      ]
+    },
+    "leafComponentType": {
+      "type": "string",
+      "enum": [
+        "metric_card", "data_table", "chart_placeholder",
+        "text_input", "select", "checkbox", "radio_group", "toggle", "slider", "date_picker", "file_upload",
+        "button", "icon_button",
+        "modal", "drawer", "toast", "alert", "empty_state", "loading_state", "error_state",
+        "breadcrumb", "pagination", "nav_item"
+      ]
+    },
+    "layout": {
+      "type": "object",
+      "description": "Flex/grid-based layout rules. Absolute coordinates are forbidden by convention (no x/y).",
+      "additionalProperties": false,
+      "properties": {
+        "display": {
+          "type": "string",
+          "enum": ["flex", "grid", "block", "inline", "none"]
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["row", "column", "row-reverse", "column-reverse"]
+        },
+        "wrap": {
+          "type": "boolean"
+        },
+        "grid": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "columns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 24,
+              "description": "Number of grid columns."
+            },
+            "rows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "template": {
+              "type": "string",
+              "description": "Optional explicit CSS grid-template-areas value."
+            }
+          }
+        },
+        "align": {
+          "type": "string",
+          "enum": ["start", "center", "end", "stretch", "baseline"]
+        },
+        "justify": {
+          "type": "string",
+          "enum": ["start", "center", "end", "space-between", "space-around", "space-evenly"]
+        },
+        "gap": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "padding": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "top": { "type": "integer" },
+            "right": { "type": "integer" },
+            "bottom": { "type": "integer" },
+            "left": { "type": "integer" }
+          }
+        },
+        "width": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "unit": { "type": "string", "enum": ["px", "%", "rem", "vw"] }
+          }
+        },
+        "height": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "unit": { "type": "string", "enum": ["px", "%", "rem", "vh"] }
+          }
+        },
+        "min_width": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "unit": { "type": "string", "enum": ["px", "%", "rem", "vw"] }
+          }
+        },
+        "max_width": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "unit": { "type": "string", "enum": ["px", "%", "rem", "vw"] }
+          }
+        }
+      }
+    },
+    "content": {
+      "type": "object",
+      "description": "Component-specific content. Required fields depend on node.type — see if/then rules below.",
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string", "description": "Visible text content (label, button caption, heading)." },
+        "placeholder": { "type": "string", "description": "Placeholder text for inputs." },
+        "data_binding": {
+          "type": "string",
+          "description": "Symbolic reference to a data source, e.g. 'metrics.revenue.current'."
+        },
+        "columns": {
+          "type": "array",
+          "description": "Table column definitions.",
+          "items": { "$ref": "#/$defs/tableColumn" },
+          "minItems": 1
+        },
+        "items": {
+          "type": "array",
+          "description": "List/menu items (when not data-driven).",
+          "items": { "$ref": "#/$defs/listItem" }
+        },
+        "action": {
+          "type": "string",
+          "description": "Symbolic action intent, e.g. 'submit', 'navigate:/settings', 'open:detail_panel'."
+        },
+        "label": {
+          "type": "string",
+          "description": "Accessible label for form inputs and icon buttons."
+        },
+        "empty_state": {
+          "type": "string",
+          "description": "Symbolic id of an empty_state node to render when collection is empty."
+        },
+        "loading_state": {
+          "type": "string",
+          "description": "Symbolic id of a loading_state node to render while data loads."
+        },
+        "error_state": {
+          "type": "string",
+          "description": "Symbolic id of an error_state node to render on fetch failure."
+        }
+      }
+    },
+    "tableColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "header"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "header": { "type": "string", "minLength": 1 },
+        "data_binding": { "type": "string" },
+        "sortable": { "type": "boolean" },
+        "filterable": { "type": "boolean" },
+        "width": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": { "type": "number", "minimum": 0 },
+            "unit": { "type": "string", "enum": ["px", "%", "rem"] }
+          }
+        }
+      }
+    },
+    "listItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "label": { "type": "string" },
+        "icon": { "type": "string" },
+        "action": { "type": "string" }
+      }
+    },
+    "style": {
+      "type": "object",
+      "description": "Design tokens and visual constraints. Use token names, not raw values.",
+      "additionalProperties": false,
+      "properties": {
+        "tokens": {
+          "type": "object",
+          "description": "Design tokens applied to this node (color.surface.primary, typography.heading.h2, etc).",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "elevation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24
+        }
+      }
+    },
+    "interaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "trigger", "source_node_id", "action", "result_state"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "trigger": {
+          "type": "string",
+          "enum": ["click", "double_click", "hover", "focus", "blur", "change", "submit", "key_enter", "key_escape", "swipe_left", "swipe_right", "load", "scroll"]
+        },
+        "source_node_id": {
+          "type": "string",
+          "description": "Node id that emits the trigger.",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "action": {
+          "type": "string",
+          "description": "Action intent. Use verb-noun form: 'navigate:/foo', 'open:bar', 'submit:form_x'."
+        },
+        "target": {
+          "type": "string",
+          "description": "Optional target node id or route.",
+          "pattern": "^[a-z0-9./:_\\-]*$"
+        },
+        "result_state": {
+          "type": "string",
+          "description": "What changes as a result. Must be observable and verifiable, not 'looks nice'."
+        }
+      }
+    },
+    "responsive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["viewport", "rule", "target_node_id", "changes"],
+      "properties": {
+        "viewport": {
+          "type": "string",
+          "enum": ["desktop", "tablet", "mobile", "wide"]
+        },
+        "rule": {
+          "type": "string",
+          "enum": [
+            "keep",
+            "hide",
+            "drawer",
+            "bottom_nav",
+            "stack",
+            "scroll",
+            "card_list",
+            "col_reduce",
+            "collapse",
+            "expand",
+            "icon_only",
+            "label_only"
+          ]
+        },
+        "target_node_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "changes": {
+          "type": "object",
+          "description": "Specific property overrides. Empty object means no change beyond the rule.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "statement", "target", "priority", "verification_method"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["layout", "interaction", "responsive", "a11y", "content", "performance"],
+          "description": "Acceptance category. Every screen must include at least one of: layout, interaction, responsive, a11y."
+        },
+        "statement": {
+          "type": "string",
+          "description": "Verifiable assertion. Must be testable, not subjective.",
+          "minLength": 1,
+          "maxLength": 280
+        },
+        "target": {
+          "type": "string",
+          "description": "Node id, viewport id, or selector pattern this acceptance applies to. Comma-separated lists are allowed for multi-target acceptance.",
+          "pattern": "^[A-Za-z0-9.#*\\[\\] ,|>_\\-=()\"']*$"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["blocker", "must", "should", "nice"]
+        },
+        "verification_method": {
+          "type": "string",
+          "enum": [
+            "manual_visual",
+            "manual_ia_review",
+            "dom_query",
+            "computed_style",
+            "axe_audit",
+            "screenshot_diff",
+            "interaction_replay",
+            "code_diff"
+          ]
+        }
+      }
+    }
+  }
+}
