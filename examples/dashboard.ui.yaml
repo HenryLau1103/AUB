@@ -1,0 +1,495 @@
+version: 0.1.0
+
+screen:
+  id: dashboard.overview
+  name: Dashboard Overview
+  type: dashboard
+  platform: web
+  primary_user_goal: >-
+    Let the user see high-level business metrics and drill into a specific
+    data table row for detail.
+  notes: Reference example used to validate the schema, types, and exporters.
+
+viewports:
+  - id: desktop
+    width: 1440
+    height: 900
+  - id: tablet
+    width: 1024
+    height: 768
+  - id: mobile
+    width: 390
+    height: 844
+
+nodes:
+  - id: app_shell
+    type: app_shell
+    name: App Shell
+    role: >-
+      Top-level layout container: holds sidebar, top bar, and main content
+      area.
+    parent_id: null
+    children: [sidebar, top_bar, main]
+    layout:
+      display: grid
+      grid:
+        columns: 1
+        rows: 1
+
+  - id: sidebar
+    type: sidebar
+    name: Primary Sidebar
+    role: >-
+      Primary navigation. Groups links by section. Collapses to drawer on
+      tablet/mobile.
+    parent_id: app_shell
+    children:
+      - nav_item_overview
+      - nav_item_orders
+      - nav_item_customers
+      - nav_item_reports
+      - nav_item_settings
+    layout:
+      display: flex
+      direction: column
+      gap:
+        y: 4
+      padding:
+        top: 24
+        bottom: 24
+        left: 16
+        right: 16
+      width:
+        value: 240
+        unit: px
+
+  - id: nav_item_overview
+    type: nav_item
+    name: Overview
+    role: Link to the Overview screen (current).
+    parent_id: sidebar
+    content:
+      label: Overview
+      action: navigate:/dashboard
+
+  - id: nav_item_orders
+    type: nav_item
+    name: Orders
+    role: Link to the Orders screen.
+    parent_id: sidebar
+    content:
+      label: Orders
+      action: navigate:/orders
+
+  - id: nav_item_customers
+    type: nav_item
+    name: Customers
+    role: Link to the Customers screen.
+    parent_id: sidebar
+    content:
+      label: Customers
+      action: navigate:/customers
+
+  - id: nav_item_reports
+    type: nav_item
+    name: Reports
+    role: Link to the Reports screen.
+    parent_id: sidebar
+    content:
+      label: Reports
+      action: navigate:/reports
+
+  - id: nav_item_settings
+    type: nav_item
+    name: Settings
+    role: Link to the Settings screen.
+    parent_id: sidebar
+    content:
+      label: Settings
+      action: navigate:/settings
+
+  - id: top_bar
+    type: top_bar
+    name: Top Bar
+    role: Header containing page title, search, and user menu.
+    parent_id: app_shell
+    children: [search_input, user_menu]
+    layout:
+      display: flex
+      direction: row
+      align: center
+      justify: space-between
+      padding:
+        top: 16
+        bottom: 16
+        left: 24
+        right: 24
+      gap:
+        x: 16
+
+  - id: search_input
+    type: text_input
+    name: Global Search
+    role: Search across orders, customers, and reports.
+    parent_id: top_bar
+    content:
+      label: Search
+      placeholder: Search orders, customers...
+      action: submit:global_search
+    constraints:
+      touch_target_min: 44
+
+  - id: user_menu
+    type: menu
+    name: User Menu
+    role: Account menu containing profile, settings link, and logout.
+    parent_id: top_bar
+    content:
+      label: Account
+      items:
+        - id: menu_profile
+          label: Profile
+          action: navigate:/profile
+        - id: menu_logout
+          label: Sign out
+          action: submit:logout
+
+  - id: main
+    type: page
+    name: Main Content
+    role: Scrollable area holding the dashboard panels.
+    parent_id: app_shell
+    children: [page_title, metric_row, chart_panel, recent_orders_table]
+    layout:
+      display: flex
+      direction: column
+      gap:
+        y: 24
+      padding:
+        top: 24
+        bottom: 32
+        left: 32
+        right: 32
+
+  - id: page_title
+    type: section
+    name: Page Title
+    role: Heading for the dashboard view.
+    parent_id: main
+    content:
+      text: Overview
+
+  - id: metric_row
+    type: section
+    name: Metric Row
+    role: >-
+      Top-level KPI summary. 4 cards on desktop, 2 on tablet, 1 on mobile.
+    parent_id: main
+    children:
+      - metric_revenue
+      - metric_orders
+      - metric_customers
+      - metric_conversion
+    layout:
+      display: grid
+      grid:
+        columns: 4
+        template: 1fr 1fr 1fr 1fr
+      gap:
+        x: 16
+        y: 16
+
+  - id: metric_revenue
+    type: metric_card
+    name: Revenue
+    role: Total revenue this month with delta vs last month.
+    parent_id: metric_row
+    content:
+      label: Revenue
+      data_binding: metrics.revenue.current
+
+  - id: metric_orders
+    type: metric_card
+    name: Orders
+    role: Number of orders this month with delta.
+    parent_id: metric_row
+    content:
+      label: Orders
+      data_binding: metrics.orders.current
+
+  - id: metric_customers
+    type: metric_card
+    name: New Customers
+    role: Number of new customers acquired this month.
+    parent_id: metric_row
+    content:
+      label: New Customers
+      data_binding: metrics.customers.current
+
+  - id: metric_conversion
+    type: metric_card
+    name: Conversion Rate
+    role: Conversion rate percentage for this month.
+    parent_id: metric_row
+    content:
+      label: Conversion
+      data_binding: metrics.conversion.current
+
+  - id: chart_panel
+    type: section
+    name: Revenue Chart
+    role: Time-series chart of revenue over the last 30 days.
+    parent_id: main
+    content:
+      label: Revenue trend (last 30 days)
+      data_binding: metrics.revenue.series_30d
+    layout:
+      display: block
+      padding:
+        top: 16
+        bottom: 16
+        left: 16
+        right: 16
+
+  - id: chart_placeholder
+    type: chart_placeholder
+    name: Revenue Chart Placeholder
+    role: >-
+      Chart rendering surface; replaced by a real chart implementation in
+      code.
+    parent_id: chart_panel
+
+  - id: recent_orders_table
+    type: section
+    name: Recent Orders
+    role: >-
+      Sortable, filterable table of the most recent orders. Click row to
+      open detail.
+    parent_id: main
+    layout:
+      display: flex
+      direction: column
+      gap:
+        y: 8
+
+  - id: orders_table
+    type: data_table
+    name: Recent Orders Table
+    role: The table itself. Renders the order list with declared columns.
+    parent_id: recent_orders_table
+    content:
+      label: Recent orders
+      data_binding: orders.recent
+      empty_state: table_empty_state
+      loading_state: table_loading_state
+      error_state: table_error_state
+      columns:
+        - id: order_id
+          header: Order ID
+          sortable: true
+          filterable: true
+        - id: customer
+          header: Customer
+          sortable: true
+          filterable: true
+        - id: amount
+          header: Amount
+          sortable: true
+        - id: status
+          header: Status
+          filterable: true
+        - id: created_at
+          header: Created
+          sortable: true
+
+  - id: table_empty_state
+    type: empty_state
+    name: No Orders Empty State
+    role: Shown when the orders list is empty.
+    parent_id: null
+    content:
+      text: No orders yet
+      action: navigate:/orders/new
+
+  - id: table_loading_state
+    type: loading_state
+    name: Table Loading
+    role: Shown while the orders list is fetching.
+    parent_id: null
+
+  - id: table_error_state
+    type: error_state
+    name: Table Error
+    role: Shown when the orders list fails to load.
+    parent_id: null
+    content:
+      text: Could not load orders. Try again.
+
+interactions:
+  - id: int_search_submit
+    trigger: submit
+    source_node_id: search_input
+    action: navigate:/search
+    result_state: User is routed to /search with the query string in the URL.
+
+  - id: int_user_menu_open
+    trigger: click
+    source_node_id: user_menu
+    action: open:user_menu_dropdown
+    result_state: >-
+      Dropdown menu appears below the user menu with Profile and Sign out
+      options.
+
+  - id: int_user_logout
+    trigger: click
+    source_node_id: menu_logout
+    action: submit:logout
+    result_state: User is signed out and redirected to /auth/login.
+
+  - id: int_orders_row_click
+    trigger: click
+    source_node_id: orders_table
+    action: open:order_detail
+    target: order_detail
+    result_state: >-
+      A side drawer slides in from the right within 200ms showing the order
+      detail panel.
+
+  - id: int_nav_overview
+    trigger: click
+    source_node_id: nav_item_overview
+    action: navigate:/dashboard
+    result_state: User is routed to the dashboard overview screen.
+
+  - id: int_nav_settings
+    trigger: click
+    source_node_id: nav_item_settings
+    action: navigate:/settings
+    result_state: User is routed to the settings screen.
+
+responsive:
+  - viewport: tablet
+    rule: drawer
+    target_node_id: sidebar
+    changes:
+      defaultVisible: false
+      trigger: hamburger
+
+  - viewport: mobile
+    rule: drawer
+    target_node_id: sidebar
+    changes:
+      defaultVisible: false
+      trigger: hamburger
+
+  - viewport: tablet
+    rule: stack
+    target_node_id: metric_row
+    changes:
+      grid.columns: 2
+
+  - viewport: mobile
+    rule: stack
+    target_node_id: metric_row
+    changes:
+      grid.columns: 1
+
+  - viewport: mobile
+    rule: card_list
+    target_node_id: orders_table
+    changes:
+      view: stacked
+      primary_field: order_id
+
+acceptance:
+  - id: acc_layout_shell
+    type: layout
+    statement: >-
+      App shell uses a grid layout with sidebar (240px), top bar, and main
+      content area.
+    target: app_shell
+    priority: blocker
+    verification_method: computed_style
+
+  - id: acc_layout_metric_row
+    type: layout
+    statement: Metric row displays 4 cards in a 4-column grid on desktop with 16px gap.
+    target: metric_row
+    priority: must
+    verification_method: computed_style
+
+  - id: acc_interaction_row_click
+    type: interaction
+    statement: Clicking an order row opens a detail drawer within 200ms.
+    target: orders_table
+    priority: must
+    verification_method: interaction_replay
+
+  - id: acc_interaction_logout
+    type: interaction
+    statement: >-
+      Clicking Sign out terminates the session and routes to /auth/login.
+    target: menu_logout
+    priority: must
+    verification_method: interaction_replay
+
+  - id: acc_responsive_sidebar
+    type: responsive
+    statement: >-
+      Sidebar converts to a drawer triggered by a hamburger icon below
+      1024px viewport width.
+    target: sidebar
+    priority: must
+    verification_method: manual_visual
+
+  - id: acc_responsive_metric_row
+    type: responsive
+    statement: >-
+      Metric row collapses to 2 columns at tablet (1024px) and 1 column at
+      mobile (390px).
+    target: metric_row
+    priority: must
+    verification_method: screenshot_diff
+
+  - id: acc_responsive_table
+    type: responsive
+    statement: >-
+      Orders table converts to a card list on mobile (390px) instead of
+      horizontal scroll.
+    target: orders_table
+    priority: must
+    verification_method: screenshot_diff
+
+  - id: acc_a11y_keyboard
+    type: a11y
+    statement: >-
+      All interactive elements are reachable by keyboard tab order and show
+      a visible focus ring.
+    target: '*[role=button], *[role=link], text_input, button'
+    priority: must
+    verification_method: axe_audit
+
+  - id: acc_a11y_labels
+    type: a11y
+    statement: All form inputs have an associated label or aria-label.
+    target: search_input, text_input
+    priority: must
+    verification_method: axe_audit
+
+  - id: acc_a11y_touch_targets
+    type: a11y
+    statement: >-
+      All interactive elements have a minimum touch target of 44x44 pixels
+      on mobile.
+    target: '*[interactive]'
+    priority: should
+    verification_method: computed_style
+
+  - id: acc_content_empty
+    type: content
+    statement: >-
+      When the orders list is empty, the empty_state node is rendered
+      instead of an empty table.
+    target: table_empty_state
+    priority: should
+    verification_method: dom_query
