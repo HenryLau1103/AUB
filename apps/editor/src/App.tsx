@@ -2,14 +2,13 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { useMemo, useRef, useState } from 'react';
 import { TopBar } from './components/TopBar';
 import { Palette } from './components/Palette';
-import { TreeView } from './components/TreeView';
+import { Canvas } from './components/Canvas';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { downloadBlob } from './lib/io';
 import { addNode, createNode, deleteNode, updateNode } from './lib/store';
-import type { Blueprint, ComponentType } from './types';
+import type { Blueprint, ComponentType, UINode } from './types';
 import schemaJson from '../../../schema/ui-blueprint.schema.json';
 
-// Compile the schema once at module load.
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const validateSchema = ajv.compile(schemaJson as object);
 
@@ -75,29 +74,28 @@ export function App() {
     setSelectedId(b.nodes.find((n) => n.parent_id === null)?.id ?? null);
   }
 
-  function handleAdd(type: ComponentType) {
+  function handleAdd(type: ComponentType, parentId: string | null = null) {
     if (!blueprint) {
-      // First-time use: load the starter so the user has a place to add to.
       setBlueprint({ ...STARTER, nodes: [{ ...STARTER.nodes[0]! }] });
       const node = createNode(type);
-      setBlueprint((cur) => (cur ? addNode(cur, node) : cur));
+      setBlueprint((cur) => (cur ? addNode(cur, node, parentId) : cur));
       setSelectedId(node.id);
       return;
     }
     const node = createNode(type);
-    setBlueprint((cur) => (cur ? addNode(cur, node) : cur));
+    setBlueprint((cur) => (cur ? addNode(cur, node, parentId) : cur));
     setSelectedId(node.id);
   }
 
-  function handleUpdate(patch: Partial<import('./types').UINode>) {
-    if (!blueprint || !selectedId) return;
-    setBlueprint((cur) => (cur ? updateNode(cur, selectedId, patch) : cur));
+  function handleUpdate(id: string, patch: Partial<UINode>) {
+    if (!blueprint) return;
+    setBlueprint((cur) => (cur ? updateNode(cur, id, patch) : cur));
   }
 
-  function handleDelete() {
-    if (!blueprint || !selectedId) return;
-    setBlueprint((cur) => (cur ? deleteNode(cur, selectedId) : cur));
-    setSelectedId(null);
+  function handleDelete(id: string) {
+    if (!blueprint) return;
+    setBlueprint((cur) => (cur ? deleteNode(cur, id) : cur));
+    if (selectedId === id) setSelectedId(null);
   }
 
   async function handleExportMarkdown() {
@@ -107,6 +105,14 @@ export function App() {
   }
 
   const selectedNode = blueprint?.nodes.find((n) => n.id === selectedId) ?? null;
+
+  function handlePropertiesUpdate(patch: Partial<UINode>) {
+    if (selectedId) handleUpdate(selectedId, patch);
+  }
+
+  function handlePropertiesDelete() {
+    if (selectedId) handleDelete(selectedId);
+  }
 
   return (
     <div className="app">
@@ -118,13 +124,20 @@ export function App() {
         fileInputRef={fileInputRef}
       />
       <div className="body">
-        <Palette onAdd={handleAdd} />
-        <TreeView
+        <Palette onAdd={(t) => handleAdd(t)} />
+        <Canvas
           blueprint={blueprint}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          onAddNode={handleAdd}
+          onDeleteNode={handleDelete}
+          onUpdateNode={handleUpdate}
         />
-        <PropertiesPanel node={selectedNode} onUpdate={handleUpdate} onDelete={handleDelete} />
+        <PropertiesPanel
+          node={selectedNode}
+          onUpdate={handlePropertiesUpdate}
+          onDelete={handlePropertiesDelete}
+        />
       </div>
       <footer className="statusbar">
         {blueprint ? (
@@ -139,7 +152,7 @@ export function App() {
             </span>
           </>
         ) : (
-          <span>Click "Import JSON" or add a component from the palette to begin.</span>
+          <span>Click any component in the palette to start. Drag-and-drop also works.</span>
         )}
       </footer>
     </div>

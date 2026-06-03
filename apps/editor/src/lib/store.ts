@@ -34,19 +34,21 @@ export function findRoot(blueprint: Blueprint): UINode | undefined {
   return blueprint.nodes.find((n) => n.parent_id === null);
 }
 
-/** Add a node to the blueprint. If no root exists, it becomes the root. Otherwise it's appended to the root. */
-export function addNode(blueprint: Blueprint, node: UINode): Blueprint {
+/** Add a node to the blueprint. If parentId is null, append to root. */
+export function addNode(blueprint: Blueprint, node: UINode, parentId: string | null = null): Blueprint {
   const root = findRoot(blueprint);
   if (!root) {
     return { ...blueprint, nodes: [{ ...node, parent_id: null }] };
   }
+  const target = parentId ?? root.id;
   const updated: Blueprint = {
     ...blueprint,
-    nodes: [...blueprint.nodes, { ...node, parent_id: root.id }],
+    nodes: [...blueprint.nodes, { ...node, parent_id: target }],
   };
-  if (!root.children?.includes(node.id)) {
-    const newRoot = { ...root, children: [...(root.children ?? []), node.id] };
-    updated.nodes = updated.nodes.map((n) => (n.id === root.id ? newRoot : n));
+  const newTarget = blueprint.nodes.find((n) => n.id === target);
+  if (newTarget && !newTarget.children?.includes(node.id)) {
+    const next = { ...newTarget, children: [...(newTarget.children ?? []), node.id] };
+    updated.nodes = updated.nodes.map((n) => (n.id === target ? next : n));
   }
   return updated;
 }
