@@ -1,16 +1,6 @@
-#!/usr/bin/env node
-// Programmatic Markdown exporter for UI Blueprint.
-// Usage:
-//   node scripts/export-md.mjs <input.ui.json> <output.ui.md>
-//   node scripts/export-md.mjs <input.ui.yaml> <output.ui.md>
-//   node scripts/export-md.mjs -              # read JSON from stdin, write to stdout
-//
-// Exposed as `exportMarkdown(blueprint)` for reuse by the editor.
-//
-// The pure function is browser-safe. The CLI section uses dynamic imports
-// for Node built-ins so the file can be bundled by Vite for the editor.
-
-import yaml from 'js-yaml';
+// Pure-function Markdown exporter for UI Blueprint.
+// Browser-safe: no Node imports, no shebang, no file I/O.
+// The CLI wrapper (export-md.mjs) imports this and handles file operations.
 
 /**
  * Convert a Blueprint to Markdown suitable as agent prompt context.
@@ -260,50 +250,4 @@ function groupBy(arr, keyFn) {
     (out[k] ??= []).push(x);
   }
   return out;
-}
-
-// CLI entrypoint — uses dynamic imports for Node built-ins so the rest of the
-// file stays browser-safe for the editor.
-async function main() {
-  const [{ readFile, writeFile }, { resolve, extname }] = await Promise.all([
-    import('node:fs/promises'),
-    import('node:path'),
-  ]);
-
-  const args = process.argv.slice(2);
-  if (args.length < 1) {
-    console.error('Usage: node scripts/export-md.mjs <input.ui.json|input.ui.yaml> [output.ui.md]');
-    console.error('       node scripts/export-md.mjs -  (read JSON from stdin)');
-    process.exit(2);
-  }
-
-  let inputText;
-  if (args[0] === '-') {
-    inputText = await readFile(0, 'utf8');
-  } else {
-    inputText = await readFile(resolve(args[0]), 'utf8');
-  }
-
-  const ext = args[0] === '-' ? '.json' : extname(args[0]).toLowerCase();
-  const blueprint = (ext === '.yaml' || ext === '.yml') ? yaml.load(inputText) : JSON.parse(inputText);
-
-  const md = exportMarkdown(blueprint);
-
-  if (args.length >= 2 && args[1] !== '-') {
-    await writeFile(resolve(args[1]), md, 'utf8');
-    console.error(`✓ wrote ${args[1]} (${md.length} bytes)`);
-  } else {
-    process.stdout.write(md);
-  }
-}
-
-// Run if invoked as CLI
-if (typeof process !== 'undefined' && process.argv && process.argv[1]) {
-  const url = new URL(import.meta.url);
-  if (url.pathname === process.argv[1]) {
-    main().catch((err) => {
-      console.error(err);
-      process.exit(1);
-    });
-  }
 }
