@@ -209,6 +209,7 @@
       "name": "Revenue Chart",
       "role": "Time-series chart of revenue over the last 30 days.",
       "parent_id": "main",
+      "children": ["chart_placeholder"],
       "content": {
         "label": "Revenue trend (last 30 days)",
         "data_binding": "metrics.revenue.series_30d"
@@ -231,6 +232,7 @@
       "name": "Recent Orders",
       "role": "Sortable, filterable table of the most recent orders. Click row to open detail.",
       "parent_id": "main",
+      "children": ["orders_table", "table_empty_state", "table_loading_state", "table_error_state"],
       "layout": {
         "display": "flex",
         "direction": "column",
@@ -263,7 +265,7 @@
       "type": "empty_state",
       "name": "No Orders Empty State",
       "role": "Shown when the orders list is empty.",
-      "parent_id": null,
+      "parent_id": "recent_orders_table",
       "content": {
         "text": "No orders yet",
         "action": "navigate:/orders/new"
@@ -274,14 +276,14 @@
       "type": "loading_state",
       "name": "Table Loading",
       "role": "Shown while the orders list is fetching.",
-      "parent_id": null
+      "parent_id": "recent_orders_table"
     },
     {
       "id": "table_error_state",
       "type": "error_state",
       "name": "Table Error",
       "role": "Shown when the orders list fails to load.",
-      "parent_id": null,
+      "parent_id": "recent_orders_table",
       "content": { "text": "Could not load orders. Try again." }
     }
   ],
