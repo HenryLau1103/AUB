@@ -1,0 +1,7 @@
+# Ignore internal planning and project-knowledge files from version control.
+# These files are kept on disk for the developer but are not part of the shipped product.
+ui-blueprint-agent-plan.md
+AGENTS.md
+
+# Internal planning scratch space (oh-my-opencode plans, sessions, transcripts).
+.omo/
