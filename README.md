@@ -2,6 +2,8 @@
 
 A structured spec format for AI coding agents. Drag-and-drop a UI canvas, export a `.ui.json` (machine), `.ui.yaml` (human), or `.ui.md` (agent prompt context). Code agents read it. They know what to build, where, and how to verify.
 
+> 繁體中文版：[`README-ZH.MD`](./README-ZH.MD)
+
 ## Status
 
 - **Phase 0** — Problem definition, failure cases, success criteria — **done**
