@@ -1,0 +1,21 @@
+{
+  "$schema": "https://github.com/HenryLau1103/AUB/schema/lock.schema.json",
+  "version": "0.1.0",
+  "source_file": "examples/dashboard.ui.json",
+  "exported_at": "2026-06-03T14:19:45.530Z",
+  "source_editor_version": "0.1.0",
+  "hashes": {
+    "blueprint": "sha256:425b258cbc392670ab7c35343be1f346b5a5cc732b90a53a3bb7c37df7375fdc",
+    "node_ids": "sha256:39fc092940c0113ac5e45418a477572648fbcb86548d968a498594b959de78dd",
+    "layout": "sha256:b7178f5f4d20635f5e72fba0c194bb6294fab7ff213a7274f186481ec5c1f1b1",
+    "component_tree": "sha256:fe2d14a85c6cb74354f35e1a88b95c0546addc911c034698b6b3fb995d253a79",
+    "interactions": "sha256:de0c09c40f8126c85fd1af0049a772f9f2fb63cda0afd7e032158b8634a67d75",
+    "acceptance": "sha256:6e09bb63542cb3243a734289a0ba913af4107fdfcec4a1ba46c0620aa9d5c46b"
+  },
+  "counts": {
+    "nodes": 24,
+    "interactions": 6,
+    "responsive": 5,
+    "acceptance": 11
+  }
+}
