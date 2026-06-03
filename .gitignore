@@ -5,3 +5,10 @@ AGENTS.md
 
 # Internal planning scratch space (oh-my-opencode plans, sessions, transcripts).
 .omo/
+
+# Dependencies and build artifacts.
+node_modules/
+dist/
+build/
+*.log
+.DS_Store
