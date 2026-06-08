@@ -11,6 +11,7 @@ interface RegistryType {
 interface RegistryCategory {
   id: string;
   name: string;
+  description: string;
   types: RegistryType[];
 }
 

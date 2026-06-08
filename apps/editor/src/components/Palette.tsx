@@ -1,37 +1,65 @@
 import { getCategories } from '../lib/registry';
+import {
+  categoryDescription,
+  categoryLabel,
+  componentDescription,
+  componentLabel,
+  t,
+  type Language,
+} from '../lib/i18n';
 import type { ComponentType } from '../types';
 
 interface Props {
+  language: Language;
   onAdd: (type: ComponentType) => void;
+  draggingType: ComponentType | null;
+  onDraggingTypeChange: (type: ComponentType | null) => void;
 }
 
-export function Palette({ onAdd }: Props) {
+export function Palette({ language, onAdd, draggingType, onDraggingTypeChange }: Props) {
   const categories = getCategories();
 
   function handleDragStart(e: React.DragEvent, type: ComponentType) {
     e.dataTransfer.setData('application/aub-component-type', type);
-    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', type);
+    e.dataTransfer.effectAllowed = 'copy';
+    onDraggingTypeChange(type);
   }
 
   return (
     <aside className="panel">
-      <h2>Component Palette</h2>
-      <p className="palette-hint">點擊新增到 root，拖曳到畫布指定位置</p>
+      <h2>{t(language, 'componentPalette')}</h2>
+      <p className="palette-hint">{t(language, 'paletteHint')}</p>
       {categories.map((cat) => (
         <div key={cat.id} className="palette-category">
-          <h3 style={{ borderLeftColor: categoryColor(cat.id) }}>{cat.name}</h3>
-          {cat.types.map((t) => (
+          <h3
+            style={{ borderLeftColor: categoryColor(cat.id) }}
+            title={categoryDescription(language, cat.id, cat.description)}
+          >
+            {categoryLabel(language, cat.id, cat.name)}
+          </h3>
+          {cat.types.map((typeMeta) => (
             <div
-              key={t.name}
-              className="palette-item"
+              key={typeMeta.name}
+              className={`palette-item${draggingType === typeMeta.name ? ' dragging' : ''}`}
               draggable
-              onDragStart={(e) => handleDragStart(e, t.name)}
-              onClick={() => onAdd(t.name)}
-              title={t.description}
+              data-component-type={typeMeta.name}
+              onPointerDown={(e) => {
+                if (e.button === 0) onDraggingTypeChange(typeMeta.name);
+              }}
+              onPointerCancel={() => onDraggingTypeChange(null)}
+              onMouseDown={(e) => {
+                if (e.button === 0) onDraggingTypeChange(typeMeta.name);
+              }}
+              onTouchStart={() => onDraggingTypeChange(typeMeta.name)}
+              onTouchCancel={() => onDraggingTypeChange(null)}
+              onDragStart={(e) => handleDragStart(e, typeMeta.name)}
+              onClick={() => onAdd(typeMeta.name)}
+              title={componentDescription(language, typeMeta.name, typeMeta.description)}
               style={{ borderLeftColor: categoryColor(cat.id) }}
             >
-              <span>{t.displayName}</span>
-              <span className="kind">{t.isContainer ? 'C' : 'L'}</span>
+              <span>{componentLabel(language, typeMeta.name, typeMeta.displayName)}</span>
+              <span className="kind">{typeMeta.isContainer ? t(language, 'kindContainer') : t(language, 'kindLeaf')}</span>
             </div>
           ))}
         </div>

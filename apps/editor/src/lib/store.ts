@@ -2,7 +2,7 @@
 // This file holds the immutable operations (add node, delete node, update node) so the
 // App component stays focused on layout.
 
-import type { Blueprint, UINode, ComponentType } from '../types';
+import type { Blueprint, UINode, ComponentType, Layout } from '../types';
 
 let idCounter = 0;
 function genId(prefix: string): string {
@@ -11,17 +11,78 @@ function genId(prefix: string): string {
 }
 
 /** Create a new node with sensible defaults based on its component type. */
-export function createNode(type: ComponentType, roleHint?: string): UINode {
+export function createNode(type: ComponentType, roleHint?: string, nameHint?: string): UINode {
   const id = genId(type);
+  const layout = defaultLayoutForType(type);
   const base: UINode = {
     id,
     type,
-    name: type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    name: nameHint ?? type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
     role: roleHint ?? `${type} added by editor`,
     parent_id: null,
     children: [],
+    ...(layout ? { layout } : {}),
   };
   return base;
+}
+
+/** Default child arrangement for every registered container type. */
+export function defaultLayoutForType(type: ComponentType): Layout | undefined {
+  switch (type) {
+    case 'grid':
+      return {
+        display: 'grid',
+        grid: { columns: 3 },
+        align: 'stretch',
+        gap: { x: 12, y: 12 },
+      };
+    case 'split_pane':
+      return {
+        display: 'grid',
+        grid: { columns: 2 },
+        align: 'stretch',
+        gap: { x: 16, y: 16 },
+      };
+    case 'header':
+    case 'top_bar':
+    case 'bottom_nav':
+    case 'toolbar':
+    case 'button_group':
+    case 'tabs':
+    case 'stepper':
+      return {
+        display: 'flex',
+        direction: 'row',
+        wrap: true,
+        align: 'center',
+        gap: { x: 8, y: 8 },
+      };
+    case 'app_shell':
+      return undefined;
+    case 'page':
+    case 'section':
+    case 'sidebar':
+    case 'stack':
+    case 'scroll_area':
+    case 'list':
+    case 'detail_panel':
+    case 'timeline':
+    case 'activity_feed':
+    case 'form':
+    case 'field_group':
+    case 'menu':
+    case 'command_palette':
+    case 'modal':
+    case 'drawer':
+      return {
+        display: 'flex',
+        direction: 'column',
+        align: 'stretch',
+        gap: { x: 12, y: 12 },
+      };
+    default:
+      return undefined;
+  }
 }
 
 /** Find a node by id in a blueprint (depth-first). */
@@ -51,6 +112,38 @@ export function addNode(blueprint: Blueprint, node: UINode, parentId: string | n
     updated.nodes = updated.nodes.map((n) => (n.id === target ? next : n));
   }
   return updated;
+}
+
+/** Wrap an existing root in an app shell and place a semantic shell slot beside it. */
+export function wrapRootInAppShell(blueprint: Blueprint, shell: UINode, slot: UINode): Blueprint {
+  const root = findRoot(blueprint);
+  if (!root) {
+    return {
+      ...blueprint,
+      nodes: [
+        { ...shell, parent_id: null, children: [slot.id] },
+        { ...slot, parent_id: shell.id },
+      ],
+    };
+  }
+
+  return {
+    ...blueprint,
+    nodes: [
+      {
+        ...shell,
+        parent_id: null,
+        children: [slot.id, root.id],
+      },
+      ...blueprint.nodes.map((node) => (
+        node.id === root.id ? { ...node, parent_id: shell.id } : node
+      )),
+      {
+        ...slot,
+        parent_id: shell.id,
+      },
+    ],
+  };
 }
 
 /** Delete a node and all its descendants. Promotes nothing — just removes. */

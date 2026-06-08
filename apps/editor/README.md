@@ -5,8 +5,10 @@ Visual editor for UI Blueprints. Phase 2 prototype.
 ## What it does
 
 - **Import** a `.ui.json` file (or start from the built-in template)
-- **Compose** a screen by clicking components in the palette (left) — they append to the root
-- **Inspect** the tree (center) — click a node to select
+- **Start from templates** for dashboard app shell, product landing page, or settings form examples
+- **Compose** a screen by dragging components from the palette into the artboard, or by clicking to append to the selected container
+- **Preview** the screen as a desktop/tablet/mobile UI mockup instead of a graph-only structure view
+- **Inspect** the hierarchy by selecting elements directly on the artboard
 - **Edit** the selected node's properties (right): id, name, role, type, layout JSON, content JSON
 - **Export** to `.ui.json` (download)
 - **Export** to `.ui.md` (the agent prompt context, generated programmatically)
@@ -39,7 +41,7 @@ src/
 └── components/
     ├── TopBar.tsx                # import/export buttons + validation status
     ├── Palette.tsx               # 6-category component list
-    ├── TreeView.tsx              # recursive node tree
+    ├── Canvas.tsx                # viewport artboard + nested component preview
     └── PropertiesPanel.tsx       # selected-node editor
 ```
 
@@ -47,8 +49,6 @@ The editor shares the project root's `schema/` and registry — it does not dupl
 
 ## Not in v0.1 (v1.1+ backlog)
 
-- Drag-and-drop component addition (currently click-to-add)
-- Visual canvas with `tldraw` or `React Flow` (currently a tree view)
 - Undo/redo
 - Multi-screen projects
 - YAML editor
@@ -59,9 +59,9 @@ The editor shares the project root's `schema/` and registry — it does not dupl
 
 ```
 dist/index.html                          0.40 kB │ gzip:  0.27 kB
-dist/assets/index-*.css                  3.31 kB │ gzip:  1.04 kB
+dist/assets/index-*.css                 20.42 kB │ gzip:  4.62 kB
 dist/assets/export-md.lib-*.js           7.18 kB │ gzip:  2.86 kB
-dist/assets/index-*.js                 303.84 kB │ gzip: 94.92 kB
+dist/assets/index-*.js                 357.20 kB │ gzip: 112.14 kB
 ```
 
-The 303 kB main bundle includes React, ajv, and the registry. `export-md.lib-*.js` is the Markdown exporter split out for caching across releases.
+The 357 kB main bundle includes React, ajv, templates, and the registry. `export-md.lib-*.js` is the Markdown exporter split out for caching across releases.

@@ -5,6 +5,7 @@ export type {
   Viewport,
   UINode,
   Layout,
+  Size,
   Content,
   Interaction,
   Responsive,
