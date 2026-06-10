@@ -43,6 +43,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Check generated registry artifacts are up to date
+        run: pnpm gen:check
+
       - name: Typecheck
         run: pnpm typecheck
 

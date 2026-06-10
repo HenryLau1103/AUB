@@ -54,6 +54,8 @@ jobs:
           rm -rf _site
           mkdir -p _site
           cp -r site/. _site/
+          mkdir -p _site/schema
+          cp schema/ui-blueprint.schema.json schema/aub.registry.schema.json _site/schema/
           mkdir -p _site/editor
           cp -r apps/editor/dist/. _site/editor/
           touch _site/.nojekyll

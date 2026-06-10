@@ -71,6 +71,27 @@ test('validate_blueprint requires a ref or an inline blueprint', async () => {
   await assert.rejects(() => validateBlueprint(ctx, {}), /ref.*blueprint/i);
 });
 
+test('validate_blueprint resolves extension types via an explicit registry', async () => {
+  const result = await validateBlueprint(ctx, {
+    ref: 'examples/extensions/analytics-insights.ui.json',
+    registry: 'examples/extensions/aub.registry.json',
+  });
+  assert.equal(result.valid, true, JSON.stringify(result.semanticErrors));
+  assert.ok(result.extensionRegistry?.endsWith('aub.registry.json'));
+});
+
+test('validate_blueprint reports unknown extension types without a registry', async () => {
+  const blueprint = (
+    await getBlueprint(ctx, { ref: 'examples/extensions/analytics-insights.ui.json' })
+  ).blueprint;
+  const result = await validateBlueprint(ctx, { blueprint });
+  assert.equal(result.valid, false);
+  assert.ok(
+    result.semanticErrors.some((message) => message.includes('unknown component type')),
+    JSON.stringify(result.semanticErrors)
+  );
+});
+
 test('export_prompt embeds blueprint context for a valid adapter and task', async () => {
   const result = await exportPrompt(ctx, { ref: SCREEN_ID, adapter: 'codex', task: 'implement' });
   assert.equal(result.adapter, 'codex');

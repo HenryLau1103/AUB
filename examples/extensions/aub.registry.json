@@ -1,0 +1,17 @@
+{
+  "$schema": "https://henrylau1103.github.io/AUB/schema/aub.registry.schema.json",
+  "version": "0.1.0",
+  "description": "Sample project extension registry. Declares namespaced custom component types so agents can resolve them without guessing. Core types stay snake_case; extensions use team:component.",
+  "components": [
+    {
+      "name": "acme:metric_sparkline",
+      "isContainer": false,
+      "description": "Compact inline trend chart for a single KPI. Leaf node — renders its own series, no children."
+    },
+    {
+      "name": "acme:insight_card",
+      "isContainer": true,
+      "description": "Branded card that frames an analytics insight. Container — holds a heading, a metric, and an acme:metric_sparkline."
+    }
+  ]
+}

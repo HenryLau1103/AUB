@@ -9,6 +9,8 @@
   },
   "scripts": {
     "validate": "node scripts/validate.mjs",
+    "gen": "node scripts/generate-registry-artifacts.mjs",
+    "gen:check": "node scripts/generate-registry-artifacts.mjs --check",
     "migrate": "node scripts/migrate-blueprint-cli.mjs",
     "diff": "node scripts/diff-blueprint.mjs",
     "prompt": "node scripts/export-agent-prompt.mjs",

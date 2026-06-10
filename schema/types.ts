@@ -70,28 +70,36 @@ export interface Viewport {
   height: number;
 }
 
+// <generated:component-types>
 /** Semantic component type — agents read this to know WHAT a node is. */
 export type ComponentType =
-  | 'app_shell' | 'page' | 'section' | 'header' | 'sidebar' | 'top_bar' | 'bottom_nav'
-  | 'stack' | 'grid' | 'split_pane' | 'scroll_area'
-  | 'metric_card' | 'data_table' | 'list' | 'detail_panel' | 'chart_placeholder' | 'timeline' | 'activity_feed'
-  | 'form' | 'field_group' | 'text_input' | 'select' | 'checkbox' | 'radio_group' | 'toggle' | 'slider' | 'date_picker' | 'file_upload'
+  | 'app_shell' | 'page' | 'section' | 'header' | 'sidebar' | 'top_bar' | 'bottom_nav' | 'stack' | 'grid' | 'split_pane' | 'scroll_area'
+  | 'heading' | 'text' | 'card' | 'image' | 'icon' | 'avatar' | 'badge' | 'tag' | 'divider' | 'link'
+  | 'metric_card' | 'data_table' | 'list' | 'detail_panel' | 'chart_placeholder' | 'timeline' | 'activity_feed' | 'calendar' | 'kanban_board' | 'kanban_column'
+  | 'form' | 'field_group' | 'text_input' | 'select' | 'checkbox' | 'radio_group' | 'toggle' | 'slider' | 'date_picker' | 'file_upload' | 'textarea' | 'search_input' | 'rich_text_editor'
   | 'button' | 'icon_button' | 'button_group' | 'menu' | 'toolbar' | 'command_palette'
   | 'modal' | 'drawer' | 'toast' | 'alert' | 'empty_state' | 'loading_state' | 'error_state'
-  | 'tabs' | 'breadcrumb' | 'pagination' | 'stepper' | 'nav_item'
-  | 'heading' | 'text' | 'card' | 'image' | 'icon' | 'avatar' | 'badge' | 'tag' | 'divider' | 'link'
-  | 'textarea' | 'search_input' | 'calendar' | 'kanban_board' | 'kanban_column' | 'rich_text_editor';
+  | 'tabs' | 'breadcrumb' | 'pagination' | 'stepper' | 'nav_item';
 
 export type ContainerComponentType = Extract<
   ComponentType,
-  | 'app_shell' | 'page' | 'section' | 'header' | 'sidebar' | 'top_bar' | 'bottom_nav'
-  | 'stack' | 'grid' | 'split_pane' | 'scroll_area'
-  | 'list' | 'detail_panel' | 'timeline' | 'activity_feed'
-  | 'form' | 'field_group' | 'menu' | 'toolbar' | 'button_group' | 'command_palette'
-  | 'tabs' | 'stepper' | 'card' | 'kanban_board' | 'kanban_column' | 'rich_text_editor'
+    | 'app_shell' | 'page' | 'section' | 'header' | 'sidebar' | 'top_bar' | 'bottom_nav' | 'stack' | 'grid' | 'split_pane' | 'scroll_area'
+    | 'card'
+    | 'list' | 'detail_panel' | 'timeline' | 'activity_feed' | 'kanban_board' | 'kanban_column'
+    | 'form' | 'field_group' | 'rich_text_editor'
+    | 'button_group' | 'menu' | 'toolbar' | 'command_palette'
+    | 'modal' | 'drawer'
+    | 'tabs' | 'stepper'
 >;
 
 export type LeafComponentType = Exclude<ComponentType, ContainerComponentType>;
+// </generated:component-types>
+
+/**
+ * A fully resolved component type: a core type or a namespaced project
+ * extension type (e.g. `acme:data_card`) declared in aub.registry.json.
+ */
+export type ResolvedComponentType = ComponentType | `${string}:${string}`;
 
 export type NodeState =
   | 'default' | 'hover' | 'focus' | 'active' | 'disabled'

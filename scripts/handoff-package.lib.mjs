@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 
-export const HANDOFF_FORMAT_VERSION = '1.1.0';
+export const HANDOFF_FORMAT_VERSION = '1.2.0';
 export const HANDOFF_AGENT_ENTRYPOINT = 'AGENT-README.md';
 
 export async function createHandoffArchive({
@@ -13,13 +13,16 @@ export async function createHandoffArchive({
   reportTemplate,
   reportSchema,
   viewportImages,
+  extensionRegistry,
   generatedAt = new Date().toISOString(),
 }) {
   const zip = new JSZip();
   const screenId = blueprint.screen.id;
+  const hasExtensionRegistry = typeof extensionRegistry === 'string' && extensionRegistry.trim().length > 0;
+  const agentGuideText = agentGuide.replace('./agent-handoff.zh-Hant.md', './AGENT-README.zh-Hant.md');
   const files = {
     [HANDOFF_AGENT_ENTRYPOINT]: ensureTrailingNewline(
-      agentGuide.replace('./agent-handoff.zh-Hant.md', './AGENT-README.zh-Hant.md')
+      hasExtensionRegistry ? appendExtensionRegistryNote(agentGuideText) : agentGuideText
     ),
     'AGENT-README.zh-Hant.md': ensureTrailingNewline(
       agentGuideZhHant.replace('./agent-handoff.md', './AGENT-README.md')
@@ -31,6 +34,10 @@ export async function createHandoffArchive({
     'implementation-report.template.json': `${JSON.stringify(reportTemplate, null, 2)}\n`,
     'implementation-report.schema.json': `${JSON.stringify(reportSchema, null, 2)}\n`,
   };
+
+  if (hasExtensionRegistry) {
+    files['aub.registry.json'] = ensureTrailingNewline(extensionRegistry);
+  }
 
   for (const [viewportId, dataUrl] of Object.entries(viewportImages)) {
     files[`screenshots/${viewportId}.png`] = dataUrlToBytes(dataUrl);
@@ -53,6 +60,7 @@ export async function createHandoffArchive({
     screen_id: screenId,
     generated_at: generatedAt,
     agent_entrypoint: HANDOFF_AGENT_ENTRYPOINT,
+    extension_registry: hasExtensionRegistry ? 'aub.registry.json' : null,
     viewports: blueprint.viewports,
     files: manifestFiles,
   };
@@ -66,6 +74,21 @@ export async function createHandoffArchive({
     }),
     manifest,
   };
+}
+
+function appendExtensionRegistryNote(agentGuide) {
+  const note = [
+    '',
+    '## Custom component types',
+    '',
+    'This handoff includes `aub.registry.json`, which declares namespaced extension',
+    'component types (`team:component`) used by this blueprint. Treat every node `type`',
+    'that contains a colon as a project-defined component: resolve its meaning and',
+    'container/leaf behavior from `aub.registry.json` — never guess. Validate with',
+    '`aub validate <file> --registry ./aub.registry.json`.',
+    '',
+  ].join('\n');
+  return `${agentGuide.replace(/\n+$/, '')}\n${note}`;
 }
 
 function ensureTrailingNewline(value) {

@@ -1,4 +1,4 @@
-export function validateBlueprintSemantics(blueprint) {
+export function validateBlueprintSemantics(blueprint, { knownTypes } = {}) {
   const errors = [];
   const nodes = Array.isArray(blueprint?.nodes) ? blueprint.nodes : [];
   const byId = new Map();
@@ -10,6 +10,29 @@ export function validateBlueprintSemantics(blueprint) {
     interactionSources.add(node.id);
     for (const item of node.content?.items ?? []) {
       if (item?.id) interactionSources.add(item.id);
+    }
+  }
+
+  if (knownTypes) {
+    for (const node of nodes) {
+      const type = node?.type;
+      if (typeof type !== 'string') continue;
+      const isExtension = type.includes(':');
+      const meta = knownTypes.get(type);
+      if (!meta) {
+        if (isExtension) {
+          errors.push(
+            `${node.id}: unknown component type "${type}" — declare it in aub.registry.json`
+          );
+        }
+        // Core-looking unknown types are already rejected by the JSON Schema enum.
+        continue;
+      }
+      if (isExtension && !meta.isContainer && (node.children ?? []).length > 0) {
+        errors.push(
+          `${node.id}: extension type "${type}" is a leaf (isContainer:false) but declares children`
+        );
+      }
     }
   }
 
