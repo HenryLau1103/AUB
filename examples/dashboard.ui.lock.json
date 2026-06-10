@@ -2,10 +2,10 @@
   "$schema": "https://github.com/HenryLau1103/AUB/schema/lock.schema.json",
   "version": "0.3.0",
   "source_file": "examples/dashboard.ui.json",
-  "exported_at": "2026-06-09T18:51:23.892Z",
+  "exported_at": "2026-06-10T04:33:50.630Z",
   "source_editor_version": "0.3.0",
   "hashes": {
-    "blueprint": "sha256:dc62ea076ec5c44990981e9edab8947cdd56ff9f94651ac8a93ee0b8a850abfa",
+    "blueprint": "sha256:aa14b3d7471629e64c2a650f1d04f65b6ec3937c13e83866d225503b4f14400b",
     "node_ids": "sha256:39fc092940c0113ac5e45418a477572648fbcb86548d968a498594b959de78dd",
     "layout": "sha256:1ce1269ad6ceb6e7e0445b7bb4db4aadad8404017f7444a9d2a4aa050d13502a",
     "design_system": "sha256:d631865bb83cd8bf0fb7ed333821a7f5efaa8980708a12ffa11bef27eab551d2",

@@ -2,9 +2,10 @@
 
 **Draw the interface. Export a UI contract. Let coding agents build and verify it.**
 
+[![CI](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml/badge.svg)](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Blueprint](https://img.shields.io/badge/UI%20Blueprint-v0.3.0-0f766e.svg)](./schema/ui-blueprint.schema.json)
-[![Node](https://img.shields.io/badge/Node-%3E%3D20-339933.svg)](./package.json)
+[![Node](https://img.shields.io/badge/Node-%3E%3D24-339933.svg)](./package.json)
 
 [繁體中文](./README-ZH.MD) · [Agent handoff guide](./docs/agent-handoff.md) · [Canonical example](./examples/dashboard.ui.json)
 
@@ -50,7 +51,7 @@ See [failure cases](./docs/failure-cases.md) for concrete examples.
 
 ## Local quick start
 
-Requirements: Node.js 20+ and pnpm.
+Requirements: Node.js 24+ and pnpm.
 
 ```bash
 git clone https://github.com/HenryLau1103/AUB.git
@@ -106,7 +107,7 @@ Read the full [Agent handoff guide](./docs/agent-handoff.md).
 |---|---|---|
 | Codex | Dedicated adapter | `<screen>.codex.md` and repository `AGENTS.md` |
 | Claude Code | Dedicated adapter | Generate with `--adapter claude-code`; reads `CLAUDE.md` |
-| GitHub Copilot | Generic handoff | `AGENT-README.md`, `<screen>.agent.md`, and repository Copilot instructions |
+| GitHub Copilot | Dedicated adapter | Generate with `--adapter copilot`; reads `.github/copilot-instructions.md` + `AGENTS.md` |
 | Other coding agents | Generic handoff | `AGENT-README.md` and `<screen>.agent.md` |
 
 The core Blueprint is agent-neutral. Adapters change execution instructions, not schema, layout semantics, interactions, or acceptance criteria.
@@ -117,6 +118,7 @@ Generate a prompt directly:
 pnpm prompt examples/dashboard.ui.json dashboard.agent.md --adapter generic --task implement
 pnpm prompt examples/dashboard.ui.json dashboard.codex.md --adapter codex --task implement
 pnpm prompt examples/dashboard.ui.json dashboard.claude.md --adapter claude-code --task review
+pnpm prompt examples/dashboard.ui.json dashboard.copilot.md --adapter copilot --task implement
 ```
 
 Supported tasks are `author`, `plan`, `implement`, and `review`.
@@ -197,12 +199,31 @@ AUB includes deterministic agent-readability and browser-based implementation be
 
 See [agent readability](./benchmarks/agent-readability/README.md) and [implementation benchmark](./benchmarks/agent-implementation/README.md).
 
+## Editor / IDE integration
+
+Blueprint files are backed by the JSON Schema at [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.schema.json), so editors can validate and autocomplete them as you type.
+
+- **VS Code:** this repo ships [`.vscode/settings.json`](./.vscode/settings.json), which maps `*.ui.json` and `*.ui.yaml` to the schema automatically. Install the recommended [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) for `.ui.yaml` support.
+- **Standalone files / other editors:** add a `$schema` key pointing at the schema, as the canonical examples do:
+
+  ```json
+  { "$schema": "../schema/ui-blueprint.schema.json", "version": "0.3.0" }
+  ```
+
+  For YAML, use the YAML language server directive:
+
+  ```yaml
+  # yaml-language-server: $schema=../schema/ui-blueprint.schema.json
+  ```
+
+The `$schema` key is optional and ignored by AUB tooling — it only drives editor validation.
+
 ## Project status
 
 - Blueprint schema and semantic validation: implemented.
 - WYSIWYG editor with freeform/auto layout, drag, resize, multi-select, zoom, localization, and templates: implemented.
 - JSON, Markdown, screenshots, hashes, and `.aub.zip` handoff: implemented.
-- Codex and Claude Code adapters: implemented.
+- Codex, Claude Code, and GitHub Copilot adapters: implemented.
 - Angular import, personal templates, and AI authoring kit: implemented.
 - Blueprint diff and implementation report verification: implemented.
 - MCP server (stdio) exposing list/get/validate/export-prompt/submit-report tools: implemented.

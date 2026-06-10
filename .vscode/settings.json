@@ -1,0 +1,11 @@
+{
+  "json.schemas": [
+    {
+      "fileMatch": ["*.ui.json"],
+      "url": "./schema/ui-blueprint.schema.json"
+    }
+  ],
+  "yaml.schemas": {
+    "./schema/ui-blueprint.schema.json": "*.ui.yaml"
+  }
+}

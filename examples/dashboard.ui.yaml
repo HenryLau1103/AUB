@@ -1,4 +1,6 @@
 version: 0.3.0
+# yaml-language-server: $schema=../schema/ui-blueprint.schema.json
+$schema: ../schema/ui-blueprint.schema.json
 screen:
   id: dashboard.overview
   name: Dashboard Overview
