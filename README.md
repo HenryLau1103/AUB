@@ -160,6 +160,20 @@ Primary formats:
 | `.ui.lock.json` | Frozen acceptance snapshot |
 | `.aub.zip` | Complete agent handoff |
 
+## Custom component types
+
+The 62 core component types are curated and closed so every type has a meaning agents can resolve. Projects that need bespoke components declare **namespaced extension types** in an `aub.registry.json` at the project root, using a `team:component` namespace (e.g. `acme:insight_card`). They are validated, resolvable, and bundled into handoffs — never free-guessed.
+
+```bash
+# Auto-discovers aub.registry.json from the file's directory upward
+pnpm validate examples/extensions/analytics-insights.ui.json
+
+# Or point at a specific registry
+pnpm validate path/to/screen.ui.json --registry ./aub.registry.json
+```
+
+See [custom component types](./docs/custom-components.md) and the worked example in [`examples/extensions/`](./examples/extensions/).
+
 ## Existing-screen and AI authoring workflows
 
 Import an Angular HTML/SCSS/TS component bundle:
@@ -245,7 +259,7 @@ docs/            Product decisions, guides, audits, and acceptance constraints
 tests/           Node test suites for all contracts
 ```
 
-The schema is the single source of truth. Keep [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.schema.json) and [`schema/types.ts`](./schema/types.ts) synchronized.
+The component registry is the single source of truth for component types. [`schema/registry/components.json`](./schema/registry/components.json) drives the schema enums and [`schema/types.ts`](./schema/types.ts); run `pnpm gen` after editing it and `pnpm gen:check` verifies they are in sync (CI enforces this).
 
 ## Contributing
 
@@ -254,12 +268,15 @@ Before opening a PR:
 ```bash
 pnpm test
 pnpm typecheck
+pnpm gen:check
 (cd apps/editor && pnpm typecheck)
 (cd apps/editor && pnpm build)
 pnpm validate examples/dashboard.ui.json
 ```
 
-Keep changes scoped, preserve round-trip integrity, and do not add unregistered semantic component types.
+To add a **core** component type, edit `schema/registry/components.json` and run `pnpm gen` — the schema enums and TypeScript unions regenerate from it. To add a **project-specific** component without forking core, declare a namespaced extension type in `aub.registry.json` (see [custom component types](./docs/custom-components.md)).
+
+Keep changes scoped, preserve round-trip integrity, and do not invent unregistered semantic component types — every type must be either a core type or a declared project extension.
 
 ## Deployment (GitHub Pages)
 

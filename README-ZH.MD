@@ -154,6 +154,20 @@ node apps/mcp-server/dist/index.js /path/to/your/repo
 | `.ui.lock.json` | 凍結的驗收快照 |
 | `.aub.zip` | 完整 Agent 交付包 |
 
+## 自訂元件類型
+
+62 個核心元件類型是精選且封閉的，確保每個類型都有 Agent 能解析的明確語意。需要客製元件的專案可在專案根目錄的 `aub.registry.json` 中宣告**具命名空間的擴充類型**，採用 `team:component` 命名（例如 `acme:insight_card`）。這些類型會被驗證、可被解析，並打包進交付包——絕不靠猜測。
+
+```bash
+# 從檔案所在目錄向上自動探索 aub.registry.json
+pnpm validate examples/extensions/analytics-insights.ui.json
+
+# 或指定特定的 registry
+pnpm validate path/to/screen.ui.json --registry ./aub.registry.json
+```
+
+詳見 [自訂元件類型](./docs/custom-components.md) 與 [`examples/extensions/`](./examples/extensions/) 的完整範例。
+
 ## 既有畫面與 AI 生成流程
 
 匯入 Angular HTML／SCSS／TS 元件檔案組：
@@ -239,7 +253,7 @@ docs/            產品決策、指南、審查與驗收限制
 tests/           所有合約的 Node 測試
 ```
 
-Schema 是唯一真實來源。必須保持 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.schema.json) 與 [`schema/types.ts`](./schema/types.ts) 同步。
+元件 registry 是元件類型的唯一真實來源。[`schema/registry/components.json`](./schema/registry/components.json) 會驅動 schema 的 enum 與 [`schema/types.ts`](./schema/types.ts)；編輯後請執行 `pnpm gen`，並以 `pnpm gen:check` 驗證同步（CI 會強制檢查）。
 
 ## 貢獻方式
 
@@ -248,13 +262,16 @@ Schema 是唯一真實來源。必須保持 [`schema/ui-blueprint.schema.json`](
 ```bash
 pnpm test
 pnpm typecheck
+pnpm gen:check
 (cd apps/editor && pnpm typecheck)
 (cd apps/editor && pnpm build)
 (cd apps/mcp-server && pnpm typecheck && pnpm build)
 pnpm validate examples/dashboard.ui.json
 ```
 
-修改範圍應保持精簡、維持 round-trip 完整性，並且不得加入未註冊的語意元件類型。
+新增**核心**元件類型時，請編輯 `schema/registry/components.json` 並執行 `pnpm gen`，schema enum 與 TypeScript 型別會自動重新產生。若要新增**專案專屬**元件而不分叉核心，請在 `aub.registry.json` 中宣告具命名空間的擴充類型（見 [自訂元件類型](./docs/custom-components.md)）。
+
+修改範圍應保持精簡、維持 round-trip 完整性，並且不得自創未註冊的語意元件類型——每個類型都必須是核心類型或已宣告的專案擴充類型。
 
 ## 部署（GitHub Pages）
 

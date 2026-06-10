@@ -44,6 +44,9 @@ Examples:
 - Adding a new `acceptance.type` or `verification_method` value
 - Adding a new `responsive.rule` value
 - Adding a new component type to `componentType` enum
+- Registering a namespaced project extension type in `aub.registry.json` (see
+  [custom components](./custom-components.md)) — extension types are additive and
+  never alter core semantics
 - Adding a new optional top-level property (e.g. `theme`)
 
 Process:

@@ -5,7 +5,15 @@
   "description": "Structured specification of a UI screen for AI coding agents. Source of truth for layout, semantics, interactions, responsive rules, and acceptance criteria.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "screen", "viewports", "nodes", "interactions", "responsive", "acceptance"],
+  "required": [
+    "version",
+    "screen",
+    "viewports",
+    "nodes",
+    "interactions",
+    "responsive",
+    "acceptance"
+  ],
   "properties": {
     "$schema": {
       "type": "string",
@@ -15,8 +23,16 @@
       "type": "string",
       "description": "Semantic version of the schema this document conforms to.",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
-      "enum": ["0.1.0", "0.2.0", "0.3.0"],
-      "examples": ["0.1.0", "0.2.0", "0.3.0"]
+      "enum": [
+        "0.1.0",
+        "0.2.0",
+        "0.3.0"
+      ],
+      "examples": [
+        "0.1.0",
+        "0.2.0",
+        "0.3.0"
+      ]
     },
     "screen": {
       "description": "Metadata about the screen this Blueprint describes.",
@@ -26,28 +42,38 @@
       "type": "array",
       "description": "Named viewport sizes the responsive rules reference. At least one required.",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/viewport" }
+      "items": {
+        "$ref": "#/$defs/viewport"
+      }
     },
     "nodes": {
       "type": "array",
       "description": "Tree of semantic UI nodes composing the screen. The first node MUST be the root.",
-      "items": { "$ref": "#/$defs/node" }
+      "items": {
+        "$ref": "#/$defs/node"
+      }
     },
     "interactions": {
       "type": "array",
       "description": "User-driven interactions (click, hover, change, submit).",
-      "items": { "$ref": "#/$defs/interaction" }
+      "items": {
+        "$ref": "#/$defs/interaction"
+      }
     },
     "responsive": {
       "type": "array",
       "description": "Per-viewport rules that override or transform node layout/content.",
-      "items": { "$ref": "#/$defs/responsive" }
+      "items": {
+        "$ref": "#/$defs/responsive"
+      }
     },
     "acceptance": {
       "type": "array",
       "description": "Verifiable acceptance items. MUST be ≥5 per screen, must include layout, interaction, responsive, a11y categories.",
       "minItems": 5,
-      "items": { "$ref": "#/$defs/acceptance" }
+      "items": {
+        "$ref": "#/$defs/acceptance"
+      }
     },
     "design_system": {
       "$ref": "#/$defs/designSystem"
@@ -60,7 +86,13 @@
     "screen": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "type", "platform", "primary_user_goal"],
+      "required": [
+        "id",
+        "name",
+        "type",
+        "platform",
+        "primary_user_goal"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -80,7 +112,13 @@
         },
         "platform": {
           "type": "string",
-          "enum": ["web", "mobile-web", "ios", "android", "desktop"],
+          "enum": [
+            "web",
+            "mobile-web",
+            "ios",
+            "android",
+            "desktop"
+          ],
           "description": "Target platform. Drives default responsive rules and component variant."
         },
         "primary_user_goal": {
@@ -106,25 +144,34 @@
         "detail",
         "auth",
         "error",
-        "empty"
-        ,"workspace"
-        ,"communication"
-        ,"content"
-        ,"commerce"
-        ,"calendar"
-        ,"files"
-        ,"onboarding"
+        "empty",
+        "workspace",
+        "communication",
+        "content",
+        "commerce",
+        "calendar",
+        "files",
+        "onboarding"
       ]
     },
     "viewport": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "width", "height"],
+      "required": [
+        "id",
+        "width",
+        "height"
+      ],
       "properties": {
         "id": {
           "type": "string",
           "description": "Viewport identifier used by responsive rules.",
-          "enum": ["desktop", "tablet", "mobile", "wide"]
+          "enum": [
+            "desktop",
+            "tablet",
+            "mobile",
+            "wide"
+          ]
         },
         "width": {
           "type": "integer",
@@ -142,7 +189,12 @@
       "type": "object",
       "description": "A single UI element. Tree structure is encoded via parent_id + children.",
       "additionalProperties": false,
-      "required": ["id", "type", "name", "role"],
+      "required": [
+        "id",
+        "type",
+        "name",
+        "role"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -167,7 +219,10 @@
           "maxLength": 280
         },
         "parent_id": {
-          "type": ["string", "null"],
+          "type": [
+            "string",
+            "null"
+          ],
           "description": "Parent node id. null only for the root node.",
           "pattern": "^[a-z0-9][a-z0-9._-]*$"
         },
@@ -187,10 +242,18 @@
           "description": "Exact geometry keyed by viewport. Coordinates are relative to the parent content box.",
           "additionalProperties": false,
           "properties": {
-            "desktop": { "$ref": "#/$defs/placement" },
-            "tablet": { "$ref": "#/$defs/placement" },
-            "mobile": { "$ref": "#/$defs/placement" },
-            "wide": { "$ref": "#/$defs/placement" }
+            "desktop": {
+              "$ref": "#/$defs/placement"
+            },
+            "tablet": {
+              "$ref": "#/$defs/placement"
+            },
+            "mobile": {
+              "$ref": "#/$defs/placement"
+            },
+            "wide": {
+              "$ref": "#/$defs/placement"
+            }
           }
         },
         "content": {
@@ -204,7 +267,17 @@
           "description": "Visual/behavioral states this node can be in (e.g. default, hover, disabled, loading).",
           "items": {
             "type": "string",
-            "enum": ["default", "hover", "focus", "active", "disabled", "loading", "empty", "error", "selected"]
+            "enum": [
+              "default",
+              "hover",
+              "focus",
+              "active",
+              "disabled",
+              "loading",
+              "empty",
+              "error",
+              "selected"
+            ]
           },
           "uniqueItems": true
         },
@@ -213,10 +286,22 @@
           "additionalProperties": false,
           "description": "Non-violable constraints the implementation must honor.",
           "properties": {
-            "min_width": { "type": "integer", "minimum": 0 },
-            "max_width": { "type": "integer", "minimum": 0 },
-            "min_height": { "type": "integer", "minimum": 0 },
-            "max_height": { "type": "integer", "minimum": 0 },
+            "min_width": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "max_width": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "min_height": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "max_height": {
+              "type": "integer",
+              "minimum": 0
+            },
             "touch_target_min": {
               "type": "integer",
               "minimum": 24,
@@ -242,9 +327,13 @@
           "description": "Leaf nodes must not declare children.",
           "if": {
             "properties": {
-              "type": { "$ref": "#/$defs/leafComponentType" }
+              "type": {
+                "$ref": "#/$defs/coreLeafComponentType"
+              }
             },
-            "required": ["type"]
+            "required": [
+              "type"
+            ]
           },
           "then": {
             "properties": {
@@ -259,56 +348,190 @@
           "description": "Container nodes must have at least one child when declared.",
           "if": {
             "properties": {
-              "type": { "$ref": "#/$defs/containerComponentType" }
+              "type": {
+                "$ref": "#/$defs/coreContainerComponentType"
+              }
             },
-            "required": ["type"]
+            "required": [
+              "type"
+            ]
           },
           "then": {
             "anyOf": [
-              { "required": ["children"] },
-              { "not": { "required": ["children"] } }
+              {
+                "required": [
+                  "children"
+                ]
+              },
+              {
+                "not": {
+                  "required": [
+                    "children"
+                  ]
+                }
+              }
             ]
           }
         }
       ]
     },
     "componentType": {
+      "description": "Registered semantic component type. Agents read this to know WHAT a node is. Either a core type or a namespaced project-extension type declared in aub.registry.json.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/coreComponentType"
+        },
+        {
+          "$ref": "#/$defs/extensionComponentType"
+        }
+      ]
+    },
+    "extensionComponentType": {
+      "type": "string",
+      "description": "Namespaced custom component type (team:component), declared in a project aub.registry.json and resolved by AUB validation. Lets teams extend the vocabulary without editing the core registry.",
+      "pattern": "^[a-z][a-z0-9]*:[a-z][a-z0-9_]*$"
+    },
+    "coreComponentType": {
       "type": "string",
       "enum": [
-        "app_shell", "page", "section", "header", "sidebar", "top_bar", "bottom_nav",
-        "stack", "grid", "split_pane", "scroll_area",
-        "metric_card", "data_table", "list", "detail_panel", "chart_placeholder", "timeline", "activity_feed",
-        "form", "field_group", "text_input", "select", "checkbox", "radio_group", "toggle", "slider", "date_picker", "file_upload",
-        "button", "icon_button", "button_group", "menu", "toolbar", "command_palette",
-        "modal", "drawer", "toast", "alert", "empty_state", "loading_state", "error_state",
-        "tabs", "breadcrumb", "pagination", "stepper", "nav_item"
-        ,"heading", "text", "card", "image", "icon", "avatar", "badge", "tag", "divider", "link"
-        ,"textarea", "search_input", "calendar", "kanban_board", "kanban_column", "rich_text_editor"
+        "app_shell",
+        "page",
+        "section",
+        "header",
+        "sidebar",
+        "top_bar",
+        "bottom_nav",
+        "stack",
+        "grid",
+        "split_pane",
+        "scroll_area",
+        "heading",
+        "text",
+        "card",
+        "image",
+        "icon",
+        "avatar",
+        "badge",
+        "tag",
+        "divider",
+        "link",
+        "metric_card",
+        "data_table",
+        "list",
+        "detail_panel",
+        "chart_placeholder",
+        "timeline",
+        "activity_feed",
+        "calendar",
+        "kanban_board",
+        "kanban_column",
+        "form",
+        "field_group",
+        "text_input",
+        "select",
+        "checkbox",
+        "radio_group",
+        "toggle",
+        "slider",
+        "date_picker",
+        "file_upload",
+        "textarea",
+        "search_input",
+        "rich_text_editor",
+        "button",
+        "icon_button",
+        "button_group",
+        "menu",
+        "toolbar",
+        "command_palette",
+        "modal",
+        "drawer",
+        "toast",
+        "alert",
+        "empty_state",
+        "loading_state",
+        "error_state",
+        "tabs",
+        "breadcrumb",
+        "pagination",
+        "stepper",
+        "nav_item"
       ],
-      "description": "Registered semantic component type. Agents read this to know WHAT a node is."
+      "description": "Core (built-in) semantic component types. Generated from schema/registry/components.json — do not edit by hand; run `pnpm gen`."
     },
-    "containerComponentType": {
+    "coreContainerComponentType": {
       "type": "string",
       "enum": [
-        "app_shell", "page", "section", "header", "sidebar", "top_bar", "bottom_nav",
-        "stack", "grid", "split_pane", "scroll_area",
-        "list", "detail_panel", "timeline", "activity_feed",
-        "form", "field_group", "menu", "toolbar", "button_group", "command_palette",
-        "modal", "drawer",
-        "tabs", "stepper", "card", "kanban_board", "kanban_column", "rich_text_editor"
-      ]
+        "app_shell",
+        "page",
+        "section",
+        "header",
+        "sidebar",
+        "top_bar",
+        "bottom_nav",
+        "stack",
+        "grid",
+        "split_pane",
+        "scroll_area",
+        "card",
+        "list",
+        "detail_panel",
+        "timeline",
+        "activity_feed",
+        "kanban_board",
+        "kanban_column",
+        "form",
+        "field_group",
+        "rich_text_editor",
+        "button_group",
+        "menu",
+        "toolbar",
+        "command_palette",
+        "modal",
+        "drawer",
+        "tabs",
+        "stepper"
+      ],
+      "description": "Core component types that may contain children. Generated — run `pnpm gen`."
     },
-    "leafComponentType": {
+    "coreLeafComponentType": {
       "type": "string",
       "enum": [
-        "metric_card", "data_table", "chart_placeholder",
-        "text_input", "select", "checkbox", "radio_group", "toggle", "slider", "date_picker", "file_upload",
-        "button", "icon_button",
-        "toast", "alert", "empty_state", "loading_state", "error_state",
-        "breadcrumb", "pagination", "nav_item"
-        ,"heading", "text", "image", "icon", "avatar", "badge", "tag", "divider", "link"
-        ,"textarea", "search_input", "calendar"
-      ]
+        "heading",
+        "text",
+        "image",
+        "icon",
+        "avatar",
+        "badge",
+        "tag",
+        "divider",
+        "link",
+        "metric_card",
+        "data_table",
+        "chart_placeholder",
+        "calendar",
+        "text_input",
+        "select",
+        "checkbox",
+        "radio_group",
+        "toggle",
+        "slider",
+        "date_picker",
+        "file_upload",
+        "textarea",
+        "search_input",
+        "button",
+        "icon_button",
+        "toast",
+        "alert",
+        "empty_state",
+        "loading_state",
+        "error_state",
+        "breadcrumb",
+        "pagination",
+        "nav_item"
+      ],
+      "description": "Core component types that must not contain children. Generated — run `pnpm gen`."
     },
     "layout": {
       "type": "object",
@@ -317,16 +540,30 @@
       "properties": {
         "mode": {
           "type": "string",
-          "enum": ["auto", "freeform"],
+          "enum": [
+            "auto",
+            "freeform"
+          ],
           "description": "auto uses flex/grid flow; freeform uses child placements for the active viewport."
         },
         "display": {
           "type": "string",
-          "enum": ["flex", "grid", "block", "inline", "none"]
+          "enum": [
+            "flex",
+            "grid",
+            "block",
+            "inline",
+            "none"
+          ]
         },
         "direction": {
           "type": "string",
-          "enum": ["row", "column", "row-reverse", "column-reverse"]
+          "enum": [
+            "row",
+            "column",
+            "row-reverse",
+            "column-reverse"
+          ]
         },
         "wrap": {
           "type": "boolean"
@@ -353,60 +590,131 @@
         },
         "align": {
           "type": "string",
-          "enum": ["start", "center", "end", "stretch", "baseline"]
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "stretch",
+            "baseline"
+          ]
         },
         "justify": {
           "type": "string",
-          "enum": ["start", "center", "end", "space-between", "space-around", "space-evenly"]
+          "enum": [
+            "start",
+            "center",
+            "end",
+            "space-between",
+            "space-around",
+            "space-evenly"
+          ]
         },
         "gap": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "x": { "type": "integer", "minimum": 0 },
-            "y": { "type": "integer", "minimum": 0 }
+            "x": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "y": {
+              "type": "integer",
+              "minimum": 0
+            }
           }
         },
         "padding": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "top": { "type": "integer" },
-            "right": { "type": "integer" },
-            "bottom": { "type": "integer" },
-            "left": { "type": "integer" }
+            "top": {
+              "type": "integer"
+            },
+            "right": {
+              "type": "integer"
+            },
+            "bottom": {
+              "type": "integer"
+            },
+            "left": {
+              "type": "integer"
+            }
           }
         },
         "width": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "value": { "type": "number", "minimum": 0 },
-            "unit": { "type": "string", "enum": ["px", "%", "rem", "vw"] }
+            "value": {
+              "type": "number",
+              "minimum": 0
+            },
+            "unit": {
+              "type": "string",
+              "enum": [
+                "px",
+                "%",
+                "rem",
+                "vw"
+              ]
+            }
           }
         },
         "height": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "value": { "type": "number", "minimum": 0 },
-            "unit": { "type": "string", "enum": ["px", "%", "rem", "vh"] }
+            "value": {
+              "type": "number",
+              "minimum": 0
+            },
+            "unit": {
+              "type": "string",
+              "enum": [
+                "px",
+                "%",
+                "rem",
+                "vh"
+              ]
+            }
           }
         },
         "min_width": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "value": { "type": "number", "minimum": 0 },
-            "unit": { "type": "string", "enum": ["px", "%", "rem", "vw"] }
+            "value": {
+              "type": "number",
+              "minimum": 0
+            },
+            "unit": {
+              "type": "string",
+              "enum": [
+                "px",
+                "%",
+                "rem",
+                "vw"
+              ]
+            }
           }
         },
         "max_width": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "value": { "type": "number", "minimum": 0 },
-            "unit": { "type": "string", "enum": ["px", "%", "rem", "vw"] }
+            "value": {
+              "type": "number",
+              "minimum": 0
+            },
+            "unit": {
+              "type": "string",
+              "enum": [
+                "px",
+                "%",
+                "rem",
+                "vw"
+              ]
+            }
           }
         }
       }
@@ -415,20 +723,63 @@
       "type": "object",
       "description": "Pixel geometry relative to the parent content box for one viewport.",
       "additionalProperties": false,
-      "required": ["x", "y", "width", "height"],
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
       "properties": {
-        "x": { "type": "number", "minimum": 0 },
-        "y": { "type": "number", "minimum": 0 },
-        "width": { "type": "number", "exclusiveMinimum": 0 },
-        "height": { "type": "number", "exclusiveMinimum": 0 },
-        "z_index": { "type": "integer", "minimum": -1000, "maximum": 1000 },
-        "order": { "type": "integer" },
-        "grow": { "type": "number", "minimum": 0 },
-        "basis": { "type": "number", "minimum": 0 },
-        "grid_column": { "type": "integer", "minimum": 1 },
-        "grid_row": { "type": "integer", "minimum": 1 },
-        "column_span": { "type": "integer", "minimum": 1, "maximum": 24 },
-        "row_span": { "type": "integer", "minimum": 1, "maximum": 24 }
+        "x": {
+          "type": "number",
+          "minimum": 0
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "z_index": {
+          "type": "integer",
+          "minimum": -1000,
+          "maximum": 1000
+        },
+        "order": {
+          "type": "integer"
+        },
+        "grow": {
+          "type": "number",
+          "minimum": 0
+        },
+        "basis": {
+          "type": "number",
+          "minimum": 0
+        },
+        "grid_column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "grid_row": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column_span": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 24
+        },
+        "row_span": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 24
+        }
       }
     },
     "content": {
@@ -436,8 +787,14 @@
       "description": "Component-specific content. Required fields depend on node.type — see if/then rules below.",
       "additionalProperties": false,
       "properties": {
-        "text": { "type": "string", "description": "Visible text content (label, button caption, heading)." },
-        "placeholder": { "type": "string", "description": "Placeholder text for inputs." },
+        "text": {
+          "type": "string",
+          "description": "Visible text content (label, button caption, heading)."
+        },
+        "placeholder": {
+          "type": "string",
+          "description": "Placeholder text for inputs."
+        },
         "data_binding": {
           "type": "string",
           "description": "Symbolic reference to a data source, e.g. 'metrics.revenue.current'."
@@ -445,13 +802,17 @@
         "columns": {
           "type": "array",
           "description": "Table column definitions.",
-          "items": { "$ref": "#/$defs/tableColumn" },
+          "items": {
+            "$ref": "#/$defs/tableColumn"
+          },
           "minItems": 1
         },
         "items": {
           "type": "array",
           "description": "List/menu items (when not data-driven).",
-          "items": { "$ref": "#/$defs/listItem" }
+          "items": {
+            "$ref": "#/$defs/listItem"
+          }
         },
         "action": {
           "type": "string",
@@ -473,42 +834,106 @@
           "type": "string",
           "description": "Symbolic id of an error_state node to render on fetch failure."
         },
-        "src": { "type": "string", "description": "Image or media source URL." },
-        "alt": { "type": "string", "description": "Alternative text for visual media." },
-        "icon": { "type": "string", "description": "Symbolic icon name." },
-        "value": { "type": "string", "description": "Representative value shown by the component." },
-        "helper_text": { "type": "string", "description": "Supporting or validation text." },
-        "variant": { "type": "string", "description": "Semantic component variant such as primary, subtle, or destructive." }
+        "src": {
+          "type": "string",
+          "description": "Image or media source URL."
+        },
+        "alt": {
+          "type": "string",
+          "description": "Alternative text for visual media."
+        },
+        "icon": {
+          "type": "string",
+          "description": "Symbolic icon name."
+        },
+        "value": {
+          "type": "string",
+          "description": "Representative value shown by the component."
+        },
+        "helper_text": {
+          "type": "string",
+          "description": "Supporting or validation text."
+        },
+        "variant": {
+          "type": "string",
+          "description": "Semantic component variant such as primary, subtle, or destructive."
+        }
       }
     },
     "tableColumn": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "header"],
+      "required": [
+        "id",
+        "header"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
-        "header": { "type": "string", "minLength": 1 },
-        "data_binding": { "type": "string" },
-        "sortable": { "type": "boolean" },
-        "filterable": { "type": "boolean" },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "header": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data_binding": {
+          "type": "string"
+        },
+        "sortable": {
+          "type": "boolean"
+        },
+        "filterable": {
+          "type": "boolean"
+        },
         "cell_kind": {
           "type": "string",
-          "enum": ["text", "number", "date", "link", "icon", "action", "status", "checkbox"]
+          "enum": [
+            "text",
+            "number",
+            "date",
+            "link",
+            "icon",
+            "action",
+            "status",
+            "checkbox"
+          ]
         },
-        "icon": { "type": "string" },
-        "action": { "type": "string" },
-        "sticky": { "type": "boolean" },
+        "icon": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "sticky": {
+          "type": "boolean"
+        },
         "align": {
           "type": "string",
-          "enum": ["start", "center", "end"]
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
         },
-        "visible_when": { "type": "string" },
+        "visible_when": {
+          "type": "string"
+        },
         "width": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "value": { "type": "number", "minimum": 0 },
-            "unit": { "type": "string", "enum": ["px", "%", "rem"] }
+            "value": {
+              "type": "number",
+              "minimum": 0
+            },
+            "unit": {
+              "type": "string",
+              "enum": [
+                "px",
+                "%",
+                "rem"
+              ]
+            }
           }
         }
       }
@@ -516,12 +941,23 @@
     "listItem": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id"],
+      "required": [
+        "id"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
-        "label": { "type": "string" },
-        "icon": { "type": "string" },
-        "action": { "type": "string" }
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+        },
+        "label": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        }
       }
     },
     "style": {
@@ -541,31 +977,68 @@
           "minimum": 0,
           "maximum": 24
         },
-        "background": { "type": "string" },
-        "foreground": { "type": "string" },
-        "border": { "type": "string" },
-        "typography": { "type": "string" },
-        "radius": { "type": "string" },
-        "shadow": { "type": "string" },
-        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
-        "variant": { "type": "string" }
+        "background": {
+          "type": "string"
+        },
+        "foreground": {
+          "type": "string"
+        },
+        "border": {
+          "type": "string"
+        },
+        "typography": {
+          "type": "string"
+        },
+        "radius": {
+          "type": "string"
+        },
+        "shadow": {
+          "type": "string"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "variant": {
+          "type": "string"
+        }
       }
     },
     "provenance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_kind", "importer_version", "source_files"],
+      "required": [
+        "source_kind",
+        "importer_version",
+        "source_files"
+      ],
       "properties": {
         "source_kind": {
           "type": "string",
-          "enum": ["native", "angular-component", "html", "figma", "image", "other"]
+          "enum": [
+            "native",
+            "angular-component",
+            "html",
+            "figma",
+            "image",
+            "other"
+          ]
         },
-        "framework": { "type": "string" },
-        "importer_version": { "type": "string" },
-        "entry_file": { "type": "string" },
+        "framework": {
+          "type": "string"
+        },
+        "importer_version": {
+          "type": "string"
+        },
+        "entry_file": {
+          "type": "string"
+        },
         "source_files": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "uniqueItems": true
         }
       }
@@ -573,36 +1046,74 @@
     "sourceReference": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file"],
+      "required": [
+        "file"
+      ],
       "properties": {
-        "file": { "type": "string" },
-        "line": { "type": "integer", "minimum": 1 },
-        "column": { "type": "integer", "minimum": 1 },
-        "selector": { "type": "string" }
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "selector": {
+          "type": "string"
+        }
       }
     },
     "bindings": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "value": { "type": "string" },
-        "options": { "type": "string" },
-        "visibility": { "type": "string" },
-        "enabled": { "type": "string" },
-        "repeat": { "type": "string" },
-        "selected": { "type": "string" }
+        "value": {
+          "type": "string"
+        },
+        "options": {
+          "type": "string"
+        },
+        "visibility": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "string"
+        },
+        "repeat": {
+          "type": "string"
+        },
+        "selected": {
+          "type": "string"
+        }
       }
     },
     "validation": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "required": { "type": "boolean" },
-        "pattern": { "type": "string" },
-        "min_length": { "type": "number", "minimum": 0 },
-        "max_length": { "type": "number", "minimum": 0 },
-        "min": { "type": "number" },
-        "max": { "type": "number" }
+        "required": {
+          "type": "boolean"
+        },
+        "pattern": {
+          "type": "string"
+        },
+        "min_length": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_length": {
+          "type": "number",
+          "minimum": 0
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        }
       }
     },
     "initialState": {
@@ -611,34 +1122,65 @@
       "properties": {
         "visibility": {
           "type": "string",
-          "enum": ["visible", "hidden"]
+          "enum": [
+            "visible",
+            "hidden"
+          ]
         },
-        "expanded": { "type": "boolean" },
-        "selected": { "type": "boolean" }
+        "expanded": {
+          "type": "boolean"
+        },
+        "selected": {
+          "type": "boolean"
+        }
       }
     },
     "designSystem": {
       "type": "object",
       "description": "Named design tokens shared by all nodes in a Blueprint.",
       "additionalProperties": false,
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "properties": {
-        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "colors": { "$ref": "#/$defs/tokenMap" },
-        "typography": { "$ref": "#/$defs/tokenMap" },
-        "spacing": { "$ref": "#/$defs/tokenMap" },
-        "radii": { "$ref": "#/$defs/tokenMap" },
-        "shadows": { "$ref": "#/$defs/tokenMap" }
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "colors": {
+          "$ref": "#/$defs/tokenMap"
+        },
+        "typography": {
+          "$ref": "#/$defs/tokenMap"
+        },
+        "spacing": {
+          "$ref": "#/$defs/tokenMap"
+        },
+        "radii": {
+          "$ref": "#/$defs/tokenMap"
+        },
+        "shadows": {
+          "$ref": "#/$defs/tokenMap"
+        }
       }
     },
     "tokenMap": {
       "type": "object",
-      "additionalProperties": { "type": "string" }
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "interaction": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "trigger", "source_node_id", "action", "result_state"],
+      "required": [
+        "id",
+        "trigger",
+        "source_node_id",
+        "action",
+        "result_state"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -646,7 +1188,21 @@
         },
         "trigger": {
           "type": "string",
-          "enum": ["click", "double_click", "hover", "focus", "blur", "change", "submit", "key_enter", "key_escape", "swipe_left", "swipe_right", "load", "scroll"]
+          "enum": [
+            "click",
+            "double_click",
+            "hover",
+            "focus",
+            "blur",
+            "change",
+            "submit",
+            "key_enter",
+            "key_escape",
+            "swipe_left",
+            "swipe_right",
+            "load",
+            "scroll"
+          ]
         },
         "source_node_id": {
           "type": "string",
@@ -671,11 +1227,21 @@
     "responsive": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["viewport", "rule", "target_node_id", "changes"],
+      "required": [
+        "viewport",
+        "rule",
+        "target_node_id",
+        "changes"
+      ],
       "properties": {
         "viewport": {
           "type": "string",
-          "enum": ["desktop", "tablet", "mobile", "wide"]
+          "enum": [
+            "desktop",
+            "tablet",
+            "mobile",
+            "wide"
+          ]
         },
         "rule": {
           "type": "string",
@@ -708,7 +1274,14 @@
     "acceptance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "type", "statement", "target", "priority", "verification_method"],
+      "required": [
+        "id",
+        "type",
+        "statement",
+        "target",
+        "priority",
+        "verification_method"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -716,7 +1289,14 @@
         },
         "type": {
           "type": "string",
-          "enum": ["layout", "interaction", "responsive", "a11y", "content", "performance"],
+          "enum": [
+            "layout",
+            "interaction",
+            "responsive",
+            "a11y",
+            "content",
+            "performance"
+          ],
           "description": "Acceptance category. Every screen must include at least one of: layout, interaction, responsive, a11y."
         },
         "statement": {
@@ -732,7 +1312,12 @@
         },
         "priority": {
           "type": "string",
-          "enum": ["blocker", "must", "should", "nice"]
+          "enum": [
+            "blocker",
+            "must",
+            "should",
+            "nice"
+          ]
         },
         "verification_method": {
           "type": "string",

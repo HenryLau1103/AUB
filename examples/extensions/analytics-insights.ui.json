@@ -1,0 +1,270 @@
+{
+  "$schema": "../../schema/ui-blueprint.schema.json",
+  "version": "0.3.0",
+  "screen": {
+    "id": "extensions.analytics-insights",
+    "name": "Analytics Insights",
+    "type": "dashboard",
+    "platform": "web",
+    "primary_user_goal": "Demonstrate namespaced custom component types resolved through a project aub.registry.json."
+  },
+  "viewports": [
+    {
+      "id": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "id": "mobile",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "design_system": {
+    "name": "Acme Analytics",
+    "colors": {
+      "surface.canvas": "#f8fafc",
+      "surface.panel": "#ffffff",
+      "text.primary": "#0f172a",
+      "accent.brand": "#6d28d9"
+    },
+    "typography": {
+      "heading.section": "700 24px/1.2 system-ui",
+      "body.default": "400 14px/1.5 system-ui"
+    },
+    "spacing": {
+      "space.4": "16px",
+      "space.6": "24px"
+    },
+    "radii": {
+      "radius.panel": "12px"
+    },
+    "shadows": {
+      "shadow.panel": "0 8px 24px rgba(15, 23, 42, 0.12)"
+    }
+  },
+  "nodes": [
+    {
+      "id": "page",
+      "type": "page",
+      "name": "Insights Page",
+      "role": "Top-level page for the analytics insights board.",
+      "parent_id": null,
+      "children": [
+        "insights_grid"
+      ],
+      "layout": {
+        "mode": "auto",
+        "display": "flex",
+        "direction": "column",
+        "gap": {
+          "y": 24
+        },
+        "padding": {
+          "top": 24,
+          "bottom": 24,
+          "left": 24,
+          "right": 24
+        }
+      }
+    },
+    {
+      "id": "insights_grid",
+      "type": "grid",
+      "name": "Insights Grid",
+      "role": "Responsive grid that arranges insight cards.",
+      "parent_id": "page",
+      "children": [
+        "revenue_card",
+        "signups_card"
+      ],
+      "layout": {
+        "mode": "auto",
+        "display": "grid",
+        "grid": {
+          "columns": 2,
+          "template": "1fr 1fr"
+        },
+        "gap": {
+          "x": 24,
+          "y": 24
+        }
+      }
+    },
+    {
+      "id": "revenue_card",
+      "type": "acme:insight_card",
+      "name": "Revenue Insight",
+      "role": "Custom branded card framing the revenue KPI and its trend.",
+      "parent_id": "insights_grid",
+      "children": [
+        "revenue_heading",
+        "revenue_metric",
+        "revenue_sparkline"
+      ],
+      "layout": {
+        "mode": "auto",
+        "display": "flex",
+        "direction": "column",
+        "gap": {
+          "y": 16
+        },
+        "padding": {
+          "top": 16,
+          "bottom": 16,
+          "left": 16,
+          "right": 16
+        }
+      }
+    },
+    {
+      "id": "revenue_heading",
+      "type": "heading",
+      "name": "Revenue Heading",
+      "role": "Title for the revenue insight card.",
+      "parent_id": "revenue_card",
+      "children": [],
+      "content": {
+        "text": "Monthly Revenue"
+      }
+    },
+    {
+      "id": "revenue_metric",
+      "type": "metric_card",
+      "name": "Revenue Metric",
+      "role": "Headline revenue figure.",
+      "parent_id": "revenue_card",
+      "children": [],
+      "content": {
+        "label": "This month",
+        "value": "$48,200"
+      }
+    },
+    {
+      "id": "revenue_sparkline",
+      "type": "acme:metric_sparkline",
+      "name": "Revenue Sparkline",
+      "role": "Custom leaf rendering the revenue trend line.",
+      "parent_id": "revenue_card",
+      "children": []
+    },
+    {
+      "id": "signups_card",
+      "type": "acme:insight_card",
+      "name": "Signups Insight",
+      "role": "Custom branded card framing the signups KPI and its trend.",
+      "parent_id": "insights_grid",
+      "children": [
+        "signups_heading",
+        "signups_metric",
+        "signups_sparkline"
+      ],
+      "layout": {
+        "mode": "auto",
+        "display": "flex",
+        "direction": "column",
+        "gap": {
+          "y": 16
+        },
+        "padding": {
+          "top": 16,
+          "bottom": 16,
+          "left": 16,
+          "right": 16
+        }
+      }
+    },
+    {
+      "id": "signups_heading",
+      "type": "heading",
+      "name": "Signups Heading",
+      "role": "Title for the signups insight card.",
+      "parent_id": "signups_card",
+      "children": [],
+      "content": {
+        "text": "New Signups"
+      }
+    },
+    {
+      "id": "signups_metric",
+      "type": "metric_card",
+      "name": "Signups Metric",
+      "role": "Headline signups figure.",
+      "parent_id": "signups_card",
+      "children": [],
+      "content": {
+        "label": "This month",
+        "value": "1,284"
+      }
+    },
+    {
+      "id": "signups_sparkline",
+      "type": "acme:metric_sparkline",
+      "name": "Signups Sparkline",
+      "role": "Custom leaf rendering the signups trend line.",
+      "parent_id": "signups_card",
+      "children": []
+    }
+  ],
+  "interactions": [
+    {
+      "id": "open_revenue_detail",
+      "trigger": "click",
+      "source_node_id": "revenue_card",
+      "action": "navigate:/insights/revenue",
+      "result_state": "User is routed to the detailed revenue breakdown view."
+    }
+  ],
+  "responsive": [
+    {
+      "viewport": "mobile",
+      "rule": "col_reduce",
+      "target_node_id": "insights_grid",
+      "changes": {
+        "columns": 1
+      }
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "acc_layout",
+      "type": "layout",
+      "statement": "Insight cards sit in a two-column grid on desktop with consistent spacing.",
+      "target": "insights_grid",
+      "priority": "blocker",
+      "verification_method": "screenshot_diff"
+    },
+    {
+      "id": "acc_interaction",
+      "type": "interaction",
+      "statement": "Clicking the revenue card navigates to its detail view.",
+      "target": "revenue_card",
+      "priority": "must",
+      "verification_method": "interaction_replay"
+    },
+    {
+      "id": "acc_responsive",
+      "type": "responsive",
+      "statement": "On mobile the grid reflows to a single column with no horizontal overflow.",
+      "target": "insights_grid",
+      "priority": "must",
+      "verification_method": "screenshot_diff"
+    },
+    {
+      "id": "acc_a11y",
+      "type": "a11y",
+      "statement": "Each insight card heading is reachable and announced in reading order.",
+      "target": "revenue_heading,signups_heading",
+      "priority": "must",
+      "verification_method": "axe_audit"
+    },
+    {
+      "id": "acc_content",
+      "type": "content",
+      "statement": "Each custom acme:metric_sparkline renders its declared KPI trend.",
+      "target": "revenue_sparkline,signups_sparkline",
+      "priority": "must",
+      "verification_method": "dom_query"
+    }
+  ]
+}

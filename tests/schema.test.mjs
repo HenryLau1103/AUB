@@ -56,6 +56,24 @@ test('S2: schema rejects unknown component type', async () => {
   assert.equal(err.instancePath, '/nodes/0/type');
 });
 
+test('S2: schema accepts a namespaced extension component type via componentType.anyOf', async () => {
+  const validate = await makeValidator();
+  const doc = JSON.parse(await readFile(EXAMPLE_JSON, 'utf8'));
+  doc.nodes[0].type = 'acme:data_card';
+  const ok = validate(doc);
+  assert.equal(ok, true, JSON.stringify(validate.errors));
+});
+
+test('S2: schema rejects a malformed extension type that is neither core nor namespaced', async () => {
+  const validate = await makeValidator();
+  const doc = JSON.parse(await readFile(EXAMPLE_JSON, 'utf8'));
+  doc.nodes[0].type = 'Acme:Data_Card';
+  const ok = validate(doc);
+  assert.equal(ok, false);
+  const err = validate.errors.find((e) => e.instancePath === '/nodes/0/type');
+  assert.ok(err, 'expected an error on /nodes/0/type');
+});
+
 test('S2: schema rejects absolute coordinates (forbidden x property)', async () => {
   const validate = await makeValidator();
   const doc = JSON.parse(await readFile(EXAMPLE_JSON, 'utf8'));
@@ -143,7 +161,7 @@ test('S8: registry types match JSON Schema enum (sync invariant)', async () => {
   const registryPath = new URL('../schema/registry/components.json', import.meta.url).pathname;
   const registry = JSON.parse(await readFile(registryPath, 'utf8'));
   const schema = await loadSchema();
-  const schemaTypes = new Set(schema.$defs.componentType.enum);
+  const schemaTypes = new Set(schema.$defs.coreComponentType.enum);
   const registryTypes = new Set();
   for (const cat of registry.categories) for (const t of cat.types) registryTypes.add(t.name);
   for (const t of registryTypes) {
@@ -159,7 +177,7 @@ test('S8: container subset in registry matches containerComponentType enum in sc
   const registryPath = new URL('../schema/registry/components.json', import.meta.url).pathname;
   const registry = JSON.parse(await readFile(registryPath, 'utf8'));
   const schema = await loadSchema();
-  const schemaContainers = new Set(schema.$defs.containerComponentType.enum);
+  const schemaContainers = new Set(schema.$defs.coreContainerComponentType.enum);
   const registryContainers = new Set();
   for (const cat of registry.categories) for (const t of cat.types) if (t.isContainer) registryContainers.add(t.name);
   for (const c of registryContainers) assert.ok(schemaContainers.has(c), `registry container ${c} not in schema.containerComponentType`);

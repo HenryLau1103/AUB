@@ -88,3 +88,53 @@ test('HP2: manifest byte counts and SHA-256 hashes match every packaged file', a
     assert.equal(createHash('sha256').update(content).digest('hex'), expected.sha256, `${path} hash`);
   }
 });
+
+test('HP3: handoff bundles aub.registry.json and references it when extensions are provided', async () => {
+  const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
+  const reportSchema = JSON.parse(await readFile(REPORT_SCHEMA_URL, 'utf8'));
+  const extensionRegistry = JSON.stringify(
+    { version: '0.1.0', components: [{ name: 'acme:data_card', isContainer: true }] },
+    null,
+    2
+  );
+  const { bytes, manifest } = await createHandoffArchive({
+    blueprint,
+    markdown: exportMarkdown(blueprint),
+    genericPrompt: exportAgentPrompt(blueprint, { adapter: 'generic', task: 'implement' }),
+    codexPrompt: exportAgentPrompt(blueprint, { adapter: 'codex', task: 'implement' }),
+    agentGuide: await readFile(GUIDE_URL, 'utf8'),
+    agentGuideZhHant: await readFile(GUIDE_ZH_URL, 'utf8'),
+    reportTemplate: createImplementationReportTemplate(blueprint),
+    reportSchema,
+    viewportImages: {},
+    extensionRegistry,
+  });
+
+  assert.equal(manifest.extension_registry, 'aub.registry.json');
+  const zip = await JSZip.loadAsync(bytes);
+  assert.ok(zip.file('aub.registry.json'), 'registry file missing from package');
+  const packagedRegistry = await zip.file('aub.registry.json').async('string');
+  assert.ok(packagedRegistry.includes('acme:data_card'));
+  const guide = await zip.file('AGENT-README.md').async('string');
+  assert.ok(guide.includes('Custom component types'));
+  assert.ok(guide.includes('aub.registry.json'));
+});
+
+test('HP4: handoff omits the registry and sets null when no extensions are provided', async () => {
+  const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
+  const reportSchema = JSON.parse(await readFile(REPORT_SCHEMA_URL, 'utf8'));
+  const { bytes, manifest } = await createHandoffArchive({
+    blueprint,
+    markdown: exportMarkdown(blueprint),
+    genericPrompt: exportAgentPrompt(blueprint, { adapter: 'generic', task: 'implement' }),
+    codexPrompt: exportAgentPrompt(blueprint, { adapter: 'codex', task: 'implement' }),
+    agentGuide: await readFile(GUIDE_URL, 'utf8'),
+    agentGuideZhHant: await readFile(GUIDE_ZH_URL, 'utf8'),
+    reportTemplate: createImplementationReportTemplate(blueprint),
+    reportSchema,
+    viewportImages: {},
+  });
+  assert.equal(manifest.extension_registry, null);
+  const zip = await JSZip.loadAsync(bytes);
+  assert.equal(zip.file('aub.registry.json'), null);
+});

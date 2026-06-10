@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://henrylau1103.github.io/AUB/schema/aub.registry.schema.json",
+  "title": "AUB Extension Component Registry",
+  "description": "Project-level registry of namespaced (team:component) custom component types resolved by AUB validation and bundled into agent handoffs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["components"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": {
+      "type": "string",
+      "description": "Optional registry document version (SemVer recommended)."
+    },
+    "description": { "type": "string" },
+    "components": {
+      "type": "array",
+      "description": "Custom component type declarations.",
+      "items": { "$ref": "#/$defs/extensionComponent" }
+    }
+  },
+  "$defs": {
+    "extensionComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "isContainer"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*:[a-z][a-z0-9_]*$",
+          "description": "Namespaced type, team:component (e.g. acme:data_card). Must not collide with a core type."
+        },
+        "isContainer": {
+          "type": "boolean",
+          "description": "true if the component may declare children; false for a leaf."
+        },
+        "description": {
+          "type": "string",
+          "description": "What the component is — agents read this to resolve the type without guessing."
+        }
+      }
+    }
+  }
+}
