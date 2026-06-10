@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Sparkles } from 'lucide-react';
+import {
+  scaffoldInteractions,
+  scaffoldResponsive,
+  scaffoldAcceptance,
+} from '../../../../scripts/scaffold-blueprint.lib.mjs';
 import type {
   Acceptance,
   AcceptancePriority,
@@ -163,12 +168,19 @@ function InteractionEditor({
     });
   };
 
+  const suggest = () => {
+    const { interactions } = scaffoldInteractions(blueprint, { language });
+    onChange({ interactions });
+  };
+
   return (
     <CollectionEditor
       title={copy.interactionsTitle}
       empty={copy.noInteractions}
       addLabel={copy.addInteraction}
       count={blueprint.interactions.length}
+      suggestLabel={copy.suggestFromLayout}
+      onSuggest={suggest}
       onAdd={add}
     >
       {blueprint.interactions.map((interaction, index) => (
@@ -227,6 +239,10 @@ function ResponsiveEditor({
       changes: {},
     }],
   });
+  const suggest = () => {
+    const { responsive } = scaffoldResponsive(blueprint, { language });
+    onChange({ responsive });
+  };
 
   return (
     <div className="responsive-editor">
@@ -240,6 +256,8 @@ function ResponsiveEditor({
         empty={copy.noResponsive}
         addLabel={copy.addResponsive}
         count={blueprint.responsive.length}
+        suggestLabel={copy.suggestFromLayout}
+        onSuggest={suggest}
         onAdd={add}
       >
         {blueprint.responsive.map((item, index) => (
@@ -301,6 +319,11 @@ function AcceptanceEditor({
     }],
   });
 
+  const suggest = () => {
+    const { acceptance } = scaffoldAcceptance(blueprint, { language });
+    onChange({ acceptance });
+  };
+
   return (
     <CollectionEditor
       title={copy.acceptanceTitle}
@@ -308,6 +331,8 @@ function AcceptanceEditor({
       addLabel={copy.addAcceptance}
       count={blueprint.acceptance.length}
       meta={copy.acceptanceMinimum}
+      suggestLabel={copy.suggestFromLayout}
+      onSuggest={suggest}
       onAdd={add}
     >
       {blueprint.acceptance.map((item, index) => (
@@ -458,6 +483,8 @@ function CollectionEditor({
   count,
   meta,
   onAdd,
+  suggestLabel,
+  onSuggest,
   children,
 }: {
   title: string;
@@ -466,13 +493,20 @@ function CollectionEditor({
   count: number;
   meta?: string;
   onAdd: () => void;
+  suggestLabel?: string;
+  onSuggest?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <div className="collection-editor">
       <div className="collection-toolbar">
         <div><strong>{title}</strong><span>{meta ?? `${count}`}</span></div>
-        <button type="button" onClick={onAdd}><Plus />{addLabel}</button>
+        <div className="collection-actions">
+          {suggestLabel && onSuggest && (
+            <button type="button" className="suggest-button" onClick={onSuggest}><Sparkles />{suggestLabel}</button>
+          )}
+          <button type="button" onClick={onAdd}><Plus />{addLabel}</button>
+        </div>
       </div>
       {count === 0 ? <p className="spec-empty">{empty}</p> : children}
     </div>
@@ -658,6 +692,7 @@ const COPY = {
     agentNotes: 'Implementation notes', agentNotesHint: 'Context for the agent. Keep layout rules in the layout and acceptance sections.',
     interactionsTitle: 'Declared interactions', noInteractions: 'No interaction has been declared. Add one for every meaningful action.',
     addInteraction: 'Add interaction', trigger: 'Trigger', sourceComponent: 'Source component',
+    suggestFromLayout: 'Suggest from layout',
     actionIntent: 'Action intent', target: 'Target', resultState: 'Observable result',
     resultStateHint: 'Describe what becomes visibly true after the action.', defaultResult: 'The intended result is visible.',
     responsiveTitle: 'Responsive transformations', noResponsive: 'No responsive behavior has been declared.',
@@ -701,6 +736,7 @@ const COPY = {
     agentNotes: '實作補充說明', agentNotesHint: '提供背景脈絡；佈局規則請寫在佈局與驗收條件。',
     interactionsTitle: '已宣告互動', noInteractions: '尚未定義互動。每個重要操作都應有一筆可觀察結果。',
     addInteraction: '新增互動', trigger: '觸發方式', sourceComponent: '來源元件',
+    suggestFromLayout: '從版面建議',
     actionIntent: '動作意圖', target: '目標', resultState: '可觀察結果',
     resultStateHint: '描述動作完成後，畫面上什麼事情會變成真的。', defaultResult: '預期的結果已顯示。',
     responsiveTitle: '響應式轉換', noResponsive: '尚未定義不同裝置的行為。',

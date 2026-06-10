@@ -15,6 +15,7 @@
 | Portable `.aub.zip` entrypoint | `AGENT-README.md` + Codex prompt | `AGENT-README.md` + generated Claude prompt | `AGENT-README.md` + Copilot prompt | — (tools over stdio) |
 | Repository instruction discovery | `AGENTS.md` | `CLAUDE.md` | `.github/copilot-instructions.md` + `AGENTS.md` | — (caller's responsibility) |
 | Schema validation | via CLI | via CLI | via CLI | `validate_blueprint` |
+| Spec scaffolding (interactions / responsive / acceptance) | `pnpm scaffold` | `pnpm scaffold` | `pnpm scaffold` | `scaffold_blueprint` |
 | Implementation report submission | via CLI | via CLI | via CLI | `submit_report` |
 
 All adapters import the same exporter and schema-compatible Blueprint. No adapter-specific schema exists. A `generic` adapter is also available as the default fallback for any other coding agent.

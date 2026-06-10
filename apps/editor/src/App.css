@@ -2385,6 +2385,18 @@ button.primary {
   height: 13px;
 }
 
+.collection-actions {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.collection-actions .suggest-button {
+  color: var(--accent, #6d28d9);
+}
+
 .spec-empty {
   padding: 20px 14px;
   border: 1px dashed #475569;

@@ -209,6 +209,31 @@ pnpm report:init examples/dashboard.ui.json implementation-report.json
 pnpm report:verify examples/dashboard.ui.json implementation-report.json
 ```
 
+### Scaffold spec sections
+
+Deterministically derive the spec sections that are easy to leave empty —
+`interactions`, `responsive`, and `acceptance` — from the existing node tree and
+viewports. Scaffolding is **non-destructive**: it only appends missing items
+(and tops acceptance up to the required five criteria with layout / interaction /
+responsive / a11y coverage), never overwriting or reordering your content. Run it
+twice and the second pass changes nothing.
+
+```bash
+# Preview to stdout
+pnpm scaffold examples/dashboard.ui.json --stdout
+
+# Write the scaffolded sections back into the file
+pnpm scaffold path/to/screen.ui.json --write
+
+# Only scaffold specific sections, and localize generated statements
+pnpm scaffold path/to/screen.ui.json --sections acceptance,responsive --language zh-Hant --write
+```
+
+In the editor, each spec list (Interactions, Responsive, Acceptance) has a
+**Suggest from layout** button that runs the same logic. Agents over MCP can call
+the `scaffold_blueprint` tool to get a fully specced blueprint before handing it
+off for implementation.
+
 AUB includes deterministic agent-readability and browser-based implementation benchmarks. The current local reference checks cover hierarchy, geometry, layout mode, responsive overflow, interactions, accessibility states, screenshots, and report completeness.
 
 See [agent readability](./benchmarks/agent-readability/README.md) and [implementation benchmark](./benchmarks/agent-implementation/README.md).
@@ -240,7 +265,7 @@ The `$schema` key is optional and ignored by AUB tooling — it only drives edit
 - Codex, Claude Code, and GitHub Copilot adapters: implemented.
 - Angular import, personal templates, and AI authoring kit: implemented.
 - Blueprint diff and implementation report verification: implemented.
-- MCP server (stdio) exposing list/get/validate/export-prompt/submit-report tools: implemented.
+- MCP server (stdio) exposing list/get/validate/scaffold/export-prompt/submit-report tools: implemented.
 - Multi-screen projects, YAML editing in the UI, and editor-side lock generation: backlog.
 
 The current format version is `0.3.0`. See [schema versioning](./docs/schema-versioning.md) and [capability matrix](./docs/capability-matrix.md).

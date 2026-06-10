@@ -2,6 +2,7 @@ import { t, type Language } from './i18n';
 import { defaultLayoutForType } from './store';
 import type { Acceptance, Blueprint, ComponentType, Interaction, Placement, UINode } from '../types';
 import { defaultDesignSystem } from '../../../../scripts/migrate-blueprint.mjs';
+import { scaffoldInteractions } from '../../../../scripts/scaffold-blueprint.lib.mjs';
 
 export type TemplateId =
   | 'dashboard'
@@ -734,16 +735,7 @@ function tableContent(language: Language): UINode['content'] {
 }
 
 function interactions(nodes: UINode[], language: Language): Interaction[] {
-  return nodes
-    .filter((node) => node.content?.action)
-    .slice(0, 8)
-    .map((node, index) => ({
-      id: `interaction_${index + 1}`,
-      trigger: node.type === 'form' ? 'submit' : 'click',
-      source_node_id: node.id,
-      action: node.content?.action ?? 'noop',
-      result_state: language === 'zh-Hant' ? `${node.name} 的操作結果清楚顯示。` : `The result of ${node.name} is visibly presented.`,
-    }));
+  return scaffoldInteractions({ nodes, interactions: [] }, { language }).interactions as Interaction[];
 }
 
 function acceptance(language: Language): Acceptance[] {

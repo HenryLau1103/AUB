@@ -7,6 +7,7 @@ import type { ServerContext } from './context.js';
 import * as listBlueprints from './tools/list-blueprints.js';
 import * as getBlueprint from './tools/get-blueprint.js';
 import * as validateBlueprint from './tools/validate-blueprint.js';
+import * as scaffoldBlueprint from './tools/scaffold-blueprint.js';
 import * as exportPrompt from './tools/export-prompt.js';
 import * as submitReport from './tools/submit-report.js';
 
@@ -53,6 +54,14 @@ async function main(): Promise<void> {
   server.registerTool(validateBlueprint.name, validateBlueprint.config, async (args) => {
     try {
       return ok(await validateBlueprint.run(ctx, args));
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  server.registerTool(scaffoldBlueprint.name, scaffoldBlueprint.config, async (args) => {
+    try {
+      return ok(await scaffoldBlueprint.run(ctx, args));
     } catch (error) {
       return fail(error);
     }

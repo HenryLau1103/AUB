@@ -14,6 +14,7 @@ The server is a thin wrapper over the repository's existing pure-function librar
 | `list_blueprints` | — | Every `.ui.json` / `.ui.yaml` under the workspace root with screen id, name, version. |
 | `get_blueprint` | `ref`, `format?` (`json` \| `yaml` \| `markdown`) | The resolved Blueprint as JSON/YAML, or derived `.ui.md` agent context. |
 | `validate_blueprint` | `ref?` or inline `blueprint?` | `{ valid, schemaErrors[], semanticErrors[] }` (JSON Schema + semantic rules). |
+| `scaffold_blueprint` | `ref?` or inline `blueprint?`, `sections?` (`interactions` \| `responsive` \| `acceptance`), `language?` (`en` \| `zh-Hant`) | `{ source, summary, blueprint }`. Non-destructively derives missing interactions, responsive rules, and acceptance criteria from the node tree and viewports. |
 | `export_prompt` | `ref`, `adapter?` (`generic` \| `codex` \| `claude-code` \| `copilot`), `task?` (`author` \| `plan` \| `implement` \| `review`) | An agent-ready prompt with embedded Blueprint context. |
 | `submit_report` | `ref`, `report`, `persist?` | Verifies an implementation report (schema + node mappings + acceptance evidence). Accepted reports are written to `<root>/.aub/reports/`. |
 
