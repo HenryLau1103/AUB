@@ -79,6 +79,11 @@ async function exportCodexPrompt(blueprint: Blueprint): Promise<string> {
   return mod.exportAgentPrompt(blueprint, { adapter: 'codex', task: 'implement' });
 }
 
+async function exportGenericPrompt(blueprint: Blueprint): Promise<string> {
+  const mod = await import('../../../scripts/export-agent-prompt.lib.mjs');
+  return mod.exportAgentPrompt(blueprint, { adapter: 'generic', task: 'implement' });
+}
+
 async function createReportTemplate(blueprint: Blueprint): Promise<Record<string, unknown>> {
   const mod = await import('../../../scripts/implementation-report.lib.mjs');
   return mod.createImplementationReportTemplate(blueprint);
@@ -580,9 +585,19 @@ export function App() {
     setNotice(t(language, 'preparingPackage'));
     const images = await canvasRef.current.captureViewports();
     const markdown = await exportMarkdown(blueprint);
-    const agentPrompt = await exportCodexPrompt(blueprint);
+    const [genericPrompt, codexPrompt] = await Promise.all([
+      exportGenericPrompt(blueprint),
+      exportCodexPrompt(blueprint),
+    ]);
     const reportTemplate = await createReportTemplate(blueprint);
-    await downloadHandoffPackage(blueprint, markdown, agentPrompt, reportTemplate, images);
+    await downloadHandoffPackage(
+      blueprint,
+      markdown,
+      genericPrompt,
+      codexPrompt,
+      reportTemplate,
+      images
+    );
     setNotice(t(language, 'packageReady'));
   }
 

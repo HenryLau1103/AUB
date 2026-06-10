@@ -24,6 +24,30 @@ declare module '*/implementation-report.lib.mjs' {
   export function createImplementationReportTemplate(blueprint: Blueprint): Record<string, unknown>;
 }
 
+declare module '*/handoff-package.lib.mjs' {
+  import type { Blueprint } from './types';
+  export function createHandoffArchive(input: {
+    blueprint: Blueprint;
+    markdown: string;
+    genericPrompt: string;
+    codexPrompt: string;
+    agentGuide: string;
+    agentGuideZhHant: string;
+    reportTemplate: Record<string, unknown>;
+    reportSchema: Record<string, unknown>;
+    viewportImages: Record<string, string>;
+    generatedAt?: string;
+  }): Promise<{
+    bytes: Uint8Array;
+    manifest: Record<string, unknown>;
+  }>;
+}
+
+declare module '*.md?raw' {
+  const content: string;
+  export default content;
+}
+
 declare module '*/migrate-blueprint.mjs' {
   import type { Blueprint } from './types';
   export function migrateBlueprint(input: unknown): Blueprint;

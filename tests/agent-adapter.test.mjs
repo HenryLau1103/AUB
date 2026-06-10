@@ -29,6 +29,8 @@ test('P2: Codex adapter preserves exact Blueprint context and acceptance ids', a
   const blueprint = JSON.parse(await readFile(EXAMPLE, 'utf8'));
   const prompt = exportAgentPrompt(blueprint, { adapter: 'codex', task: 'implement' });
   assert.ok(prompt.includes('Read every applicable AGENTS.md'));
+  assert.ok(prompt.includes("replying in the user's language"));
+  assert.ok(prompt.includes('Explain what AUB is'));
   assert.ok(prompt.includes('primary_cta  (button)'));
   assert.ok(prompt.includes('| `primary_cta` | `desktop` | 80 | 220 | 160 | 44 | 2 |'));
   for (const item of blueprint.acceptance) assert.ok(prompt.includes(item.id));

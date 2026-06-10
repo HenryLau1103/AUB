@@ -2,6 +2,8 @@
 
 Agent adapters are thin prompt transforms. They MUST NOT fork or extend the UI Blueprint schema.
 
+For the portable package entrypoint, precedence rules, first-response behavior, and completion contract, read the [Agent handoff guide](./agent-handoff.md).
+
 ## Input
 
 - One valid current-major `.ui.json` or `.ui.yaml` Blueprint.
@@ -29,3 +31,5 @@ node adapters/claude-code/export-prompt.mjs examples/dashboard.ui.json dashboard
 ```
 
 Adapters may change instructions and invocation conventions. They may not change node types, layout semantics, interactions, responsive rules, or acceptance criteria.
+
+GitHub Copilot and agents without a dedicated adapter should use the `generic` adapter together with `AGENT-README.md` from the `.aub.zip` handoff package.

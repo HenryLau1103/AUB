@@ -1,167 +1,226 @@
 # AUB — UI Blueprint Agent（UI 藍圖代理工具）
 
-一套給 AI 編碼代理使用的結構化規格格式。用拖拉的方式在畫布上組出 UI，匯出成 `.ui.json`（機器讀）、`.ui.yaml`（人編輯）、`.ui.md`（代理提示詞上下文）。程式代理讀了它，就知道要蓋什麼、放在哪裡、如何驗收。
+**畫出介面，匯出 UI 合約，讓編碼 Agent 精準實作並驗收。**
 
-> English version: [`README.md`](./README.md)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
+[![Blueprint](https://img.shields.io/badge/UI%20Blueprint-v0.3.0-0f766e.svg)](./schema/ui-blueprint.schema.json)
+[![Node](https://img.shields.io/badge/Node-%3E%3D20-339933.svg)](./package.json)
 
-## 專案狀態
+[English](./README.md) · [Agent 交付指南](./docs/agent-handoff.zh-Hant.md) · [標準範例](./examples/dashboard.ui.json)
 
-- **Phase 0** — 問題定義、失敗案例、成功條件 — **已完成**
-- **Phase 1 / Milestone A** — Schema 可用 — **已完成**（Tier 1 八項條件全數通過）
-- **Phase 2 / Milestone B** — 編輯器可用 — **已完成**（自由／自動佈局、拖曳、縮放、多選、內建與個人範本）
-- **Phase 3 / Milestone C** — Agent 交付 — **本機流程已完成**（`.ui.md`、`.aub.zip`、各 viewport 截圖、雜湊，地端 Qwen 3.6 35B 精確讀取 22/22）
-- **Milestone D/E 基礎能力** — **已完成**（Blueprint diff、Codex／Claude Code adapters、實作報告 schema 與驗證器）
-- **Blueprint v0.3 匯入／生成** — **已實作**（Angular 元件檔案組、來源診斷、個人範本與 AI 生成工具包）
+![AUB 視覺編輯器正在編輯響應式註冊流程](./docs/assets/aub-editor-zh-hant.jpg)
 
-## 倉庫結構
+AUB 是一套視覺 UI 規格工具，協助使用者把畫面精準交給 Codex、Claude Code、GitHub Copilot 或其他編碼 Agent。你可以在畫板上組出畫面、宣告行為與驗收條件，再匯出結構化交付包，讓 Agent 不必只靠文字或截圖猜測。
 
-```
-.
-├── schema/
-│   ├── ui-blueprint.schema.json    # Draft 2020-12 schema（單一真實來源）
-│   ├── types.ts                    # 手動同步的 TypeScript 型別
-│   └── registry/components.json    # 62 個語意 component type，分 7 大類
-├── examples/
-│   ├── dashboard.ui.json           # SaaS 儀表板：24 nodes、6 interactions、11 acceptance
-│   ├── dashboard.ui.yaml           # 同上，方便人編輯
-│   ├── dashboard.ui.md             # 自動生成的代理上下文
-│   ├── dashboard.ui.lock.json      # 凍結的驗收快照（含雜湊）
-│   └── freeform-actions.ui.json    # 自由佈局與 AI 可讀性精簡範例
-├── scripts/
-│   ├── validate.mjs                # CLI：對 schema 驗證 .ui.json / .yaml
-│   ├── validate-blueprint.lib.mjs  # 樹狀結構、參照與幾何語意驗證
-│   ├── migrate-blueprint-cli.mjs   # CLI：將 v0.1／v0.2 升級為 v0.3
-│   ├── import-angular-component.mjs # CLI：Angular HTML／SCSS／TS → Blueprint v0.3
-│   ├── create-authoring-kit.mjs    # CLI：schema、registry 與生成提示工具包
-│   ├── export-md.mjs               # CLI：從 .ui.json 產生 .ui.md
-│   ├── export-md.lib.mjs           # 純函式（瀏覽器安全，編輯器會用到）
-│   ├── lock-blueprint.mjs          # CLI：產生 .ui.lock.json 快照
-│   ├── score-agent-readability.mjs # 22 項確定性 AI 可讀性評分
-│   └── run-agent-readability.mjs   # 需明確授權的外部代理執行器
-├── benchmarks/agent-readability/  # 代理提示詞與標準答案
-├── apps/editor/                    # Vite + React + TypeScript 視覺編輯器
-├── tests/                          # Schema、遷移、語意、範本與匯出測試
-└── docs/
-    ├── problem-statement.md
-    ├── failure-cases.md
-    ├── mvp-success-criteria.md
-    └── schema-versioning.md
+> AUB 目前以本機方式執行，尚未提供公開線上 Demo。
+
+## 運作方式
+
+```mermaid
+flowchart LR
+  A["1. 在視覺畫板上<br/>組出 UI"] --> B["2. 匯出結構、行為、<br/>響應式與驗收條件"]
+  B --> C["3. 把交付包<br/>交給編碼 Agent"]
+  C --> D["4. Agent 實作、測試，<br/>並逐項回報證據"]
 ```
 
-## 快速上手
+1. **視覺化組版**：從 18 個常用網站與應用範本開始，或直接在畫布上安排已註冊元件。
+2. **匯出 UI 合約**：AUB 記錄語意階層、自動／自由佈局、各 viewport 精確位置、互動、design token、響應式規則與驗收條件。
+3. **交給 Agent**：`.aub.zip` 會告訴 Agent 要讀什麼、要實作什麼，以及如何證明結果符合要求。
+
+## 適合誰使用
+
+- 需要比截圖或文字提示更精確的產品設計師與開發者。
+- 使用編碼 Agent 實作儀表板、表單、內容產品、商務流程與應用框架的團隊。
+- 需要 schema 驗證與可測試 UI 交換格式的 Agent 或工具開發者。
+- 希望把既有 Angular 畫面轉成可重用 UI Blueprint 的團隊。
+
+## AUB 解決什麼問題
+
+「做一個像 Stripe 的 dashboard」或「做成像 Notion 一樣響應式」這類提示，會遺漏許多關鍵決策。截圖能表達外觀，卻無法交代元件意圖、互動結果、breakpoint、無障礙需求或驗收標準。
+
+AUB 把這些決策變成明確合約：
+
+- 使用已註冊的語意元件，不是匿名矩形。
+- 明確定義階層與 layout，不讓 Agent 猜群組關係。
+- 定義桌面、平板與手機行為，不只寫「要響應式」。
+- 宣告互動與狀態，不讓 Agent 自行補劇情。
+- 使用可測試的 acceptance id，不靠主觀感覺放行。
+
+具體案例請看[純文字需求的失敗案例](./docs/failure-cases.md)。
+
+## 本機快速開始
+
+需求：Node.js 20+ 與 pnpm。
 
 ```bash
-# 1. 安裝依賴（根目錄 + 編輯器）
+git clone https://github.com/HenryLau1103/AUB.git
+cd AUB
 pnpm install
-cd apps/editor && pnpm install && cd ../..
+(cd apps/editor && pnpm install && pnpm dev)
+```
 
-# 2. 驗證範例
+開啟 Vite 顯示的本機網址，通常是 `http://127.0.0.1:5173/`。
+
+進入編輯器後：
+
+1. 選擇範本。
+2. 從元件上方中央把手拖曳，或從元件面板新增元件。
+3. 完成畫面目標、畫面佈局、互動行為、響應式、驗收條件與 AI 交付。
+4. 匯出 AI 交付包。
+
+## 把 Blueprint 交給 Agent
+
+匯出 `.aub.zip`，放進目標程式碼 repository，然後對 Agent 說：
+
+```text
+讀取這個 AUB 交付包中的 AGENT-README.md。
+用我的語言向我說明交付包內容，檢查目前 repository，
+實作 Blueprint、執行相關檢查，並逐項回報每個 acceptance id 的證據。
+```
+
+每個交付包都包含：
+
+```text
+AGENT-README.md
+AGENT-README.zh-Hant.md
+<screen>.ui.json
+<screen>.ui.md
+<screen>.agent.md
+<screen>.codex.md
+implementation-report.template.json
+implementation-report.schema.json
+screenshots/
+  desktop.png
+  tablet.png
+  mobile.png
+manifest.json
+```
+
+`<screen>.ui.json` 是唯一真實來源；Markdown 與截圖是輔助證據。Agent 在修改檔案前必須先讀取目標 repository 的規則，不得自行重新設計或降低驗收條件。
+
+請閱讀完整的 [Agent 交付指南](./docs/agent-handoff.zh-Hant.md)。
+
+## Agent 支援
+
+| Agent | 支援方式 | 入口 |
+|---|---|---|
+| Codex | 專用 adapter | `<screen>.codex.md` 與 repository 的 `AGENTS.md` |
+| Claude Code | 專用 adapter | 使用 `--adapter claude-code` 產生；讀取 `CLAUDE.md` |
+| GitHub Copilot | 通用交付 | `AGENT-README.md`、`<screen>.agent.md` 與 repository Copilot instructions |
+| 其他編碼 Agent | 通用交付 | `AGENT-README.md` 與 `<screen>.agent.md` |
+
+核心 Blueprint 與 Agent 平台無關。Adapter 只調整執行指示，不會改變 schema、layout 語意、互動或驗收條件。
+
+直接產生任務提示：
+
+```bash
+pnpm prompt examples/dashboard.ui.json dashboard.agent.md --adapter generic --task implement
+pnpm prompt examples/dashboard.ui.json dashboard.codex.md --adapter codex --task implement
+pnpm prompt examples/dashboard.ui.json dashboard.claude.md --adapter claude-code --task review
+```
+
+支援的任務為 `author`、`plan`、`implement` 與 `review`。
+
+## Blueprint 描述的內容
+
+- 由已註冊語意 UI 節點組成的樹狀結構。
+- 使用 flex/grid 合約的自動佈局，或各 viewport 的自由佈局位置。
+- 元件內容、design token、binding、狀態與限制。
+- 使用者互動與可觀察結果。
+- 針對命名 viewport 的響應式覆寫規則。
+- 至少五項驗收條件，涵蓋 layout、interaction、responsive 與 accessibility。
+- 既有程式碼匯入時可選擇保留來源與診斷資料。
+
+主要格式：
+
+| 格式 | 用途 |
+|---|---|
+| `.ui.json` | 機器驗證與唯一真實來源 |
+| `.ui.yaml` | 人工編輯 |
+| `.ui.md` | 自動生成的 Agent 與 reviewer 上下文 |
+| `.ui.lock.json` | 凍結的驗收快照 |
+| `.aub.zip` | 完整 Agent 交付包 |
+
+## 既有畫面與 AI 生成流程
+
+匯入 Angular HTML／SCSS／TS 元件檔案組：
+
+```bash
+pnpm import:angular path/to/component-directory \
+  --entry app-example \
+  --output example.ui.json
+```
+
+建立可攜式工具包，教 AI 產生有效的 AUB 檔案：
+
+```bash
+pnpm authoring:kit aub-authoring-kit.zip
+```
+
+工具包包含目前 schema、62 種元件 registry、標準範例、驗證指南與生成提示。詳細內容請看 [Angular 匯入](./docs/angular-import.md)與 [adapter 介面](./docs/agent-adapter-interface.md)。
+
+## 驗證與審查
+
+```bash
+# 驗證 Blueprint
 pnpm validate examples/dashboard.ui.json
 
-# 3. 重新產生 Markdown
-node scripts/export-md.mjs examples/dashboard.ui.json examples/dashboard.ui.md
-
-# 4. 升級舊版 Blueprint
+# 將 v0.1／v0.2 升級為 v0.3
 pnpm migrate old.ui.json migrated.ui.json
 
-# 5. 將設計凍結為 lock 快照
-node scripts/lock-blueprint.mjs examples/dashboard.ui.json examples/dashboard.ui.lock.json
-
-# 6. 跑全部測試
-pnpm test
-
-# 7. 型別檢查（根目錄 + 編輯器）
-pnpm typecheck
-(cd apps/editor && pnpm typecheck)
-
-# 8. 評分代理輸出的精確度
-pnpm score:agent path/to/agent-output.json
-
-# 9. 匯入 Angular 元件檔案組
-pnpm import:angular path/to/component-directory --entry app-example --output example.ui.json
-
-# 10. 建立教 AI 產生 AUB 檔案的工具包
-pnpm authoring:kit aub-authoring-kit.zip
-
-# 11. 啟動編輯器
-(cd apps/editor && pnpm dev)
-# → 開啟 http://127.0.0.1:5173/
-```
-
-## 設計原則（出自 `ui-blueprint-agent-plan.md`）
-
-1. **語意優先於視覺** — 每個節點都帶有已註冊的 `type`（`data_table`、`metric_card` ……），不是單純的矩形。
-2. **Layout 是明確合約** — 自動容器使用 flex / grid；自由容器使用各 viewport 的 placement。Agent 不可自行替換模式。
-3. **Blueprint 是唯一真實來源** — 編輯器狀態由 `.ui.json` 衍生。匯出 → 匯入的 round-trip 必須無損。
-4. **驗收是 checklist、不是感覺** — 每個畫面至少 5 項可驗收的條目，涵蓋 layout、interaction、responsive、a11y。
-5. **同一份 schema，多個 agent** — 核心格式對 agent 中立。各 agent 的差異寫在薄薄的 adapter 層（Phase 4+）。
-6. **不准用「感覺不錯」放行** — Schema 驗證、layout diff、acceptance checklist 是唯一可用的審查訊號。
-
-編輯器中的直接放置屬於明確的自由佈局操作：一般拖曳只會在目前父容器內移動；按住 Option／Alt 並拖到另一個容器，才會更新父子關係。從元件面板拖入自動排列容器時，編輯器會先保存既有子元件幾何，再將該容器切換為自由模式。
-
-## Agent 可讀性基準
-
-把 `benchmarks/agent-readability/prompt.md` 與 `examples/freeform-actions.ui.json` 交給代理，將代理輸出的純 JSON 存檔，再執行：
-
-```bash
-pnpm score:agent path/to/agent-output.json
-```
-
-評分器會精確比對 22 項資料，涵蓋階層、自由佈局幾何、layout mode、design token、互動與驗收條件。
-
-外部 Codex／其他 CLI 的執行方式見 `benchmarks/agent-readability/README.md`。未帶 `--allow-external` 時，腳本會直接拒絕執行。
-
-## Agent 實作精度基準
-
-實作基準會要求 Agent 產生可執行的單檔 UI 與 implementation report，再透過本機 Chrome 驗證桌面／平板／手機的精確幾何、階層、auto layout、互動、focus 狀態、響應式溢出、computed style、截圖與 report 完整性。
-
-```bash
-pnpm benchmark:implementation qwen-local --allow-external -- \
-  node scripts/run-ollama-prompt.mjs qwen3.6:35b http://100.64.168.99:11434
-```
-
-詳細操作見 `benchmarks/agent-implementation/README.md`。固定參考實作全數通過；地端 `qwen3.6:35b` 在補強交付契約後通過 420／420 項檢查。
-
-## Agent 任務與版本差異
-
-產生可直接交給 Agent 的生成、實作、規劃或審查任務：
-
-```bash
-pnpm prompt examples/dashboard.ui.json dashboard.codex.md --adapter codex --task implement
-pnpm prompt examples/dashboard.ui.json author.codex.md --adapter codex --task author
-node adapters/claude-code/export-prompt.mjs examples/dashboard.ui.json - --task review
-```
-
-比較兩版 Blueprint，列出異動節點與精確欄位：
-
-```bash
+# 比較兩版 Blueprint
 pnpm diff before.ui.json after.ui.json
-pnpm diff before.ui.json after.ui.json --json
-```
 
-Adapter 介面與能力範圍見 `docs/agent-adapter-interface.md`、`docs/capability-matrix.md`。
-
-建立並驗證 Agent 回傳的機器可讀實作報告：
-
-```bash
+# 建立並驗證 implementation report
 pnpm report:init examples/dashboard.ui.json implementation-report.json
 pnpm report:verify examples/dashboard.ui.json implementation-report.json
 ```
 
-## 這個設計防堵的失敗模式
+AUB 內建確定性的 Agent 可讀性評分，以及以瀏覽器執行的實作驗證。現有本機參考檢查涵蓋階層、幾何、layout mode、響應式 overflow、互動、無障礙狀態、截圖與報告完整性。
 
-完整內容見 `docs/failure-cases.md`，收錄 5 個具體案例。簡言之：「照 Figma 做出來」、「做成像 Notion 一樣響應式」、「加個 settings 頁」、「sidebar 弄乾淨一點」、「做一個像 Stripe 的 dashboard」這些需求，純文字描述都會失敗。Blueprint 格式強制每個維度都要明確決定。
+請參考 [Agent 可讀性測試](./benchmarks/agent-readability/README.md)與[實作基準測試](./benchmarks/agent-implementation/README.md)。
 
-## Schema 版本管理
+## 專案狀態
 
-見 `docs/schema-versioning.md`。採用 SemVer 2.0.0。`$id` 帶著版本號。舊 major 版本不可變更，存放在 `schema/archive/`。
+- Blueprint schema 與語意驗證：已實作。
+- WYSIWYG 編輯器，自由／自動佈局、拖曳、縮放、多選、畫板縮放、本地化與範本：已實作。
+- JSON、Markdown、截圖、雜湊與 `.aub.zip` 交付：已實作。
+- Codex 與 Claude Code adapter：已實作。
+- Angular 匯入、個人範本與 AI 生成工具包：已實作。
+- Blueprint diff 與 implementation report 驗證：已實作。
+- 多畫面專案、UI 內 YAML 編輯與 editor 內 lock 產生：待辦。
 
-## 貢獻流程
+目前格式版本為 `0.3.0`。請看 [schema 版本管理](./docs/schema-versioning.md)與[能力矩陣](./docs/capability-matrix.md)。
 
-送 PR 之前：
+## Repository 結構
 
-1. `pnpm test` — 全部測試通過
-2. `pnpm typecheck` 與 `(cd apps/editor && pnpm typecheck)` — 兩邊皆零錯誤
-3. `(cd apps/editor && pnpm build)` — 生產建置成功
-4. 若有修改 schema，跑 `pnpm validate examples/dashboard.ui.json` 確認範例仍通過
-5. Commit 採 `chore:` / `feat:` / `fix:` / `docs:` / `test:` 風格，訊息主體使用繁體中文
+```text
+schema/          JSON Schema、TypeScript 型別與元件 registry
+scripts/         驗證、遷移、匯出、匯入、diff 與報告工具
+examples/        標準 JSON、YAML、Markdown 與 lock 範例
+apps/editor/     Vite + React 視覺編輯器
+adapters/        各 Agent 專用提示 adapter
+benchmarks/      Agent 可讀性與實作驗證
+docs/            產品決策、指南、審查與驗收限制
+tests/           所有合約的 Node 測試
+```
+
+Schema 是唯一真實來源。必須保持 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.schema.json) 與 [`schema/types.ts`](./schema/types.ts) 同步。
+
+## 貢獻方式
+
+送出 PR 前：
+
+```bash
+pnpm test
+pnpm typecheck
+(cd apps/editor && pnpm typecheck)
+(cd apps/editor && pnpm build)
+pnpm validate examples/dashboard.ui.json
+```
+
+修改範圍應保持精簡、維持 round-trip 完整性，並且不得加入未註冊的語意元件類型。
+
+## 授權
+
+本專案採用 [Apache License 2.0](./LICENSE)。

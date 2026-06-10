@@ -24,7 +24,7 @@ WYSIWYG editor for UI Blueprints v0.3.
 - **Export** to `.ui.md` with exact viewport geometry and design tokens
 - **Edit** screen goals, declared interactions, responsive rules, and acceptance criteria
 - **Export** a Codex-ready implementation task
-- **Export** an `.aub.zip` AI handoff package with JSON, Markdown, Codex task, implementation report template/schema, viewport screenshots, and SHA-256 manifest
+- **Export** an `.aub.zip` AI handoff package with portable English/Traditional Chinese agent guides, generic and Codex tasks, JSON, Markdown, implementation report template/schema, viewport screenshots, and a SHA-256 manifest
 - **Download** an AI authoring kit containing the current schema, registry, canonical example, validation guide, and author-task prompt
 - **Live schema validation** — invalid edits show error count in the status bar
 
@@ -91,3 +91,5 @@ dist/assets/jszip.min-*.js               lazy-loaded on package export
 ```
 
 `html-to-image` and `jszip` are loaded only when exporting an AI handoff package. `export-md.lib-*.js` remains split for caching across releases.
+
+The handoff package format is `aub-handoff` `1.1.0`. Agents start with `AGENT-README.md`; the manifest exposes the same path as `agent_entrypoint`.
