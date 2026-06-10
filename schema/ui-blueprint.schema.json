@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/HenryLau1103/AUB/schema/ui-blueprint.schema.json",
+  "$id": "https://github.com/HenryLau1103/AUB/schema/0.3.0/ui-blueprint.schema.json",
   "title": "UI Blueprint",
   "description": "Structured specification of a UI screen for AI coding agents. Source of truth for layout, semantics, interactions, responsive rules, and acceptance criteria.",
   "type": "object",
@@ -11,7 +11,8 @@
       "type": "string",
       "description": "Semantic version of the schema this document conforms to.",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
-      "examples": ["0.1.0", "1.0.0"]
+      "enum": ["0.1.0", "0.2.0", "0.3.0"],
+      "examples": ["0.1.0", "0.2.0", "0.3.0"]
     },
     "screen": {
       "description": "Metadata about the screen this Blueprint describes.",
@@ -43,6 +44,12 @@
       "description": "Verifiable acceptance items. MUST be ≥5 per screen, must include layout, interaction, responsive, a11y categories.",
       "minItems": 5,
       "items": { "$ref": "#/$defs/acceptance" }
+    },
+    "design_system": {
+      "$ref": "#/$defs/designSystem"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
     }
   },
   "$defs": {
@@ -96,6 +103,13 @@
         "auth",
         "error",
         "empty"
+        ,"workspace"
+        ,"communication"
+        ,"content"
+        ,"commerce"
+        ,"calendar"
+        ,"files"
+        ,"onboarding"
       ]
     },
     "viewport": {
@@ -164,6 +178,17 @@
         "layout": {
           "$ref": "#/$defs/layout"
         },
+        "placements": {
+          "type": "object",
+          "description": "Exact geometry keyed by viewport. Coordinates are relative to the parent content box.",
+          "additionalProperties": false,
+          "properties": {
+            "desktop": { "$ref": "#/$defs/placement" },
+            "tablet": { "$ref": "#/$defs/placement" },
+            "mobile": { "$ref": "#/$defs/placement" },
+            "wide": { "$ref": "#/$defs/placement" }
+          }
+        },
         "content": {
           "$ref": "#/$defs/content"
         },
@@ -194,6 +219,18 @@
               "description": "Minimum interactive area in pixels (Apple HIG 44, Material 48)."
             }
           }
+        },
+        "source": {
+          "$ref": "#/$defs/sourceReference"
+        },
+        "bindings": {
+          "$ref": "#/$defs/bindings"
+        },
+        "validation": {
+          "$ref": "#/$defs/validation"
+        },
+        "initial_state": {
+          "$ref": "#/$defs/initialState"
         }
       },
       "allOf": [
@@ -241,6 +278,8 @@
         "button", "icon_button", "button_group", "menu", "toolbar", "command_palette",
         "modal", "drawer", "toast", "alert", "empty_state", "loading_state", "error_state",
         "tabs", "breadcrumb", "pagination", "stepper", "nav_item"
+        ,"heading", "text", "card", "image", "icon", "avatar", "badge", "tag", "divider", "link"
+        ,"textarea", "search_input", "calendar", "kanban_board", "kanban_column", "rich_text_editor"
       ],
       "description": "Registered semantic component type. Agents read this to know WHAT a node is."
     },
@@ -252,7 +291,7 @@
         "list", "detail_panel", "timeline", "activity_feed",
         "form", "field_group", "menu", "toolbar", "button_group", "command_palette",
         "modal", "drawer",
-        "tabs", "stepper"
+        "tabs", "stepper", "card", "kanban_board", "kanban_column", "rich_text_editor"
       ]
     },
     "leafComponentType": {
@@ -263,13 +302,20 @@
         "button", "icon_button",
         "toast", "alert", "empty_state", "loading_state", "error_state",
         "breadcrumb", "pagination", "nav_item"
+        ,"heading", "text", "image", "icon", "avatar", "badge", "tag", "divider", "link"
+        ,"textarea", "search_input", "calendar"
       ]
     },
     "layout": {
       "type": "object",
-      "description": "Flex/grid-based layout rules. Absolute coordinates are forbidden by convention (no x/y).",
+      "description": "Container layout contract. Exact child geometry belongs in node.placements, not here.",
       "additionalProperties": false,
       "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["auto", "freeform"],
+          "description": "auto uses flex/grid flow; freeform uses child placements for the active viewport."
+        },
         "display": {
           "type": "string",
           "enum": ["flex", "grid", "block", "inline", "none"]
@@ -361,6 +407,26 @@
         }
       }
     },
+    "placement": {
+      "type": "object",
+      "description": "Pixel geometry relative to the parent content box for one viewport.",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0 },
+        "y": { "type": "number", "minimum": 0 },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "height": { "type": "number", "exclusiveMinimum": 0 },
+        "z_index": { "type": "integer", "minimum": -1000, "maximum": 1000 },
+        "order": { "type": "integer" },
+        "grow": { "type": "number", "minimum": 0 },
+        "basis": { "type": "number", "minimum": 0 },
+        "grid_column": { "type": "integer", "minimum": 1 },
+        "grid_row": { "type": "integer", "minimum": 1 },
+        "column_span": { "type": "integer", "minimum": 1, "maximum": 24 },
+        "row_span": { "type": "integer", "minimum": 1, "maximum": 24 }
+      }
+    },
     "content": {
       "type": "object",
       "description": "Component-specific content. Required fields depend on node.type — see if/then rules below.",
@@ -402,7 +468,13 @@
         "error_state": {
           "type": "string",
           "description": "Symbolic id of an error_state node to render on fetch failure."
-        }
+        },
+        "src": { "type": "string", "description": "Image or media source URL." },
+        "alt": { "type": "string", "description": "Alternative text for visual media." },
+        "icon": { "type": "string", "description": "Symbolic icon name." },
+        "value": { "type": "string", "description": "Representative value shown by the component." },
+        "helper_text": { "type": "string", "description": "Supporting or validation text." },
+        "variant": { "type": "string", "description": "Semantic component variant such as primary, subtle, or destructive." }
       }
     },
     "tableColumn": {
@@ -415,6 +487,18 @@
         "data_binding": { "type": "string" },
         "sortable": { "type": "boolean" },
         "filterable": { "type": "boolean" },
+        "cell_kind": {
+          "type": "string",
+          "enum": ["text", "number", "date", "link", "icon", "action", "status", "checkbox"]
+        },
+        "icon": { "type": "string" },
+        "action": { "type": "string" },
+        "sticky": { "type": "boolean" },
+        "align": {
+          "type": "string",
+          "enum": ["start", "center", "end"]
+        },
+        "visible_when": { "type": "string" },
         "width": {
           "type": "object",
           "additionalProperties": false,
@@ -452,8 +536,100 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 24
+        },
+        "background": { "type": "string" },
+        "foreground": { "type": "string" },
+        "border": { "type": "string" },
+        "typography": { "type": "string" },
+        "radius": { "type": "string" },
+        "shadow": { "type": "string" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "variant": { "type": "string" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_kind", "importer_version", "source_files"],
+      "properties": {
+        "source_kind": {
+          "type": "string",
+          "enum": ["native", "angular-component", "html", "figma", "image", "other"]
+        },
+        "framework": { "type": "string" },
+        "importer_version": { "type": "string" },
+        "entry_file": { "type": "string" },
+        "source_files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
         }
       }
+    },
+    "sourceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "selector": { "type": "string" }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": "string" },
+        "options": { "type": "string" },
+        "visibility": { "type": "string" },
+        "enabled": { "type": "string" },
+        "repeat": { "type": "string" },
+        "selected": { "type": "string" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": { "type": "boolean" },
+        "pattern": { "type": "string" },
+        "min_length": { "type": "number", "minimum": 0 },
+        "max_length": { "type": "number", "minimum": 0 },
+        "min": { "type": "number" },
+        "max": { "type": "number" }
+      }
+    },
+    "initialState": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visibility": {
+          "type": "string",
+          "enum": ["visible", "hidden"]
+        },
+        "expanded": { "type": "boolean" },
+        "selected": { "type": "boolean" }
+      }
+    },
+    "designSystem": {
+      "type": "object",
+      "description": "Named design tokens shared by all nodes in a Blueprint.",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "colors": { "$ref": "#/$defs/tokenMap" },
+        "typography": { "$ref": "#/$defs/tokenMap" },
+        "spacing": { "$ref": "#/$defs/tokenMap" },
+        "radii": { "$ref": "#/$defs/tokenMap" },
+        "shadows": { "$ref": "#/$defs/tokenMap" }
+      }
+    },
+    "tokenMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
     },
     "interaction": {
       "type": "object",

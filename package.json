@@ -1,6 +1,6 @@
 {
   "name": "aub",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "UI Blueprint Agent — structured spec format for AI coding agents",
   "private": true,
   "type": "module",
@@ -9,13 +9,28 @@
   },
   "scripts": {
     "validate": "node scripts/validate.mjs",
+    "migrate": "node scripts/migrate-blueprint-cli.mjs",
+    "diff": "node scripts/diff-blueprint.mjs",
+    "prompt": "node scripts/export-agent-prompt.mjs",
+    "report:init": "node scripts/create-implementation-report.mjs",
+    "report:verify": "node scripts/verify-implementation-report.mjs",
+    "score:agent": "node scripts/score-agent-readability.mjs",
+    "benchmark:agent": "node scripts/run-agent-readability.mjs",
+    "benchmark:implementation": "node scripts/run-agent-implementation.mjs",
+    "score:implementation": "node scripts/score-agent-implementation.mjs",
+    "import:angular": "node scripts/import-angular-component.mjs",
+    "authoring:kit": "node scripts/create-authoring-kit.mjs",
     "test": "node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "jszip": "^3.10.1",
+    "parse5": "^7.2.1",
+    "postcss": "^8.5.6",
+    "postcss-scss": "^4.0.9"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

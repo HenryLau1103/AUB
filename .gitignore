@@ -8,6 +8,9 @@ AGENTS.md
 
 # Dependencies and build artifacts.
 node_modules/
+.pnpm-store/
+benchmarks/agent-readability/results/
+benchmarks/agent-implementation/results/
 dist/
 build/
 *.log

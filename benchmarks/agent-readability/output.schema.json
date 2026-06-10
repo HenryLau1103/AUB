@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "root_id",
+    "root_layout_mode",
+    "node_count",
+    "direct_root_children",
+    "primary_cta_desktop",
+    "primary_cta_mobile",
+    "secondary_cta_mobile_x",
+    "stats_card_layout_mode",
+    "stats_card_direction",
+    "action_primary_token",
+    "primary_action",
+    "interaction_count",
+    "acceptance_count"
+  ],
+  "properties": {
+    "version": { "type": "string" },
+    "root_id": { "type": "string" },
+    "root_layout_mode": { "type": "string" },
+    "node_count": { "type": "integer" },
+    "direct_root_children": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "primary_cta_desktop": { "$ref": "#/$defs/placement" },
+    "primary_cta_mobile": { "$ref": "#/$defs/placement" },
+    "secondary_cta_mobile_x": { "type": "number" },
+    "stats_card_layout_mode": { "type": "string" },
+    "stats_card_direction": { "type": "string" },
+    "action_primary_token": { "type": "string" },
+    "primary_action": { "type": "string" },
+    "interaction_count": { "type": "integer" },
+    "acceptance_count": { "type": "integer" }
+  },
+  "$defs": {
+    "placement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height", "z_index"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "z_index": { "type": "number" }
+      }
+    }
+  }
+}

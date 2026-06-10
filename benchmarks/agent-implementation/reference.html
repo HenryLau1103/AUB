@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Freeform Actions Benchmark</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; min-height: 100%; font-family: system-ui; }
+    [data-aub-node="root"] {
+      position: relative;
+      width: 100vw;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    [data-aub-node="root"] > [data-aub-node] { position: absolute; }
+    [data-aub-node="hero_heading"] {
+      left: 80px; top: 96px; width: 620px; height: 64px; z-index: 1;
+      margin: 0; color: #0f172a; font: 700 40px/1.15 system-ui;
+    }
+    [data-aub-node="primary_cta"],
+    [data-aub-node="secondary_cta"] {
+      top: 220px; width: 160px; height: 44px; z-index: 2;
+      border: 0; padding: 0; border-radius: 6px;
+      font: 600 14px/1 system-ui; cursor: pointer;
+    }
+    [data-aub-node="primary_cta"] {
+      left: 80px; color: #ffffff; background: #0f766e;
+    }
+    [data-aub-node="secondary_cta"] {
+      left: 256px; color: #0f172a; background: #ffffff;
+      border: 1px solid #cbd5e1;
+    }
+    [data-aub-node="primary_cta"]:focus-visible,
+    [data-aub-node="secondary_cta"]:focus-visible {
+      outline: 3px solid #0ea5e9;
+      outline-offset: 3px;
+    }
+    [data-aub-node="stats_card"] {
+      left: 80px; top: 320px; width: 360px; height: 160px; z-index: 1;
+      display: flex; flex-direction: column; gap: 8px;
+      padding: 20px; border-radius: 8px; background: #ffffff;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    }
+    [data-aub-node="stat_label"] {
+      color: #0f172a; font: 400 14px/1.5 system-ui;
+    }
+    [data-aub-node="stat_value"] {
+      margin: 0; color: #0f766e; font: 700 40px/1.15 system-ui;
+    }
+    @media (max-width: 1100px) {
+      [data-aub-node="hero_heading"] { left: 56px; top: 80px; width: 520px; height: 60px; }
+      [data-aub-node="primary_cta"] { left: 56px; top: 200px; width: 160px; height: 44px; }
+      [data-aub-node="secondary_cta"] { left: 232px; top: 200px; width: 160px; height: 44px; }
+      [data-aub-node="stats_card"] { left: 56px; top: 300px; width: 340px; height: 160px; }
+    }
+    @media (max-width: 600px) {
+      [data-aub-node="hero_heading"] { left: 24px; top: 72px; width: 342px; height: 96px; }
+      [data-aub-node="primary_cta"] { left: 24px; top: 240px; width: 164px; height: 48px; }
+      [data-aub-node="secondary_cta"] { left: 202px; top: 240px; width: 164px; height: 48px; }
+      [data-aub-node="stats_card"] { left: 24px; top: 336px; width: 342px; height: 160px; }
+    }
+  </style>
+</head>
+<body>
+  <main data-aub-node="root">
+    <h1 data-aub-node="hero_heading">Build interfaces agents can understand</h1>
+    <button data-aub-node="primary_cta" type="button">Start building</button>
+    <button data-aub-node="secondary_cta" type="button">View examples</button>
+    <section data-aub-node="stats_card">
+      <span data-aub-node="stat_label">Blueprints exported</span>
+      <h2 data-aub-node="stat_value">12,480</h2>
+    </section>
+  </main>
+  <script>
+    document.querySelector('[data-aub-node="primary_cta"]').addEventListener('click', () => {
+      document.body.dataset.lastAction = 'navigate:/signup';
+    });
+    document.querySelector('[data-aub-node="secondary_cta"]').addEventListener('click', () => {
+      document.body.dataset.lastAction = 'navigate:/examples';
+    });
+  </script>
+</body>
+</html>

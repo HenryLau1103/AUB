@@ -29,6 +29,10 @@ export interface Blueprint {
   responsive: Responsive[];
   /** Verifiable acceptance items. >=5 per screen. */
   acceptance: Acceptance[];
+  /** Shared visual vocabulary used by nodes. */
+  design_system?: DesignSystem;
+  /** Optional origin metadata for imported Blueprints. */
+  provenance?: Provenance;
 }
 
 export interface Screen {
@@ -49,7 +53,14 @@ export type ScreenType =
   | 'detail'
   | 'auth'
   | 'error'
-  | 'empty';
+  | 'empty'
+  | 'workspace'
+  | 'communication'
+  | 'content'
+  | 'commerce'
+  | 'calendar'
+  | 'files'
+  | 'onboarding';
 
 export type Platform = 'web' | 'mobile-web' | 'ios' | 'android' | 'desktop';
 
@@ -67,7 +78,9 @@ export type ComponentType =
   | 'form' | 'field_group' | 'text_input' | 'select' | 'checkbox' | 'radio_group' | 'toggle' | 'slider' | 'date_picker' | 'file_upload'
   | 'button' | 'icon_button' | 'button_group' | 'menu' | 'toolbar' | 'command_palette'
   | 'modal' | 'drawer' | 'toast' | 'alert' | 'empty_state' | 'loading_state' | 'error_state'
-  | 'tabs' | 'breadcrumb' | 'pagination' | 'stepper' | 'nav_item';
+  | 'tabs' | 'breadcrumb' | 'pagination' | 'stepper' | 'nav_item'
+  | 'heading' | 'text' | 'card' | 'image' | 'icon' | 'avatar' | 'badge' | 'tag' | 'divider' | 'link'
+  | 'textarea' | 'search_input' | 'calendar' | 'kanban_board' | 'kanban_column' | 'rich_text_editor';
 
 export type ContainerComponentType = Extract<
   ComponentType,
@@ -75,7 +88,7 @@ export type ContainerComponentType = Extract<
   | 'stack' | 'grid' | 'split_pane' | 'scroll_area'
   | 'list' | 'detail_panel' | 'timeline' | 'activity_feed'
   | 'form' | 'field_group' | 'menu' | 'toolbar' | 'button_group' | 'command_palette'
-  | 'tabs' | 'stepper'
+  | 'tabs' | 'stepper' | 'card' | 'kanban_board' | 'kanban_column' | 'rich_text_editor'
 >;
 
 export type LeafComponentType = Exclude<ComponentType, ContainerComponentType>;
@@ -93,10 +106,55 @@ export interface UINode {
   parent_id: string | null;
   children?: string[];
   layout?: Layout;
+  /** Exact geometry per viewport. Used when the parent layout mode is freeform. */
+  placements?: Partial<Record<ViewportId, Placement>>;
   content?: Content;
   style?: Style;
   states?: NodeState[];
   constraints?: NodeConstraints;
+  source?: SourceReference;
+  bindings?: Bindings;
+  validation?: NodeValidation;
+  initial_state?: InitialState;
+}
+
+export interface Provenance {
+  source_kind: 'native' | 'angular-component' | 'html' | 'figma' | 'image' | 'other';
+  framework?: string;
+  importer_version: string;
+  entry_file?: string;
+  source_files: string[];
+}
+
+export interface SourceReference {
+  file: string;
+  line?: number;
+  column?: number;
+  selector?: string;
+}
+
+export interface Bindings {
+  value?: string;
+  options?: string;
+  visibility?: string;
+  enabled?: string;
+  repeat?: string;
+  selected?: string;
+}
+
+export interface NodeValidation {
+  required?: boolean;
+  pattern?: string;
+  min_length?: number;
+  max_length?: number;
+  min?: number;
+  max?: number;
+}
+
+export interface InitialState {
+  visibility?: 'visible' | 'hidden';
+  expanded?: boolean;
+  selected?: boolean;
 }
 
 export interface NodeConstraints {
@@ -109,6 +167,7 @@ export interface NodeConstraints {
 }
 
 export interface Layout {
+  mode?: 'auto' | 'freeform';
   display?: 'flex' | 'grid' | 'block' | 'inline' | 'none';
   direction?: 'row' | 'column' | 'row-reverse' | 'column-reverse';
   wrap?: boolean;
@@ -121,6 +180,23 @@ export interface Layout {
   height?: Size;
   min_width?: Size;
   max_width?: Size;
+}
+
+export type ViewportId = Viewport['id'];
+
+export interface Placement {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  z_index?: number;
+  order?: number;
+  grow?: number;
+  basis?: number;
+  grid_column?: number;
+  grid_row?: number;
+  column_span?: number;
+  row_span?: number;
 }
 
 export interface GridConfig {
@@ -160,6 +236,12 @@ export interface Content {
   empty_state?: string;
   loading_state?: string;
   error_state?: string;
+  src?: string;
+  alt?: string;
+  icon?: string;
+  value?: string;
+  helper_text?: string;
+  variant?: string;
 }
 
 export interface TableColumn {
@@ -168,6 +250,12 @@ export interface TableColumn {
   data_binding?: string;
   sortable?: boolean;
   filterable?: boolean;
+  cell_kind?: 'text' | 'number' | 'date' | 'link' | 'icon' | 'action' | 'status' | 'checkbox';
+  icon?: string;
+  action?: string;
+  sticky?: boolean;
+  align?: 'start' | 'center' | 'end';
+  visible_when?: string;
   width?: Size;
 }
 
@@ -182,6 +270,23 @@ export interface Style {
   /** Design tokens applied to this node. */
   tokens?: Record<string, string>;
   elevation?: number;
+  background?: string;
+  foreground?: string;
+  border?: string;
+  typography?: string;
+  radius?: string;
+  shadow?: string;
+  opacity?: number;
+  variant?: string;
+}
+
+export interface DesignSystem {
+  name: string;
+  colors?: Record<string, string>;
+  typography?: Record<string, string>;
+  spacing?: Record<string, string>;
+  radii?: Record<string, string>;
+  shadows?: Record<string, string>;
 }
 
 export type InteractionTrigger =

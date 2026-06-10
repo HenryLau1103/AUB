@@ -1,15 +1,31 @@
 # AUB Editor
 
-Visual editor for UI Blueprints. Phase 2 prototype.
+WYSIWYG editor for UI Blueprints v0.3.
 
 ## What it does
 
-- **Import** a `.ui.json` file (or start from the built-in template)
-- **Compose** a screen by clicking components in the palette (left) — they append to the root
-- **Inspect** the tree (center) — click a node to select
+- **Import** a `.ui.json`, Angular HTML/SCSS/TS component bundle, or saved personal-template package
+- **Review Angular imports** before loading, including source-line diagnostics and optional local Ollama suggestions
+- **Focus imported diagnostics** on the corresponding canvas node after loading
+- **Save personal templates** in browser storage, with preview, export, import, and delete actions
+- **Start from 18 visual templates** with preview thumbnails covering dashboards, collaboration, commerce, content, and onboarding
+- **Follow a six-stage workflow** for goal, layout, interactions, responsive rules, acceptance, and AI handoff
+- **Autosave and restore** the active Blueprint draft in local browser storage
+- **Compose** a screen by dragging components from the palette into the artboard, or by clicking to append to the selected container
+- **Arrange freely** from the visible top-center drag handle; normal dragging stays in the current parent, while Option/Alt-drag explicitly reparents into another container
+- **Place directly** by drag or palette click; dropping into an auto-layout container preserves its current child geometry and switches that container to freeform
+- **Switch layout mode** per container between freeform geometry and flex/grid auto layout
+- **Preview** the screen as a desktop/tablet/mobile UI mockup instead of a graph-only structure view
+- **Fit the full artboard** automatically when loading a template or switching viewport, with a manual fit control
+- **Audit rendered viewports** for overflow, undersized components, and freeform overlaps before AI handoff
+- **Inspect** the hierarchy by selecting elements directly on the artboard
 - **Edit** the selected node's properties (right): id, name, role, type, layout JSON, content JSON
 - **Export** to `.ui.json` (download)
-- **Export** to `.ui.md` (the agent prompt context, generated programmatically)
+- **Export** to `.ui.md` with exact viewport geometry and design tokens
+- **Edit** screen goals, declared interactions, responsive rules, and acceptance criteria
+- **Export** a Codex-ready implementation task
+- **Export** an `.aub.zip` AI handoff package with JSON, Markdown, Codex task, implementation report template/schema, viewport screenshots, and SHA-256 manifest
+- **Download** an AI authoring kit containing the current schema, registry, canonical example, validation guide, and author-task prompt
 - **Live schema validation** — invalid edits show error count in the status bar
 
 ## Development
@@ -33,35 +49,45 @@ src/
 ├── global.d.ts                   # .mjs import declarations
 ├── types.ts                      # re-exports schema/types
 ├── lib/
-│   ├── store.ts                  # addNode / deleteNode / updateNode
-│   ├── io.ts                     # downloadBlob / readFileAsText
+│   ├── store.ts                  # immutable node/tree/placement operations
+│   ├── geometry.ts               # alignment and distribution
+│   ├── history.ts                # undo/redo history
+│   ├── draft-storage.ts          # local active-draft autosave
+│   ├── drag-intent.mjs           # move versus explicit Option/Alt reparent
+│   ├── templates.ts              # 18 localized templates
+│   ├── viewport-quality.ts       # rendered viewport quality report types
+│   ├── angular-import.ts         # Angular bundle reader, importer, Ollama review
+│   ├── personal-templates.ts     # browser-local template persistence/packages
+│   ├── io.ts                     # import/export and AI handoff package
 │   └── registry.ts               # read schema/registry/components.json
 └── components/
     ├── TopBar.tsx                # import/export buttons + validation status
-    ├── Palette.tsx               # 6-category component list
-    ├── TreeView.tsx              # recursive node tree
+    ├── Palette.tsx               # components, templates, and layers
+    ├── Canvas.tsx                # freeform/auto viewport artboard
+    ├── AngularImportDialog.tsx   # import preview, diagnostics, optional AI review
+    ├── WorkflowBar.tsx           # six-stage specification workflow
+    ├── BlueprintPanel.tsx        # screen/interaction/responsive/acceptance editor
     └── PropertiesPanel.tsx       # selected-node editor
 ```
 
 The editor shares the project root's `schema/` and registry — it does not duplicate them. TypeScript path aliases are used in `tsconfig.json` to point at the root types.
 
-## Not in v0.1 (v1.1+ backlog)
+## Remaining backlog
 
-- Drag-and-drop component addition (currently click-to-add)
-- Visual canvas with `tldraw` or `React Flow` (currently a tree view)
-- Undo/redo
 - Multi-screen projects
 - YAML editor
 - `.ui.lock.json` generation from the UI (the script does it from CLI)
-- Per-node keyboard navigation
+- Tab/arrow focus traversal across nested layers
 
 ## Production build output
 
 ```
 dist/index.html                          0.40 kB │ gzip:  0.27 kB
-dist/assets/index-*.css                  3.31 kB │ gzip:  1.04 kB
-dist/assets/export-md.lib-*.js           7.18 kB │ gzip:  2.86 kB
-dist/assets/index-*.js                 303.84 kB │ gzip: 94.92 kB
+dist/assets/index-*.css                 ~31 kB
+dist/assets/export-md.lib-*.js           ~9 kB
+dist/assets/react-vendor-*.js            split vendor chunk
+dist/assets/canvas-tools-*.js            split canvas interaction chunk
+dist/assets/jszip.min-*.js               lazy-loaded on package export
 ```
 
-The 303 kB main bundle includes React, ajv, and the registry. `export-md.lib-*.js` is the Markdown exporter split out for caching across releases.
+`html-to-image` and `jszip` are loaded only when exporting an AI handoff package. `export-md.lib-*.js` remains split for caching across releases.

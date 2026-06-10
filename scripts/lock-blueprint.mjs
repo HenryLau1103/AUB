@@ -24,6 +24,7 @@ async function main() {
     id: n.id,
     type: n.type,
     layout: n.layout ?? null,
+    placements: n.placements ?? null,
   }));
   const treeSubset = blueprint.nodes.map((n) => ({
     id: n.id,
@@ -38,11 +39,12 @@ async function main() {
     version: blueprint.version,
     source_file: inputPath,
     exported_at: new Date().toISOString(),
-    source_editor_version: '0.1.0',
+    source_editor_version: '0.3.0',
     hashes: {
       blueprint: sha256(stableStringify(blueprint)),
       node_ids: sha256(stableStringify(sortedIds)),
       layout: sha256(stableStringify(layoutSubset)),
+      design_system: sha256(stableStringify(blueprint.design_system ?? null)),
       component_tree: sha256(stableStringify(treeSubset)),
       interactions: sha256(stableStringify(interactionsSubset)),
       acceptance: sha256(stableStringify(blueprint.acceptance ?? [])),

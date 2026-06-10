@@ -1,0 +1,22 @@
+<div class="txn-result-area">
+  <div class="fix-table-Container">
+    <table matSort (matSortChange)="sortData($event)" class="fix-table">
+      <thead>
+        <tr>
+          <th style="width: 48px; position: sticky; left: 0">Select</th>
+          <th mat-sort-header="customerName" style="width: 180px; position: sticky; left: 48px">Customer</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of rows">
+          <td><input type="checkbox" [checked]="item.selected"></td>
+          <td><a (click)="openCustomer(item.id)">{{ item.customerName }}</a></td>
+          <td>{{ item.status }}</td>
+          <td><button type="button" (click)="openCustomer(item.id)">Open</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

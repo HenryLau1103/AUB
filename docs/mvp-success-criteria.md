@@ -32,7 +32,7 @@ This is the Phase 1 exit gate from the canonical plan §14. Each criterion is ve
 | S5 | YAML example is schema-valid | YAML→JSON, validate against schema | Exit 0 |
 | S6 | Markdown example describes a dashboard | Manual review: human identifies screen, layout, components, interactions, acceptance items | Reviewer can list 5+ components, 3+ interactions, 5+ acceptance items without reading code |
 | S7 | Versioning policy exists | `docs/schema-versioning.md` present | Defines SemVer rules, breaking-change policy, deprecation window |
-| S8 | Component registry has ≥30 types | `schema/registry/components.json` | Count of unique `type` values ≥ 30 across 6 categories (Layout/Data/Form/Action/Feedback/Nav) |
+| S8 | Component registry has ≥30 types | `schema/registry/components.json` | Count of unique `type` values ≥ 30 across 7 categories (Layout/Visual/Data/Form/Action/Feedback/Nav) |
 
 **Gate**: All eight pass before Milestone A is declared.
 

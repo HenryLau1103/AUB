@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aub.dev/schema/implementation-report/1.0.0",
+  "title": "AUB Implementation Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "format_version",
+    "blueprint",
+    "implementation",
+    "node_mappings",
+    "acceptance_results",
+    "unresolved"
+  ],
+  "properties": {
+    "format": { "const": "aub-implementation-report" },
+    "format_version": { "const": "1.0.0" },
+    "blueprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["screen_id", "version"],
+      "properties": {
+        "screen_id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framework", "route", "files"],
+      "properties": {
+        "framework": { "type": "string" },
+        "route": { "type": "string" },
+        "files": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "node_mappings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nodeMapping" }
+    },
+    "acceptance_results": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/acceptanceResult" }
+    },
+    "unresolved": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "nodeMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "status", "component"],
+      "properties": {
+        "node_id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["mapped", "unmapped"] },
+        "component": { "type": "string" },
+        "file": { "type": "string" },
+        "selector": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
+    "acceptanceResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["acceptance_id", "status", "evidence"],
+      "properties": {
+        "acceptance_id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["pass", "fail", "needs-review"] },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "reference"],
+      "properties": {
+        "type": { "enum": ["screenshot", "file", "dom", "command", "interaction", "note"] },
+        "reference": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

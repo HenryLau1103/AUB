@@ -15,6 +15,7 @@ const ROOT = new URL('..', import.meta.url).pathname;
 const SCHEMA_PATH = new URL('../schema/ui-blueprint.schema.json', import.meta.url).pathname;
 const EXAMPLE_JSON = new URL('../examples/dashboard.ui.json', import.meta.url).pathname;
 const EXAMPLE_YAML = new URL('../examples/dashboard.ui.yaml', import.meta.url).pathname;
+const FREEFORM_EXAMPLE_JSON = new URL('../examples/freeform-actions.ui.json', import.meta.url).pathname;
 
 async function loadSchema() {
   return JSON.parse(await readFile(SCHEMA_PATH, 'utf8'));
@@ -96,7 +97,7 @@ test('S8: registry file exists and is well-formed', async () => {
   const registry = JSON.parse(raw);
   assert.ok(registry.version, 'registry must declare version');
   assert.ok(Array.isArray(registry.categories), 'registry must have categories array');
-  assert.equal(registry.categories.length, 6, 'registry must have 6 categories (Layout/Data/Form/Action/Feedback/Navigation)');
+  assert.equal(registry.categories.length, 7, 'registry must have 7 categories (Layout/Visual/Data/Form/Action/Feedback/Navigation)');
   for (const cat of registry.categories) {
     assert.ok(cat.id, `category missing id`);
     assert.ok(cat.name, `category ${cat.id} missing name`);
@@ -208,4 +209,29 @@ test('Schema: required fields are all present', async () => {
   for (const f of required) {
     assert.ok(schema.required.includes(f), `top-level ${f} must be required`);
   }
+});
+
+test('Schema: placement coordinates cannot be negative', async () => {
+  const validate = await makeValidator();
+  const invalid = JSON.parse(await readFile(FREEFORM_EXAMPLE_JSON, 'utf8'));
+  invalid.nodes.find((node) => node.placements?.desktop).placements.desktop.x = -1;
+  assert.equal(validate(invalid), false);
+});
+
+test('Schema: v0.3 supports import provenance, bindings, validation, and source references', async () => {
+  const validate = await makeValidator();
+  const doc = JSON.parse(await readFile(EXAMPLE_JSON, 'utf8'));
+  doc.version = '0.3.0';
+  doc.provenance = {
+    source_kind: 'angular-component',
+    framework: 'Angular',
+    importer_version: '1.0.0',
+    entry_file: 'feature/search.component.html',
+    source_files: ['feature/search.component.html'],
+  };
+  doc.nodes[0].source = { file: 'feature/search.component.html', line: 1 };
+  doc.nodes[0].bindings = { visibility: 'isVisible' };
+  doc.nodes[0].validation = { required: true };
+  doc.nodes[0].initial_state = { visibility: 'visible', expanded: true };
+  assert.equal(validate(doc), true, JSON.stringify(validate.errors));
 });

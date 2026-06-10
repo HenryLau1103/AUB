@@ -1,160 +1,833 @@
 import Ajv2020 from 'ajv/dist/2020.js';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TopBar } from './components/TopBar';
 import { Palette } from './components/Palette';
-import { Canvas } from './components/Canvas';
+import { Canvas, type CanvasHandle } from './components/Canvas';
 import { PropertiesPanel } from './components/PropertiesPanel';
-import { downloadBlob } from './lib/io';
-import { addNode, createNode, deleteNode, updateNode } from './lib/store';
-import type { Blueprint, ComponentType, UINode } from './types';
+import { BlueprintPanel } from './components/BlueprintPanel';
+import { WorkflowBar, type WorkflowStage } from './components/WorkflowBar';
+import { AngularImportDialog } from './components/AngularImportDialog';
+import {
+  downloadAuthoringKit,
+  downloadBlob,
+  downloadHandoffPackage,
+  downloadPersonalTemplatePackage,
+} from './lib/io';
+import { componentLabel, t, type Language } from './lib/i18n';
+import { loadDraft, saveDraft } from './lib/draft-storage';
+import { isContainerType } from './lib/registry';
+import {
+  addNode,
+  createNode,
+  defaultLayoutForType,
+  defaultPlacementForType,
+  deleteNode,
+  duplicateNodes,
+  reparentNode,
+  setNodeZIndex,
+  updateManyPlacements,
+  updateNode,
+  updateNodePlacement,
+  wrapRootInAppShell,
+} from './lib/store';
+import {
+  commitHistory,
+  createHistory,
+  redoHistory,
+  undoHistory,
+  type BlueprintHistory,
+} from './lib/history';
+import { createTemplateBlueprint, templateLabel, type TemplateId } from './lib/templates';
+import {
+  discoverAngularEntries,
+  readAngularSourceFiles,
+  runAngularImport,
+  type AngularComponentCandidate,
+  type ImportDiagnostic,
+  type AngularImportResult,
+  type SourceBundleFile,
+} from './lib/angular-import';
+import {
+  createPersonalTemplate,
+  deletePersonalTemplate,
+  loadPersonalTemplates,
+  readPersonalTemplateFile,
+  savePersonalTemplate,
+  type PersonalTemplate,
+} from './lib/personal-templates';
+import type { ViewportQualityReport } from './lib/viewport-quality';
+import type { Blueprint, ComponentType, Placement, UINode, ViewportId } from './types';
 import schemaJson from '../../../schema/ui-blueprint.schema.json';
+import { defaultDesignSystem, migrateBlueprint } from '../../../scripts/migrate-blueprint.mjs';
+import { validateBlueprintSemantics } from '../../../scripts/validate-blueprint.lib.mjs';
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const validateSchema = ajv.compile(schemaJson as object);
+
+interface AddNodeOptions {
+  makeParentFreeform?: boolean;
+  existingPlacements?: Array<{ id: string; viewportId: ViewportId; patch: Partial<Placement> }>;
+}
 
 async function exportMarkdown(blueprint: Blueprint): Promise<string> {
   const mod = await import('../../../scripts/export-md.lib.mjs');
   return mod.exportMarkdown(blueprint);
 }
 
-const STARTER: Blueprint = {
-  version: '0.1.0',
-  screen: {
-    id: 'demo.screen',
-    name: 'New Screen',
-    type: 'landing',
-    platform: 'web',
-    primary_user_goal: 'Describe what the user accomplishes here.',
-  },
-  viewports: [
-    { id: 'desktop', width: 1440, height: 900 },
-    { id: 'mobile', width: 390, height: 844 },
-  ],
-  nodes: [
-    {
-      id: 'root',
-      type: 'page',
-      name: 'Page',
-      role: 'Root container. Children added from the palette appear here.',
-      parent_id: null,
-      children: [],
+async function exportCodexPrompt(blueprint: Blueprint): Promise<string> {
+  const mod = await import('../../../scripts/export-agent-prompt.lib.mjs');
+  return mod.exportAgentPrompt(blueprint, { adapter: 'codex', task: 'implement' });
+}
+
+async function createReportTemplate(blueprint: Blueprint): Promise<Record<string, unknown>> {
+  const mod = await import('../../../scripts/implementation-report.lib.mjs');
+  return mod.createImplementationReportTemplate(blueprint);
+}
+
+function createStarterBlueprint(language: Language, kind: 'page' | 'app' = 'page'): Blueprint {
+  const isApp = kind === 'app';
+  const rootId = isApp ? 'app_shell' : 'root';
+  const nodes: UINode[] = isApp
+    ? [
+        {
+          id: 'app_shell',
+          type: 'app_shell',
+          name: t(language, 'starterAppShellName'),
+          role: t(language, 'starterAppShellRole'),
+          parent_id: null,
+          children: ['starter_sidebar', 'starter_top_bar', 'starter_main_page'],
+          layout: { mode: 'freeform' },
+        },
+        starterNode('starter_sidebar', 'sidebar', 'app_shell', language, {
+          desktop: { x: 0, y: 0, width: 240, height: 900, z_index: 2 },
+          tablet: { x: 0, y: 0, width: 220, height: 768, z_index: 2 },
+          mobile: { x: 0, y: 780, width: 390, height: 64, z_index: 5 },
+        }),
+        starterNode('starter_top_bar', 'top_bar', 'app_shell', language, {
+          desktop: { x: 240, y: 0, width: 1200, height: 64, z_index: 3 },
+          tablet: { x: 220, y: 0, width: 804, height: 64, z_index: 3 },
+          mobile: { x: 0, y: 0, width: 390, height: 60, z_index: 3 },
+        }),
+        starterNode('starter_main_page', 'page', 'app_shell', language, {
+          desktop: { x: 240, y: 64, width: 1200, height: 836, z_index: 1 },
+          tablet: { x: 220, y: 64, width: 804, height: 704, z_index: 1 },
+          mobile: { x: 0, y: 60, width: 390, height: 720, z_index: 1 },
+        }, { mode: 'freeform' }),
+      ]
+    : [
+        {
+          id: 'root',
+          type: 'page',
+          name: t(language, 'starterRootName'),
+          role: t(language, 'starterRootRole'),
+          parent_id: null,
+          children: [],
+          layout: { mode: 'freeform' },
+        },
+      ];
+
+  return {
+    version: '0.3.0',
+    screen: {
+      id: isApp ? 'starter.app' : 'demo.screen',
+      name: t(language, isApp ? 'starterAppScreenName' : 'starterScreenName'),
+      type: isApp ? 'dashboard' : 'landing',
+      platform: 'web',
+      primary_user_goal: t(language, isApp ? 'starterAppGoal' : 'starterPrimaryGoal'),
     },
-  ],
-  interactions: [],
-  responsive: [],
-  acceptance: [
-    {
-      id: 'acc_demo_a11y',
-      type: 'a11y',
-      statement: 'All interactive elements are keyboard-reachable.',
-      target: '*',
-      priority: 'must',
-      verification_method: 'manual_visual',
-    },
-  ],
-};
+    viewports: [
+      { id: 'desktop', width: 1440, height: 900 },
+      { id: 'tablet', width: 1024, height: 768 },
+      { id: 'mobile', width: 390, height: 844 },
+    ],
+    design_system: defaultDesignSystem(),
+    nodes,
+    interactions: [],
+    responsive: [],
+    acceptance: starterAcceptance(language, rootId),
+  };
+}
+
+function starterNode(
+  id: string,
+  type: ComponentType,
+  parentId: string,
+  language: Language,
+  placements: UINode['placements'],
+  layout = defaultLayoutForType(type)
+): UINode {
+  const key = type === 'sidebar'
+    ? ['starterSidebarName', 'starterSidebarRole']
+    : type === 'top_bar'
+      ? ['starterTopBarName', 'starterTopBarRole']
+      : ['starterMainPageName', 'starterMainPageRole'];
+  return {
+    id,
+    type,
+    name: t(language, key[0] as Parameters<typeof t>[1]),
+    role: t(language, key[1] as Parameters<typeof t>[1]),
+    parent_id: parentId,
+    children: [],
+    layout,
+    placements,
+  };
+}
+
+function starterAcceptance(language: Language, rootId: string): Blueprint['acceptance'] {
+  const zh = language === 'zh-Hant';
+  return [
+    { id: 'acc_starter_layout', type: 'layout', statement: zh ? '元件位置與尺寸符合畫板。' : 'Component geometry matches the artboard.', target: rootId, priority: 'must', verification_method: 'screenshot_diff' },
+    { id: 'acc_starter_interaction', type: 'interaction', statement: zh ? '每個互動元件具有明確 action。' : 'Every interactive node declares an action.', target: '*', priority: 'must', verification_method: 'manual_ia_review' },
+    { id: 'acc_starter_responsive', type: 'responsive', statement: zh ? '桌面、平板與手機皆有可讀配置。' : 'Desktop, tablet, and mobile have readable layouts.', target: 'desktop,tablet,mobile', priority: 'must', verification_method: 'screenshot_diff' },
+    { id: 'acc_starter_a11y', type: 'a11y', statement: zh ? '互動元件具有文字標籤。' : 'Interactive nodes have text labels.', target: '*', priority: 'must', verification_method: 'axe_audit' },
+    { id: 'acc_starter_content', type: 'content', statement: zh ? '所有可見元件皆有明確名稱。' : 'Every visible node has a clear name.', target: '*', priority: 'should', verification_method: 'manual_ia_review' },
+  ];
+}
 
 export function App() {
-  const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [initialDraft] = useState(loadDraft);
+  const [history, setHistory] = useState<BlueprintHistory>(() => createHistory(initialDraft?.blueprint ?? null));
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    const root = initialDraft?.blueprint.nodes.find((node) => node.parent_id === null);
+    return root ? [root.id] : [];
+  });
+  const [language, setLanguage] = useState<Language>(initialDraft?.language ?? 'zh-Hant');
+  const [notice, setNotice] = useState<string | null>(() => (
+    initialDraft
+      ? initialDraft.language === 'zh-Hant' ? '已恢復上次的本機草稿。' : 'Restored the last local draft.'
+      : null
+  ));
+  const [draggingType, setDraggingType] = useState<ComponentType | null>(null);
+  const [propertiesOpen, setPropertiesOpen] = useState(() => window.innerWidth > 980);
+  const [canvasResetKey, setCanvasResetKey] = useState(0);
+  const [workflowStage, setWorkflowStage] = useState<WorkflowStage>('layout');
+  const [viewportQuality, setViewportQuality] = useState<ViewportQualityReport | null>(null);
+  const [personalTemplates, setPersonalTemplates] = useState<PersonalTemplate[]>(loadPersonalTemplates);
+  const [lastImportSummary, setLastImportSummary] = useState<PersonalTemplate['importSummary']>();
+  const [importDiagnostics, setImportDiagnostics] = useState<ImportDiagnostic[]>([]);
+  const [angularImport, setAngularImport] = useState<{
+    open: boolean;
+    files: SourceBundleFile[];
+    entries: AngularComponentCandidate[];
+    selectedEntry: string;
+    result: AngularImportResult | null;
+    loading: boolean;
+    error: string | null;
+  }>({
+    open: false,
+    files: [],
+    entries: [],
+    selectedEntry: '',
+    result: null,
+    loading: false,
+    error: null,
+  });
+  const [savedAt, setSavedAt] = useState<string | null>(initialDraft?.savedAt ?? null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<CanvasHandle>(null);
+  const blueprint = history.present;
+  const selectedId = selectedIds[0] ?? null;
 
   const errors = useMemo(() => {
     if (!blueprint) return [];
     const ok = validateSchema(blueprint);
-    if (ok) return [];
-    return (validateSchema.errors ?? []).map((e) => {
-      const path = e.instancePath || '(root)';
-      return `${path} ${e.message}`;
-    });
+    const schemaErrors = ok
+      ? []
+      : (validateSchema.errors ?? []).map((error) => `${error.instancePath || '(root)'} ${error.message}`);
+    return [...schemaErrors, ...validateBlueprintSemantics(blueprint)];
   }, [blueprint]);
 
-  function handleImport(b: Blueprint) {
-    setBlueprint(b);
-    setSelectedId(b.nodes.find((n) => n.parent_id === null)?.id ?? null);
+  const commit = useCallback((next: Blueprint | null | ((current: Blueprint | null) => Blueprint | null)) => {
+    setHistory((current) => {
+      const value = typeof next === 'function' ? next(current.present) : next;
+      return commitHistory(current, value);
+    });
+  }, []);
+
+  function handleImport(input: Blueprint) {
+    const migrated = migrateBlueprint(input) as Blueprint;
+    commit(migrated);
+    setCanvasResetKey((value) => value + 1);
+    setSelectedIds([migrated.nodes.find((node) => node.parent_id === null)?.id].filter(Boolean) as string[]);
+    setNotice(input.version !== '0.3.0' ? t(language, 'importMigrated') : t(language, 'imported'));
   }
 
-  function handleAdd(type: ComponentType, parentId: string | null = null) {
-    if (!blueprint) {
-      setBlueprint({ ...STARTER, nodes: [{ ...STARTER.nodes[0]! }] });
-      const node = createNode(type);
-      setBlueprint((cur) => (cur ? addNode(cur, node, parentId) : cur));
-      setSelectedId(node.id);
-      return;
+  async function handleAngularFiles(input: FileList) {
+    try {
+      const files = await readAngularSourceFiles(input);
+      const entries = await discoverAngularEntries(files);
+      if (!files.length || !entries.length) throw new Error(language === 'zh-Hant' ? '找不到可匯入的 Angular 元件檔案。' : 'No importable Angular component files were found.');
+      const firstEntry = entries[0];
+      if (!firstEntry) throw new Error('Angular entry component is missing.');
+      const selectedEntry = firstEntry.selector ?? firstEntry.templatePath ?? '';
+      setAngularImport({ open: true, files, entries, selectedEntry, result: null, loading: true, error: null });
+      await runAngularEntry(files, entries, selectedEntry);
+    } catch (error) {
+      setNotice((error as Error).message);
     }
-    const node = createNode(type);
-    setBlueprint((cur) => (cur ? addNode(cur, node, parentId) : cur));
-    setSelectedId(node.id);
+  }
+
+  async function runAngularEntry(
+    files: SourceBundleFile[],
+    entries: AngularComponentCandidate[],
+    selectedEntry: string
+  ) {
+    setAngularImport((current) => ({ ...current, open: true, files, entries, selectedEntry, loading: true, error: null }));
+    try {
+      const result = await runAngularImport(files, selectedEntry);
+      setAngularImport((current) => ({ ...current, result, loading: false, error: null }));
+    } catch (error) {
+      setAngularImport((current) => ({ ...current, result: null, loading: false, error: (error as Error).message }));
+    }
+  }
+
+  function loadAngularResult(result: AngularImportResult) {
+    handleImport(result.blueprint);
+    setImportDiagnostics(result.diagnostics);
+    setLastImportSummary({
+      score: result.confidenceSummary.score,
+      warnings: result.diagnostics.filter((item) => item.severity === 'warning').length,
+      sourceKind: result.blueprint.provenance?.source_kind,
+    });
+    setAngularImport((current) => ({ ...current, open: false }));
+    setNotice(language === 'zh-Hant'
+      ? `已載入 Angular 畫面：${result.blueprint.nodes.length} 個節點，${result.diagnostics.length} 個診斷。`
+      : `Loaded Angular screen: ${result.blueprint.nodes.length} nodes and ${result.diagnostics.length} diagnostics.`);
+  }
+
+  async function handleSavePersonalTemplate(name: string) {
+    if (!blueprint) return;
+    const images = await canvasRef.current?.captureViewports();
+    const template = createPersonalTemplate(name, blueprint, images?.desktop, lastImportSummary);
+    setPersonalTemplates(savePersonalTemplate(template));
+    setNotice(language === 'zh-Hant' ? `已儲存個人範本「${template.name}」。` : `Saved personal template "${template.name}".`);
+  }
+
+  function handleLoadPersonalTemplate(template: PersonalTemplate) {
+    handleImport(template.blueprint);
+    setNotice(language === 'zh-Hant' ? `已載入個人範本「${template.name}」。` : `Loaded personal template "${template.name}".`);
+  }
+
+  async function handlePersonalTemplateFile(file: File) {
+    try {
+      const template = await readPersonalTemplateFile(file);
+      setPersonalTemplates(savePersonalTemplate(template));
+      handleLoadPersonalTemplate(template);
+    } catch (error) {
+      setNotice((error as Error).message);
+    }
+  }
+
+  function handleDeletePersonalTemplate(template: PersonalTemplate) {
+    const confirmed = window.confirm(language === 'zh-Hant'
+      ? `刪除個人範本「${template.name}」？`
+      : `Delete personal template "${template.name}"?`);
+    if (!confirmed) return;
+    setPersonalTemplates(deletePersonalTemplate(template.id));
+  }
+
+  function handleTemplateSelect(templateId: TemplateId) {
+    const nextBlueprint = migrateBlueprint(createTemplateBlueprint(templateId, language)) as Blueprint;
+    commit(nextBlueprint);
+    setCanvasResetKey((value) => value + 1);
+    setSelectedIds([nextBlueprint.nodes.find((node) => node.parent_id === null)?.id].filter(Boolean) as string[]);
+    setNotice(t(language, 'templateLoaded', { template: templateLabel(language, templateId) }));
+  }
+
+  function handleCreateStarter(kind: 'page' | 'app') {
+    const nextBlueprint = createStarterBlueprint(language, kind);
+    commit(nextBlueprint);
+    setCanvasResetKey((value) => value + 1);
+    setSelectedIds([kind === 'app' ? 'starter_main_page' : 'root']);
+    setWorkflowStage('brief');
+    setNotice(t(language, kind === 'app' ? 'starterAppCreated' : 'starterPageCreated'));
+  }
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  useEffect(() => {
+    if (!blueprint) return;
+    const timer = window.setTimeout(() => {
+      setSavedAt(saveDraft(blueprint, language));
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [blueprint, language]);
+
+  useEffect(() => {
+    if (draggingType) setPropertiesOpen(false);
+  }, [draggingType]);
+
+  useEffect(() => {
+    if (!blueprint || !['responsive', 'handoff'].includes(workflowStage)) return;
+    let cancelled = false;
+    setViewportQuality(null);
+    const timer = window.setTimeout(() => {
+      void canvasRef.current?.auditViewports().then((report) => {
+        if (!cancelled) setViewportQuality(report);
+      });
+    }, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [blueprint, workflowStage]);
+
+  useEffect(() => {
+    const narrow = window.matchMedia('(max-width: 980px)');
+    const handleChange = () => {
+      if (narrow.matches) setPropertiesOpen(false);
+    };
+    handleChange();
+    narrow.addEventListener('change', handleChange);
+    return () => narrow.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    function handleKeyboard(event: KeyboardEvent) {
+      if (isTextEditingTarget(event.target)) return;
+      const modifier = event.metaKey || event.ctrlKey;
+      if (modifier && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        setHistory((current) => event.shiftKey ? redoHistory(current) : undoHistory(current));
+      } else if (modifier && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        setHistory((current) => redoHistory(current));
+      }
+    }
+    window.addEventListener('keydown', handleKeyboard);
+    return () => window.removeEventListener('keydown', handleKeyboard);
+  }, []);
+
+  function handleAdd(
+    type: ComponentType,
+    parentId: string | null = null,
+    position?: { x: number; y: number },
+    viewportId: ViewportId = 'desktop',
+    options: AddNodeOptions = {}
+  ) {
+    const localizedType = componentLabel(language, type);
+    const createdNode = createNode(type, t(language, 'addedByEditor', { type: localizedType }), localizedType);
+    const node: UINode = {
+      ...createdNode,
+      content: localizeDefaultContent(language, type, localizedType, createdNode.content),
+    };
+    const currentRoot = blueprint?.nodes.find((candidate) => candidate.parent_id === null);
+    const currentSelected = selectedId
+      ? blueprint?.nodes.find((candidate) => candidate.id === selectedId)
+      : null;
+    const destinationName = parentId
+      ? blueprint?.nodes.find((candidate) => candidate.id === parentId)?.name
+      : currentSelected && isContainerType(currentSelected.type)
+        ? currentSelected.name
+        : currentSelected?.parent_id
+          ? blueprint?.nodes.find((candidate) => candidate.id === currentSelected.parent_id)?.name
+          : currentRoot?.name;
+    commit((current) => {
+      let base = current ?? createStarterBlueprint(language);
+      const root = base.nodes.find((candidate) => candidate.parent_id === null);
+      const selectedNode = selectedId ? base.nodes.find((candidate) => candidate.id === selectedId) : null;
+      const isShellSlot = type === 'top_bar' || type === 'header' || type === 'bottom_nav';
+      const targetParent = parentId
+        ?? (selectedNode && isContainerType(selectedNode.type) ? selectedNode.id : selectedNode?.parent_id)
+        ?? root?.id
+        ?? null;
+      const target = targetParent ? base.nodes.find((candidate) => candidate.id === targetParent) : null;
+      const routesToShell = isShellSlot && root?.type === 'app_shell';
+      const wrapsInShell = isShellSlot && root?.type !== 'app_shell';
+      let placedNode = node;
+
+      if (options.existingPlacements?.length) {
+        base = updateManyPlacements(base, options.existingPlacements);
+      }
+      if (options.makeParentFreeform && targetParent) {
+        const currentTarget = base.nodes.find((candidate) => candidate.id === targetParent);
+        if (currentTarget) {
+          base = updateNode(base, targetParent, {
+            layout: { ...currentTarget.layout, mode: 'freeform' },
+          });
+        }
+      }
+
+      if (options.makeParentFreeform || target?.layout?.mode === 'freeform' || root?.layout?.mode === 'freeform') {
+        placedNode = {
+          ...placedNode,
+          placements: placementsForNewNode(base, placedNode.type, position, viewportId),
+        };
+      }
+      if (type === 'sidebar') {
+        placedNode = {
+          ...placedNode,
+          layout: { ...placedNode.layout, width: { value: 240, unit: 'px' } },
+        };
+      }
+      if (routesToShell && root) return addNode(base, placedNode, root.id);
+      if (wrapsInShell && root) {
+        const shell = createNode('app_shell', t(language, 'starterAppShellRole'), t(language, 'starterAppShellName'));
+        shell.layout = { mode: 'freeform' };
+        return wrapRootInAppShell(base, shell, {
+          ...placedNode,
+          placements: placementsForNewNode(base, placedNode.type, position, viewportId),
+        });
+      }
+      return addNode(base, placedNode, targetParent);
+    });
+    setSelectedIds([node.id]);
+    setNotice(t(language, options.makeParentFreeform ? 'placedFreely' : 'addedToContainer', {
+      component: localizedType,
+      container: destinationName ?? t(language, 'starterRootName'),
+    }));
   }
 
   function handleUpdate(id: string, patch: Partial<UINode>) {
-    if (!blueprint) return;
-    setBlueprint((cur) => (cur ? updateNode(cur, id, patch) : cur));
+    commit((current) => current ? updateNode(current, id, patch) : current);
   }
 
-  function handleDelete(id: string) {
+  function handleUpdatePlacements(
+    updates: Array<{ id: string; viewportId: ViewportId; patch: Partial<Placement> }>
+  ) {
+    commit((current) => current ? updateManyPlacements(current, updates) : current);
+  }
+
+  function handleDelete(ids: string[]) {
+    commit((current) => {
+      if (!current) return current;
+      return ids.reduce((next, id) => {
+        const node = next.nodes.find((candidate) => candidate.id === id);
+        return node?.parent_id ? deleteNode(next, id) : next;
+      }, current);
+    });
+    setSelectedIds([]);
+  }
+
+  function handleDuplicate(ids: string[]) {
     if (!blueprint) return;
-    setBlueprint((cur) => (cur ? deleteNode(cur, id) : cur));
-    if (selectedId === id) setSelectedId(null);
+    const result = duplicateNodes(
+      blueprint,
+      ids,
+      (name) => t(language, 'duplicateName', { name })
+    );
+    commit(result.blueprint);
+    setSelectedIds(result.ids);
+  }
+
+  function handleReparent(id: string, parentId: string) {
+    commit((current) => current ? reparentNode(current, id, parentId) : current);
+  }
+
+  function handleMoveNode(
+    id: string,
+    parentId: string,
+    position: { x: number; y: number } | undefined,
+    viewportId: ViewportId
+  ) {
+    const node = blueprint?.nodes.find((candidate) => candidate.id === id);
+    const parent = blueprint?.nodes.find((candidate) => candidate.id === parentId);
+    commit((current) => {
+      if (!current) return current;
+      const currentNode = current.nodes.find((candidate) => candidate.id === id);
+      const currentParent = current.nodes.find((candidate) => candidate.id === parentId);
+      if (!currentNode || !currentParent) return current;
+      let next = currentNode.parent_id === parentId ? current : reparentNode(current, id, parentId);
+      if (currentParent.layout?.mode === 'freeform' && position) {
+        next = updateNodePlacement(next, id, viewportId, position);
+      }
+      return next;
+    });
+    setSelectedIds([id]);
+    if (node && parent) {
+      setNotice(t(language, 'movedToContainer', {
+        component: node.name,
+        container: parent.name,
+      }));
+    }
+  }
+
+  function handleZIndex(ids: string[], viewportId: ViewportId, direction: 'front' | 'back') {
+    commit((current) => current ? setNodeZIndex(current, ids, viewportId, direction) : current);
   }
 
   async function handleExportMarkdown() {
     if (!blueprint) return;
-    const md = await exportMarkdown(blueprint);
-    downloadBlob(`${blueprint.screen.id}.ui.md`, md, 'text/markdown');
+    downloadBlob(`${blueprint.screen.id}.ui.md`, await exportMarkdown(blueprint), 'text/markdown');
   }
 
-  const selectedNode = blueprint?.nodes.find((n) => n.id === selectedId) ?? null;
-
-  function handlePropertiesUpdate(patch: Partial<UINode>) {
-    if (selectedId) handleUpdate(selectedId, patch);
+  function handleExportJson() {
+    if (!blueprint) return;
+    downloadBlob(`${blueprint.screen.id}.ui.json`, `${JSON.stringify(blueprint, null, 2)}\n`, 'application/json');
   }
 
-  function handlePropertiesDelete() {
-    if (selectedId) handleDelete(selectedId);
+  async function handleExportAgentPrompt() {
+    if (!blueprint) return;
+    downloadBlob(
+      `${blueprint.screen.id}.codex.md`,
+      await exportCodexPrompt(blueprint),
+      'text/markdown'
+    );
   }
+
+  async function handleExportPackage() {
+    if (!blueprint || !canvasRef.current) return;
+    const quality = await canvasRef.current.auditViewports();
+    setViewportQuality(quality);
+    if (quality.issues.length > 0) {
+      setNotice(t(language, 'viewportQualityBlocked', { count: quality.issues.length }));
+      return;
+    }
+    setNotice(t(language, 'preparingPackage'));
+    const images = await canvasRef.current.captureViewports();
+    const markdown = await exportMarkdown(blueprint);
+    const agentPrompt = await exportCodexPrompt(blueprint);
+    const reportTemplate = await createReportTemplate(blueprint);
+    await downloadHandoffPackage(blueprint, markdown, agentPrompt, reportTemplate, images);
+    setNotice(t(language, 'packageReady'));
+  }
+
+  const selectedNode = selectedIds.length === 1
+    ? blueprint?.nodes.find((node) => node.id === selectedId) ?? null
+    : null;
 
   return (
     <div className="app">
       <TopBar
         blueprint={blueprint}
         onImport={handleImport}
+        onAngularFiles={handleAngularFiles}
+        onPersonalTemplateFile={handlePersonalTemplateFile}
+        onDownloadAuthoringKit={() => void downloadAuthoringKit()}
+        onExportJson={handleExportJson}
         onExportMarkdown={handleExportMarkdown}
+        onExportPackage={handleExportPackage}
+        packageBlocked={Boolean(viewportQuality?.issues.length)}
         errorCount={errors.length}
         fileInputRef={fileInputRef}
+        language={language}
+        onLanguageChange={setLanguage}
+        onTemplateSelect={handleTemplateSelect}
+        canUndo={history.past.length > 0}
+        canRedo={history.future.length > 0}
+        onUndo={() => setHistory((current) => undoHistory(current))}
+        onRedo={() => setHistory((current) => redoHistory(current))}
       />
-      <div className="body">
-        <Palette onAdd={(t) => handleAdd(t)} />
+      <WorkflowBar
+        blueprint={blueprint}
+        language={language}
+        stage={workflowStage}
+        savedAt={savedAt}
+        errorCount={errors.length}
+        viewportQuality={viewportQuality}
+        onChange={setWorkflowStage}
+      />
+      <div className={[
+        'body',
+        propertiesOpen ? '' : 'properties-collapsed',
+        workflowStage === 'layout' ? '' : 'workflow-spec',
+      ].filter(Boolean).join(' ')}>
+        {workflowStage === 'layout' && (
+          <Palette
+            blueprint={blueprint}
+            selectedIds={selectedIds}
+            language={language}
+            onAdd={(type) => {
+              if (!canvasRef.current?.addComponent(type)) handleAdd(type);
+            }}
+            onSelect={setSelectedIds}
+            onReparent={handleReparent}
+            draggingType={draggingType}
+            onDraggingTypeChange={setDraggingType}
+            onTemplateSelect={handleTemplateSelect}
+            personalTemplates={personalTemplates}
+            onSavePersonalTemplate={(name) => void handleSavePersonalTemplate(name)}
+            onLoadPersonalTemplate={handleLoadPersonalTemplate}
+            onExportPersonalTemplate={(template) => void downloadPersonalTemplatePackage(template)}
+            onDeletePersonalTemplate={handleDeletePersonalTemplate}
+          />
+        )}
         <Canvas
+          ref={canvasRef}
           blueprint={blueprint}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
+          selectedIds={selectedIds}
+          language={language}
+          onSelectionChange={setSelectedIds}
           onAddNode={handleAdd}
-          onDeleteNode={handleDelete}
+          onDeleteNodes={handleDelete}
           onUpdateNode={handleUpdate}
+          onUpdatePlacements={handleUpdatePlacements}
+          onMoveNode={handleMoveNode}
+          onDuplicateNodes={handleDuplicate}
+          onSetZIndex={handleZIndex}
+          onCreateStarter={handleCreateStarter}
+          onTemplateSelect={handleTemplateSelect}
+          draggingType={draggingType}
+          onDragComplete={() => setDraggingType(null)}
+          resetKey={canvasResetKey}
+          propertiesOpen={workflowStage !== 'layout' || propertiesOpen}
+          onPropertiesOpen={() => setPropertiesOpen(true)}
         />
-        <PropertiesPanel
-          node={selectedNode}
-          onUpdate={handlePropertiesUpdate}
-          onDelete={handlePropertiesDelete}
-        />
+        {workflowStage === 'layout' && propertiesOpen && (
+          <PropertiesPanel
+            blueprint={blueprint}
+            node={selectedNode}
+            selectedCount={selectedIds.length}
+            language={language}
+            onUpdate={(patch) => selectedId && handleUpdate(selectedId, patch)}
+            onUpdatePlacement={(viewportId, patch) => selectedId && commit((current) => (
+              current ? updateNodePlacement(current, selectedId, viewportId, patch) : current
+            ))}
+            onDelete={() => handleDelete(selectedIds)}
+            onSelectParent={() => selectedNode?.parent_id && setSelectedIds([selectedNode.parent_id])}
+            onReparent={(parentId) => selectedId && handleReparent(selectedId, parentId)}
+            onCollapse={() => setPropertiesOpen(false)}
+          />
+        )}
+        {blueprint && workflowStage !== 'layout' && (
+          <BlueprintPanel
+            blueprint={blueprint}
+            language={language}
+            stage={workflowStage}
+            errorCount={errors.length}
+            viewportQuality={viewportQuality}
+            onChange={(patch) => commit((current) => current ? { ...current, ...patch } : current)}
+            onExportJson={handleExportJson}
+            onExportMarkdown={handleExportMarkdown}
+            onExportAgentPrompt={handleExportAgentPrompt}
+            onExportPackage={handleExportPackage}
+          />
+        )}
       </div>
+      {notice && <div className="toast-notice" role="status" aria-live="polite">{notice}</div>}
+      {workflowStage === 'layout' && importDiagnostics.length > 0 && (
+        <aside className="import-review-panel" aria-label={language === 'zh-Hant' ? '匯入診斷' : 'Import diagnostics'}>
+          <header>
+            <div>
+              <strong>{language === 'zh-Hant' ? '匯入診斷' : 'Import diagnostics'}</strong>
+              <span>{importDiagnostics.length}</span>
+            </div>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={language === 'zh-Hant' ? '關閉匯入診斷' : 'Close import diagnostics'}
+              title={language === 'zh-Hant' ? '關閉匯入診斷' : 'Close import diagnostics'}
+              onClick={() => setImportDiagnostics([])}
+            >
+              ×
+            </button>
+          </header>
+          <div className="import-review-list">
+            {importDiagnostics.map((diagnostic, index) => (
+              <button
+                type="button"
+                key={`${diagnostic.code}-${diagnostic.node_id ?? index}`}
+                className={`import-review-item ${diagnostic.severity}`}
+                disabled={!diagnostic.node_id}
+                onClick={() => {
+                  if (!diagnostic.node_id) return;
+                  setSelectedIds([diagnostic.node_id]);
+                  setPropertiesOpen(true);
+                  requestAnimationFrame(() => canvasRef.current?.focusNode(diagnostic.node_id!));
+                }}
+              >
+                <span>{diagnostic.message}</span>
+                <small>
+                  {diagnostic.file}{diagnostic.line ? `:${diagnostic.line}` : ''}
+                  {diagnostic.node_id ? ` · ${language === 'zh-Hant' ? '定位元件' : 'Focus node'}` : ''}
+                </small>
+              </button>
+            ))}
+          </div>
+        </aside>
+      )}
+      <AngularImportDialog
+        open={angularImport.open}
+        language={language}
+        files={angularImport.files}
+        entries={angularImport.entries}
+        selectedEntry={angularImport.selectedEntry}
+        result={angularImport.result}
+        loading={angularImport.loading}
+        error={angularImport.error}
+        onEntryChange={(entry) => void runAngularEntry(angularImport.files, angularImport.entries, entry)}
+        onClose={() => setAngularImport((current) => ({ ...current, open: false }))}
+        onLoad={loadAngularResult}
+        onResultChange={(result) => setAngularImport((current) => ({ ...current, result }))}
+      />
       <footer className="statusbar">
         {blueprint ? (
           <>
-            <span>
-              {blueprint.nodes.length} node{blueprint.nodes.length === 1 ? '' : 's'} ·{' '}
-              {blueprint.interactions.length} interaction{blueprint.interactions.length === 1 ? '' : 's'} ·{' '}
-              {blueprint.acceptance.length} acceptance
-            </span>
-            <span style={{ marginLeft: 'auto' }} className={errors.length > 0 ? 'err' : 'ok'}>
-              {errors.length > 0 ? `${errors.length} schema error${errors.length === 1 ? '' : 's'}` : 'schema valid'}
+            <span>{blueprint.nodes.length} {t(language, 'nodes')} · {selectedIds.length} {t(language, 'selected')} · {blueprint.acceptance.length} {t(language, 'acceptance')}</span>
+            <span className={errors.length > 0 ? 'err' : 'ok'} style={{ marginLeft: 'auto' }}>
+              {errors.length > 0 ? `${errors.length} ${t(language, 'schemaErrors')}` : t(language, 'schemaValid')}
             </span>
           </>
-        ) : (
-          <span>Click any component in the palette to start. Drag-and-drop also works.</span>
-        )}
+        ) : <span>{t(language, 'startHint')}</span>}
       </footer>
     </div>
   );
+}
+
+function placementsForNewNode(
+  blueprint: Blueprint,
+  type: ComponentType,
+  position: { x: number; y: number } | undefined,
+  activeViewport: ViewportId
+): UINode['placements'] {
+  const active = blueprint.viewports.find((viewport) => viewport.id === activeViewport) ?? blueprint.viewports[0];
+  const base = defaultPlacementForType(type, position ?? { x: 32, y: 32 });
+  const placements: UINode['placements'] = {};
+  for (const viewport of blueprint.viewports) {
+    const ratio = active ? Math.min(1, viewport.width / active.width) : 1;
+    const scalesHorizontally = active ? base.width > active.width * 0.5 : false;
+    const scalesVertically = active ? base.height > active.height * 0.5 : false;
+    const width = scalesHorizontally ? Math.round(base.width * ratio) : base.width;
+    const height = scalesVertically ? Math.round(base.height * ratio) : base.height;
+    const clampedWidth = Math.max(24, Math.min(width, viewport.width - 32));
+    const clampedHeight = Math.max(1, Math.min(height, viewport.height - 32));
+    placements[viewport.id] = {
+      ...base,
+      x: Math.max(0, Math.min(Math.round(base.x * ratio), viewport.width - clampedWidth)),
+      y: Math.max(0, Math.min(Math.round(base.y * ratio), viewport.height - clampedHeight)),
+      width: clampedWidth,
+      height: clampedHeight,
+    };
+  }
+  return placements;
+}
+
+function isTextEditingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+}
+
+function localizeDefaultContent(
+  language: Language,
+  type: ComponentType,
+  label: string,
+  content: UINode['content']
+): UINode['content'] {
+  if (!content) return content;
+  switch (type) {
+    case 'heading':
+    case 'text':
+    case 'badge':
+    case 'tag':
+    case 'link':
+      return { ...content, text: label };
+    case 'button':
+      return { ...content, label };
+    case 'image':
+    case 'avatar':
+      return { ...content, alt: label };
+    case 'icon':
+      return { ...content, label };
+    case 'textarea':
+      return { ...content, label, placeholder: t(language, 'enterValue') };
+    case 'search_input':
+      return { ...content, label, placeholder: `${label}...` };
+    default:
+      return content;
+  }
 }
