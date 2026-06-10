@@ -32,7 +32,12 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: apps/editor/pnpm-lock.yaml
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            apps/editor/pnpm-lock.yaml
+
+      - name: Install root dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Install editor dependencies
         working-directory: apps/editor
