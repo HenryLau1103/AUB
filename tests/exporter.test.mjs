@@ -113,3 +113,37 @@ test('E9: exporter handles empty interactions and responsive arrays gracefully',
   assert.ok(md.includes('_No responsive rules declared._'));
   assert.ok(md.includes('a1'));
 });
+
+test('E10: exporter includes exact freeform geometry for every declared viewport', () => {
+  const blueprint = {
+    version: '0.2.0',
+    screen: { id: 'geometry', name: 'Geometry', type: 'landing', platform: 'web', primary_user_goal: 'Test geometry.' },
+    viewports: [
+      { id: 'desktop', width: 1440, height: 900 },
+      { id: 'mobile', width: 390, height: 844 },
+    ],
+    design_system: { name: 'Test', colors: { primary: '#123456' } },
+    nodes: [
+      { id: 'root', type: 'page', name: 'Root', role: 'Root', parent_id: null, children: ['cta'], layout: { mode: 'freeform' } },
+      {
+        id: 'cta',
+        type: 'button',
+        name: 'CTA',
+        role: 'Action',
+        parent_id: 'root',
+        children: [],
+        placements: {
+          desktop: { x: 80, y: 120, width: 160, height: 44, z_index: 2 },
+          mobile: { x: 24, y: 640, width: 342, height: 48, z_index: 3 },
+        },
+      },
+    ],
+    interactions: [],
+    responsive: [],
+    acceptance: [],
+  };
+  const md = exportMarkdown(blueprint);
+  assert.match(md, /\| `cta` \| `desktop` \| 80 \| 120 \| 160 \| 44 \| 2 \|/);
+  assert.match(md, /\| `cta` \| `mobile` \| 24 \| 640 \| 342 \| 48 \| 3 \|/);
+  assert.ok(md.includes('`primary` | `#123456`'));
+});

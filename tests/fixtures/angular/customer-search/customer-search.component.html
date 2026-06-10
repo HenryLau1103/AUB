@@ -1,0 +1,32 @@
+<div class="container-fluid">
+  <div class="txn-title"><span>Customer Search</span></div>
+  <div class="txn-query-area">
+    <form [formGroup]="form">
+      <div class="row">
+        <div class="txn-form-group-2">
+          <div class="txn-form-label-2"><label>Customer ID</label></div>
+          <input type="text" formControlName="customerId" maxlength="12">
+        </div>
+        <div class="txn-form-group-2">
+          <div class="txn-form-label-2"><label>Segment</label></div>
+          <select formControlName="segment">
+            <option *ngFor="let item of segments">{{ item.label }}</option>
+          </select>
+        </div>
+      </div>
+      <button type="button" data-toggle="collapse" data-target="#advanced" (click)="toggleAdvanced()">Advanced</button>
+      <div id="advanced" class="collapse">
+        <div class="txn-form-group-2">
+          <div class="txn-form-label-2"><label>Created date</label></div>
+          <sfap-datepicker formControlName="createdAt"></sfap-datepicker>
+        </div>
+      </div>
+      <div class="btn-area">
+        <app-auth-button title="Search" (click)="query()"></app-auth-button>
+        <app-auth-button title="Clear" (click)="clear()"></app-auth-button>
+      </div>
+    </form>
+  </div>
+  <app-customer-results [rows]="rows"></app-customer-results>
+  <app-unmapped-summary [value]="summary"></app-unmapped-summary>
+</div>

@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.3.0",
   "screen": {
     "id": "dashboard.overview",
     "name": "Dashboard Overview",
@@ -9,9 +9,21 @@
     "notes": "Reference example used to validate the schema, types, and exporters."
   },
   "viewports": [
-    { "id": "desktop", "width": 1440, "height": 900 },
-    { "id": "tablet", "width": 1024, "height": 768 },
-    { "id": "mobile", "width": 390, "height": 844 }
+    {
+      "id": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "id": "tablet",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": "mobile",
+      "width": 390,
+      "height": 844
+    }
   ],
   "nodes": [
     {
@@ -20,10 +32,18 @@
       "name": "App Shell",
       "role": "Top-level layout container: holds sidebar, top bar, and main content area.",
       "parent_id": null,
-      "children": ["sidebar", "top_bar", "main"],
+      "children": [
+        "sidebar",
+        "top_bar",
+        "main"
+      ],
       "layout": {
+        "mode": "auto",
         "display": "grid",
-        "grid": { "columns": 1, "rows": 1 }
+        "grid": {
+          "columns": 1,
+          "rows": 1
+        }
       }
     },
     {
@@ -32,13 +52,30 @@
       "name": "Primary Sidebar",
       "role": "Primary navigation. Groups links by section. Collapses to drawer on tablet/mobile.",
       "parent_id": "app_shell",
-      "children": ["nav_item_overview", "nav_item_orders", "nav_item_customers", "nav_item_reports", "nav_item_settings"],
+      "children": [
+        "nav_item_overview",
+        "nav_item_orders",
+        "nav_item_customers",
+        "nav_item_reports",
+        "nav_item_settings"
+      ],
       "layout": {
+        "mode": "auto",
         "display": "flex",
         "direction": "column",
-        "gap": { "y": 4 },
-        "padding": { "top": 24, "bottom": 24, "left": 16, "right": 16 },
-        "width": { "value": 240, "unit": "px" }
+        "gap": {
+          "y": 4
+        },
+        "padding": {
+          "top": 24,
+          "bottom": 24,
+          "left": 16,
+          "right": 16
+        },
+        "width": {
+          "value": 240,
+          "unit": "px"
+        }
       }
     },
     {
@@ -47,7 +84,10 @@
       "name": "Overview",
       "role": "Link to the Overview screen (current).",
       "parent_id": "sidebar",
-      "content": { "label": "Overview", "action": "navigate:/dashboard" }
+      "content": {
+        "label": "Overview",
+        "action": "navigate:/dashboard"
+      }
     },
     {
       "id": "nav_item_orders",
@@ -55,7 +95,10 @@
       "name": "Orders",
       "role": "Link to the Orders screen.",
       "parent_id": "sidebar",
-      "content": { "label": "Orders", "action": "navigate:/orders" }
+      "content": {
+        "label": "Orders",
+        "action": "navigate:/orders"
+      }
     },
     {
       "id": "nav_item_customers",
@@ -63,7 +106,10 @@
       "name": "Customers",
       "role": "Link to the Customers screen.",
       "parent_id": "sidebar",
-      "content": { "label": "Customers", "action": "navigate:/customers" }
+      "content": {
+        "label": "Customers",
+        "action": "navigate:/customers"
+      }
     },
     {
       "id": "nav_item_reports",
@@ -71,7 +117,10 @@
       "name": "Reports",
       "role": "Link to the Reports screen.",
       "parent_id": "sidebar",
-      "content": { "label": "Reports", "action": "navigate:/reports" }
+      "content": {
+        "label": "Reports",
+        "action": "navigate:/reports"
+      }
     },
     {
       "id": "nav_item_settings",
@@ -79,7 +128,10 @@
       "name": "Settings",
       "role": "Link to the Settings screen.",
       "parent_id": "sidebar",
-      "content": { "label": "Settings", "action": "navigate:/settings" }
+      "content": {
+        "label": "Settings",
+        "action": "navigate:/settings"
+      }
     },
     {
       "id": "top_bar",
@@ -87,14 +139,25 @@
       "name": "Top Bar",
       "role": "Header containing page title, search, and user menu.",
       "parent_id": "app_shell",
-      "children": ["search_input", "user_menu"],
+      "children": [
+        "search_input",
+        "user_menu"
+      ],
       "layout": {
+        "mode": "auto",
         "display": "flex",
         "direction": "row",
         "align": "center",
         "justify": "space-between",
-        "padding": { "top": 16, "bottom": 16, "left": 24, "right": 24 },
-        "gap": { "x": 16 }
+        "padding": {
+          "top": 16,
+          "bottom": 16,
+          "left": 24,
+          "right": 24
+        },
+        "gap": {
+          "x": 16
+        }
       }
     },
     {
@@ -108,7 +171,9 @@
         "placeholder": "Search orders, customers...",
         "action": "submit:global_search"
       },
-      "constraints": { "touch_target_min": 44 }
+      "constraints": {
+        "touch_target_min": 44
+      }
     },
     {
       "id": "user_menu",
@@ -119,8 +184,16 @@
       "content": {
         "label": "Account",
         "items": [
-          { "id": "menu_profile", "label": "Profile", "action": "navigate:/profile" },
-          { "id": "menu_logout", "label": "Sign out", "action": "submit:logout" }
+          {
+            "id": "menu_profile",
+            "label": "Profile",
+            "action": "navigate:/profile"
+          },
+          {
+            "id": "menu_logout",
+            "label": "Sign out",
+            "action": "submit:logout"
+          }
         ]
       }
     },
@@ -130,12 +203,25 @@
       "name": "Main Content",
       "role": "Scrollable area holding the dashboard panels.",
       "parent_id": "app_shell",
-      "children": ["page_title", "metric_row", "chart_panel", "recent_orders_table"],
+      "children": [
+        "page_title",
+        "metric_row",
+        "chart_panel",
+        "recent_orders_table"
+      ],
       "layout": {
+        "mode": "auto",
         "display": "flex",
         "direction": "column",
-        "gap": { "y": 24 },
-        "padding": { "top": 24, "bottom": 32, "left": 32, "right": 32 }
+        "gap": {
+          "y": 24
+        },
+        "padding": {
+          "top": 24,
+          "bottom": 32,
+          "left": 32,
+          "right": 32
+        }
       }
     },
     {
@@ -144,7 +230,9 @@
       "name": "Page Title",
       "role": "Heading for the dashboard view.",
       "parent_id": "main",
-      "content": { "text": "Overview" }
+      "content": {
+        "text": "Overview"
+      }
     },
     {
       "id": "metric_row",
@@ -152,11 +240,23 @@
       "name": "Metric Row",
       "role": "Top-level KPI summary. 4 cards on desktop, 2 on tablet, 1 on mobile.",
       "parent_id": "main",
-      "children": ["metric_revenue", "metric_orders", "metric_customers", "metric_conversion"],
+      "children": [
+        "metric_revenue",
+        "metric_orders",
+        "metric_customers",
+        "metric_conversion"
+      ],
       "layout": {
+        "mode": "auto",
         "display": "grid",
-        "grid": { "columns": 4, "template": "1fr 1fr 1fr 1fr" },
-        "gap": { "x": 16, "y": 16 }
+        "grid": {
+          "columns": 4,
+          "template": "1fr 1fr 1fr 1fr"
+        },
+        "gap": {
+          "x": 16,
+          "y": 16
+        }
       }
     },
     {
@@ -209,14 +309,22 @@
       "name": "Revenue Chart",
       "role": "Time-series chart of revenue over the last 30 days.",
       "parent_id": "main",
-      "children": ["chart_placeholder"],
+      "children": [
+        "chart_placeholder"
+      ],
       "content": {
         "label": "Revenue trend (last 30 days)",
         "data_binding": "metrics.revenue.series_30d"
       },
       "layout": {
+        "mode": "auto",
         "display": "block",
-        "padding": { "top": 16, "bottom": 16, "left": 16, "right": 16 }
+        "padding": {
+          "top": 16,
+          "bottom": 16,
+          "left": 16,
+          "right": 16
+        }
       }
     },
     {
@@ -232,11 +340,19 @@
       "name": "Recent Orders",
       "role": "Sortable, filterable table of the most recent orders. Click row to open detail.",
       "parent_id": "main",
-      "children": ["orders_table", "table_empty_state", "table_loading_state", "table_error_state"],
+      "children": [
+        "orders_table",
+        "table_empty_state",
+        "table_loading_state",
+        "table_error_state"
+      ],
       "layout": {
+        "mode": "auto",
         "display": "flex",
         "direction": "column",
-        "gap": { "y": 8 }
+        "gap": {
+          "y": 8
+        }
       }
     },
     {
@@ -252,11 +368,33 @@
         "loading_state": "table_loading_state",
         "error_state": "table_error_state",
         "columns": [
-          { "id": "order_id", "header": "Order ID", "sortable": true, "filterable": true },
-          { "id": "customer", "header": "Customer", "sortable": true, "filterable": true },
-          { "id": "amount", "header": "Amount", "sortable": true },
-          { "id": "status", "header": "Status", "filterable": true },
-          { "id": "created_at", "header": "Created", "sortable": true }
+          {
+            "id": "order_id",
+            "header": "Order ID",
+            "sortable": true,
+            "filterable": true
+          },
+          {
+            "id": "customer",
+            "header": "Customer",
+            "sortable": true,
+            "filterable": true
+          },
+          {
+            "id": "amount",
+            "header": "Amount",
+            "sortable": true
+          },
+          {
+            "id": "status",
+            "header": "Status",
+            "filterable": true
+          },
+          {
+            "id": "created_at",
+            "header": "Created",
+            "sortable": true
+          }
         ]
       }
     },
@@ -284,7 +422,9 @@
       "name": "Table Error",
       "role": "Shown when the orders list fails to load.",
       "parent_id": "recent_orders_table",
-      "content": { "text": "Could not load orders. Try again." }
+      "content": {
+        "text": "Could not load orders. Try again."
+      }
     }
   ],
   "interactions": [
@@ -337,31 +477,44 @@
       "viewport": "tablet",
       "rule": "drawer",
       "target_node_id": "sidebar",
-      "changes": { "defaultVisible": false, "trigger": "hamburger" }
+      "changes": {
+        "defaultVisible": false,
+        "trigger": "hamburger"
+      }
     },
     {
       "viewport": "mobile",
       "rule": "drawer",
       "target_node_id": "sidebar",
-      "changes": { "defaultVisible": false, "trigger": "hamburger" }
+      "changes": {
+        "defaultVisible": false,
+        "trigger": "hamburger"
+      }
     },
     {
       "viewport": "tablet",
       "rule": "stack",
       "target_node_id": "metric_row",
-      "changes": { "grid.columns": 2 }
+      "changes": {
+        "grid.columns": 2
+      }
     },
     {
       "viewport": "mobile",
       "rule": "stack",
       "target_node_id": "metric_row",
-      "changes": { "grid.columns": 1 }
+      "changes": {
+        "grid.columns": 1
+      }
     },
     {
       "viewport": "mobile",
       "rule": "card_list",
       "target_node_id": "orders_table",
-      "changes": { "view": "stacked", "primary_field": "order_id" }
+      "changes": {
+        "view": "stacked",
+        "primary_field": "order_id"
+      }
     }
   ],
   "acceptance": [
@@ -453,5 +606,45 @@
       "priority": "should",
       "verification_method": "dom_query"
     }
-  ]
+  ],
+  "design_system": {
+    "name": "AUB Neutral",
+    "colors": {
+      "surface.canvas": "#f8fafc",
+      "surface.panel": "#ffffff",
+      "surface.subtle": "#f1f5f9",
+      "text.primary": "#0f172a",
+      "text.secondary": "#64748b",
+      "border.default": "#cbd5e1",
+      "action.primary": "#2563eb",
+      "action.primary.text": "#ffffff",
+      "status.success": "#047857",
+      "status.warning": "#b45309",
+      "status.danger": "#b91c1c"
+    },
+    "typography": {
+      "heading.page": "700 28px/1.2 system-ui",
+      "heading.section": "650 18px/1.3 system-ui",
+      "body.default": "400 14px/1.5 system-ui",
+      "body.small": "400 12px/1.4 system-ui",
+      "label.default": "600 12px/1.3 system-ui"
+    },
+    "spacing": {
+      "space.1": "4px",
+      "space.2": "8px",
+      "space.3": "12px",
+      "space.4": "16px",
+      "space.5": "24px",
+      "space.6": "32px"
+    },
+    "radii": {
+      "radius.control": "6px",
+      "radius.panel": "8px",
+      "radius.round": "999px"
+    },
+    "shadows": {
+      "shadow.panel": "0 8px 24px rgba(15, 23, 42, 0.12)",
+      "shadow.overlay": "0 18px 48px rgba(15, 23, 42, 0.22)"
+    }
+  }
 }

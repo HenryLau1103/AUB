@@ -8,7 +8,7 @@ The schema follows **Semantic Versioning 2.0.0** (`MAJOR.MINOR.PATCH`).
 
 The version is exposed at three layers, in sync:
 
-1. **JSON Schema `$id`** — the absolute URI embeds the version: `https://github.com/HenryLau1103/AUB/schema/v0.1.0/ui-blueprint.schema.json`
+1. **JSON Schema `$id`** — the absolute URI embeds the version: `https://github.com/HenryLau1103/AUB/schema/0.3.0/ui-blueprint.schema.json`
 2. **TypeScript package version** — `package.json#version`
 3. **Blueprint document** — every `.ui.json` MUST declare its `version` and it MUST match the schema version it was authored against
 
@@ -87,15 +87,23 @@ When a property or enum value is scheduled for removal:
 
 ## Migration Guide
 
-### v0.1.0 → v0.2.0 (planned)
+### v0.1.0 → v0.2.0
 
-The first MINOR bump will likely add:
+This additive release adds:
 
-- New `theme` top-level property (optional, default = system)
-- New `responsive.rule` values: `dropdown`, `tabs`, `accordion`
-- New component types: `kbd`, `tooltip`, `popover`
+- Optional top-level `design_system` token maps.
+- `layout.mode` with `auto` and `freeform`.
+- Optional per-viewport `node.placements` geometry.
+- Visual, calendar, kanban, and rich-text component types.
 
-No migration required for existing `v0.1.0` documents.
+The editor and `scripts/migrate-blueprint-cli.mjs` upgrade v0.1 documents by adding `layout.mode: auto` to existing layouts and a default design system. Existing node trees, interactions, responsive rules, and acceptance criteria are preserved.
+
+### v0.2.0 → v0.3.0
+
+This additive release adds optional import provenance, per-node source references,
+dynamic bindings, validation metadata, initial state, and richer table-column
+semantics. Migration updates the document version while preserving existing
+nodes, geometry, interactions, responsive rules, and acceptance criteria.
 
 ## How to Verify Your Document Matches the Schema
 

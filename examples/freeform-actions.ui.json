@@ -1,0 +1,228 @@
+{
+  "version": "0.3.0",
+  "screen": {
+    "id": "benchmark.freeform-actions",
+    "name": "Freeform Actions Benchmark",
+    "type": "landing",
+    "platform": "web",
+    "primary_user_goal": "Verify that an agent can reconstruct exact freeform geometry and nested auto layout."
+  },
+  "viewports": [
+    { "id": "desktop", "width": 1440, "height": 900 },
+    { "id": "tablet", "width": 1024, "height": 768 },
+    { "id": "mobile", "width": 390, "height": 844 }
+  ],
+  "design_system": {
+    "name": "Benchmark Teal",
+    "colors": {
+      "surface.canvas": "#f8fafc",
+      "surface.panel": "#ffffff",
+      "text.primary": "#0f172a",
+      "action.primary": "#0f766e",
+      "action.primary.text": "#ffffff"
+    },
+    "typography": {
+      "heading.page": "700 40px/1.15 system-ui",
+      "body.default": "400 14px/1.5 system-ui"
+    },
+    "spacing": {
+      "space.4": "16px"
+    },
+    "radii": {
+      "radius.control": "6px",
+      "radius.panel": "8px"
+    },
+    "shadows": {
+      "shadow.panel": "0 8px 24px rgba(15, 23, 42, 0.12)"
+    }
+  },
+  "nodes": [
+    {
+      "id": "root",
+      "type": "page",
+      "name": "Landing Page",
+      "role": "Freeform root container.",
+      "parent_id": null,
+      "children": ["hero_heading", "primary_cta", "secondary_cta", "stats_card"],
+      "layout": { "mode": "freeform" }
+    },
+    {
+      "id": "hero_heading",
+      "type": "heading",
+      "name": "Hero Heading",
+      "role": "Primary page heading.",
+      "parent_id": "root",
+      "children": [],
+      "placements": {
+        "desktop": { "x": 80, "y": 96, "width": 620, "height": 64, "z_index": 1 },
+        "tablet": { "x": 56, "y": 80, "width": 520, "height": 60, "z_index": 1 },
+        "mobile": { "x": 24, "y": 72, "width": 342, "height": 96, "z_index": 1 }
+      },
+      "content": { "text": "Build interfaces agents can understand" },
+      "style": { "typography": "heading.page", "foreground": "text.primary" }
+    },
+    {
+      "id": "primary_cta",
+      "type": "button",
+      "name": "Start Building",
+      "role": "Primary conversion action.",
+      "parent_id": "root",
+      "children": [],
+      "placements": {
+        "desktop": { "x": 80, "y": 220, "width": 160, "height": 44, "z_index": 2 },
+        "tablet": { "x": 56, "y": 200, "width": 160, "height": 44, "z_index": 2 },
+        "mobile": { "x": 24, "y": 240, "width": 164, "height": 48, "z_index": 2 }
+      },
+      "content": { "label": "Start building", "action": "navigate:/signup" },
+      "style": {
+        "background": "action.primary",
+        "foreground": "action.primary.text",
+        "radius": "radius.control",
+        "variant": "primary"
+      },
+      "states": ["default", "hover", "focus"]
+    },
+    {
+      "id": "secondary_cta",
+      "type": "button",
+      "name": "View Examples",
+      "role": "Secondary navigation action.",
+      "parent_id": "root",
+      "children": [],
+      "placements": {
+        "desktop": { "x": 256, "y": 220, "width": 160, "height": 44, "z_index": 2 },
+        "tablet": { "x": 232, "y": 200, "width": 160, "height": 44, "z_index": 2 },
+        "mobile": { "x": 202, "y": 240, "width": 164, "height": 48, "z_index": 2 }
+      },
+      "content": { "label": "View examples", "action": "navigate:/examples" },
+      "style": {
+        "background": "surface.panel",
+        "foreground": "text.primary",
+        "radius": "radius.control",
+        "variant": "secondary"
+      },
+      "states": ["default", "hover", "focus"]
+    },
+    {
+      "id": "stats_card",
+      "type": "card",
+      "name": "Adoption Card",
+      "role": "Nested auto-layout summary card.",
+      "parent_id": "root",
+      "children": ["stat_label", "stat_value"],
+      "layout": {
+        "mode": "auto",
+        "display": "flex",
+        "direction": "column",
+        "gap": { "y": 8 },
+        "padding": { "top": 20, "right": 20, "bottom": 20, "left": 20 }
+      },
+      "placements": {
+        "desktop": { "x": 80, "y": 320, "width": 360, "height": 160, "z_index": 1 },
+        "tablet": { "x": 56, "y": 300, "width": 340, "height": 160, "z_index": 1 },
+        "mobile": { "x": 24, "y": 336, "width": 342, "height": 160, "z_index": 1 }
+      },
+      "style": {
+        "background": "surface.panel",
+        "radius": "radius.panel",
+        "shadow": "shadow.panel"
+      }
+    },
+    {
+      "id": "stat_label",
+      "type": "text",
+      "name": "Adoption Label",
+      "role": "Describes the metric.",
+      "parent_id": "stats_card",
+      "children": [],
+      "content": { "text": "Blueprints exported" },
+      "style": { "typography": "body.default", "foreground": "text.primary" }
+    },
+    {
+      "id": "stat_value",
+      "type": "heading",
+      "name": "Adoption Value",
+      "role": "Shows the representative metric value.",
+      "parent_id": "stats_card",
+      "children": [],
+      "content": { "text": "12,480" },
+      "style": { "typography": "heading.page", "foreground": "action.primary" }
+    }
+  ],
+  "interactions": [
+    {
+      "id": "interaction_start",
+      "trigger": "click",
+      "source_node_id": "primary_cta",
+      "action": "navigate:/signup",
+      "target": "/signup",
+      "result_state": "The signup route is visible."
+    },
+    {
+      "id": "interaction_examples",
+      "trigger": "click",
+      "source_node_id": "secondary_cta",
+      "action": "navigate:/examples",
+      "target": "/examples",
+      "result_state": "The examples route is visible."
+    }
+  ],
+  "responsive": [
+    {
+      "viewport": "mobile",
+      "rule": "keep",
+      "target_node_id": "root",
+      "changes": { "geometry": "placements.mobile" }
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "acc_layout",
+      "type": "layout",
+      "statement": "The two CTA buttons are side by side in every declared viewport.",
+      "target": "primary_cta,secondary_cta",
+      "priority": "blocker",
+      "verification_method": "screenshot_diff"
+    },
+    {
+      "id": "acc_interaction",
+      "type": "interaction",
+      "statement": "The primary CTA navigates to /signup.",
+      "target": "primary_cta",
+      "priority": "must",
+      "verification_method": "interaction_replay"
+    },
+    {
+      "id": "acc_responsive",
+      "type": "responsive",
+      "statement": "Mobile uses its explicit placements without horizontal overflow.",
+      "target": "mobile",
+      "priority": "must",
+      "verification_method": "screenshot_diff"
+    },
+    {
+      "id": "acc_a11y",
+      "type": "a11y",
+      "statement": "Both buttons have visible labels and focus states.",
+      "target": "primary_cta,secondary_cta",
+      "priority": "must",
+      "verification_method": "axe_audit"
+    },
+    {
+      "id": "acc_content",
+      "type": "content",
+      "statement": "The heading and adoption metric use declared content.",
+      "target": "hero_heading,stats_card",
+      "priority": "must",
+      "verification_method": "dom_query"
+    },
+    {
+      "id": "acc_tokens",
+      "type": "content",
+      "statement": "The primary action resolves action.primary to #0f766e.",
+      "target": "primary_cta",
+      "priority": "must",
+      "verification_method": "computed_style"
+    }
+  ]
+}

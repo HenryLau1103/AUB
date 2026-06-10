@@ -68,7 +68,28 @@ export function exportMarkdown(blueprint) {
     lines.push('_No layout rules declared._');
   }
   lines.push('');
-  lines.push('**Forbidden:** absolute coordinates (`x`, `y`, `top`, `left` in pixels). Express all positioning with flex/grid, gaps, and padding.');
+  const placementNodes = blueprint.nodes.filter((node) => node.placements && Object.keys(node.placements).length > 0);
+  if (placementNodes.length > 0) {
+    lines.push('### Exact Viewport Geometry');
+    lines.push('');
+    lines.push('For children of a `freeform` container, these pixel values are authoritative at the declared viewport size. Preserve relative composition when interpolating between declared viewports.');
+    lines.push('');
+    lines.push('| Node | Viewport | x | y | width | height | z-index |');
+    lines.push('|---|---:|---:|---:|---:|---:|---:|');
+    for (const node of placementNodes) {
+      for (const viewport of blueprint.viewports) {
+        const placement = resolvePlacement(node, viewport.id);
+        if (!placement) continue;
+        lines.push(`| \`${node.id}\` | \`${viewport.id}\` | ${placement.x} | ${placement.y} | ${placement.width} | ${placement.height} | ${placement.z_index ?? 1} |`);
+      }
+    }
+    lines.push('');
+  }
+  lines.push('Use each container according to its declared mode: `auto` means flex/grid flow is the contract; `freeform` means child `placements` are the contract. Do not replace one mode with the other unless an acceptance item explicitly permits it.');
+  lines.push('');
+  lines.push('### Design System Tokens');
+  lines.push('');
+  renderDesignSystem(lines, blueprint.design_system);
   lines.push('');
   lines.push('---');
   lines.push('');
@@ -224,6 +245,7 @@ function renderTree(blueprint) {
 function describeLayout(node) {
   const l = node.layout;
   const parts = [];
+  if (l.mode) parts.push(`mode: ${l.mode}`);
   if (l.display) parts.push(`display: ${l.display}`);
   if (l.direction) parts.push(`direction: ${l.direction}`);
   if (l.grid?.columns) parts.push(`grid: ${l.grid.columns} cols${l.grid.template ? ` (${l.grid.template})` : ''}`);
@@ -241,6 +263,33 @@ function describeLayout(node) {
   if (l.width) parts.push(`width: ${l.width.value}${l.width.unit}`);
   if (l.height) parts.push(`height: ${l.height.value}${l.height.unit}`);
   return parts.length > 0 ? parts.join(', ') : null;
+}
+
+function resolvePlacement(node, viewportId) {
+  const placements = node.placements;
+  if (!placements) return null;
+  return placements[viewportId]
+    ?? placements.desktop
+    ?? placements.tablet
+    ?? placements.mobile
+    ?? placements.wide
+    ?? null;
+}
+
+function renderDesignSystem(lines, designSystem) {
+  if (!designSystem) {
+    lines.push('_No design system tokens declared._');
+    return;
+  }
+  lines.push(`Token set: **${designSystem.name}**`);
+  lines.push('');
+  lines.push('| Group | Token | Value |');
+  lines.push('|---|---|---|');
+  for (const group of ['colors', 'typography', 'spacing', 'radii', 'shadows']) {
+    for (const [name, value] of Object.entries(designSystem[group] ?? {})) {
+      lines.push(`| ${group} | \`${name}\` | \`${String(value).replaceAll('|', '\\|')}\` |`);
+    }
+  }
 }
 
 function groupBy(arr, keyFn) {

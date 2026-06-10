@@ -9,6 +9,21 @@ export default defineConfig({
       '@aub/schema': resolve(__dirname, '../../schema'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('react-moveable') || id.includes('react-selecto') || id.includes('@daybrush')) {
+            return 'canvas-tools';
+          }
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
+            return 'react-vendor';
+          }
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     host: '127.0.0.1',

@@ -1,4 +1,4 @@
-import type { ComponentType, Viewport } from '../types';
+import type { ComponentType, NodeState, Viewport } from '../types';
 
 export type Language = 'en' | 'zh-Hant';
 
@@ -11,8 +11,12 @@ type MessageKey =
   | 'appTitle'
   | 'noBlueprintLoaded'
   | 'importJson'
+  | 'importAngular'
+  | 'importPersonalTemplate'
+  | 'downloadAuthoringKit'
   | 'exportJson'
   | 'exportMarkdown'
+  | 'exportPackage'
   | 'valid'
   | 'schemaValid'
   | 'schemaError'
@@ -27,6 +31,8 @@ type MessageKey =
   | 'selectNode'
   | 'delete'
   | 'deleteComponent'
+  | 'dragComponent'
+  | 'dragComponentHint'
   | 'rootCannotDelete'
   | 'selectParent'
   | 'hideProperties'
@@ -105,6 +111,8 @@ type MessageKey =
   | 'starterPageCreated'
   | 'starterAppCreated'
   | 'addedToContainer'
+  | 'placedFreely'
+  | 'movedToContainer'
   | 'createdRoot'
   | 'shellSlotPlaced'
   | 'pageSidebarPlaced'
@@ -116,16 +124,75 @@ type MessageKey =
   | 'templateSettings'
   | 'templateLoaded'
   | 'zoom'
+  | 'fitArtboard'
   | 'zoomOut'
-  | 'zoomIn';
+  | 'zoomIn'
+  | 'undo'
+  | 'redo'
+  | 'duplicate'
+  | 'duplicateName'
+  | 'bringFront'
+  | 'sendBack'
+  | 'alignLeft'
+  | 'alignCenter'
+  | 'alignRight'
+  | 'alignTop'
+  | 'alignMiddle'
+  | 'alignBottom'
+  | 'distributeHorizontal'
+  | 'distributeVertical'
+  | 'toggleLayoutMode'
+  | 'freeform'
+  | 'autoLayout'
+  | 'importMigrated'
+  | 'imported'
+  | 'preparingPackage'
+  | 'packageReady'
+  | 'viewportQualityBlocked'
+  | 'selected'
+  | 'components'
+  | 'templates'
+  | 'layers'
+  | 'searchComponents'
+  | 'container'
+  | 'leaf'
+  | 'noLayers'
+  | 'multipleSelected'
+  | 'propertyTab.content'
+  | 'propertyTab.layout'
+  | 'propertyTab.appearance'
+  | 'propertyTab.interaction'
+  | 'parentContainer'
+  | 'zIndex'
+  | 'contentText'
+  | 'contentLabel'
+  | 'placeholder'
+  | 'sourceUrl'
+  | 'altText'
+  | 'advancedJson'
+  | 'backgroundToken'
+  | 'foregroundToken'
+  | 'typographyToken'
+  | 'radiusToken'
+  | 'shadowToken'
+  | 'variant'
+  | 'opacity'
+  | 'actionIntent'
+  | 'supportedStates'
+  | 'declaredInteractions'
+  | 'noDeclaredInteractions';
 
 const MESSAGES: Record<Language, Record<MessageKey, string>> = {
   en: {
     appTitle: 'AUB Editor',
     noBlueprintLoaded: 'no blueprint loaded',
     importJson: 'Import JSON',
+    importAngular: 'Import Angular component files',
+    importPersonalTemplate: 'Import personal template',
+    downloadAuthoringKit: 'Download AI authoring kit',
     exportJson: 'Export JSON',
     exportMarkdown: 'Export Markdown',
+    exportPackage: 'Export AI handoff package',
     valid: 'valid',
     schemaValid: 'schema valid',
     schemaError: 'schema error',
@@ -133,13 +200,15 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     parseJsonFailed: 'Failed to parse JSON: {message}',
     language: 'Language',
     componentPalette: 'Component Palette',
-    paletteHint: 'Click to add to the selected container, or drag onto the canvas.',
+    paletteHint: 'Click or drag to add. Move existing components from the handle centered on their top border.',
     kindContainer: 'Container',
     kindLeaf: 'Leaf',
     properties: 'Properties',
     selectNode: 'Select a node to edit.',
     delete: 'Delete',
     deleteComponent: 'Delete component',
+    dragComponent: 'Drag {component}',
+    dragComponentHint: 'Drag to move {component}. Hold Alt/Option to place it inside another container.',
     rootCannotDelete: 'Root node cannot be deleted',
     selectParent: 'Parent',
     hideProperties: 'Hide',
@@ -218,6 +287,8 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     starterPageCreated: 'Created a single-page UI. Add a container or component to the Page.',
     starterAppCreated: 'Created an application structure. The Main Page is selected.',
     addedToContainer: 'Added {component} to {container}.',
+    placedFreely: 'Placed {component} freely in {container}. Existing components kept their positions.',
+    movedToContainer: 'Moved {component} into {container}.',
     createdRoot: 'Created {component} as the root container.',
     shellSlotPlaced: 'Created an App Shell and placed {component} in its semantic slot. The original page remains as main content.',
     pageSidebarPlaced: 'Added a page sidebar to {container} and switched the container to horizontal layout.',
@@ -229,15 +300,74 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     templateSettings: 'Settings form',
     templateLoaded: 'Loaded template: {template}.',
     zoom: 'Zoom',
+    fitArtboard: 'Fit artboard',
     zoomOut: 'Zoom out',
     zoomIn: 'Zoom in',
+    undo: 'Undo',
+    redo: 'Redo',
+    duplicate: 'Duplicate',
+    duplicateName: '{name} Copy',
+    bringFront: 'Bring to front',
+    sendBack: 'Send to back',
+    alignLeft: 'Align left',
+    alignCenter: 'Align horizontal center',
+    alignRight: 'Align right',
+    alignTop: 'Align top',
+    alignMiddle: 'Align vertical center',
+    alignBottom: 'Align bottom',
+    distributeHorizontal: 'Distribute horizontally',
+    distributeVertical: 'Distribute vertically',
+    toggleLayoutMode: 'Switch auto/freeform layout',
+    freeform: 'Freeform',
+    autoLayout: 'Auto',
+    importMigrated: 'Imported and migrated the Blueprint to v0.3.',
+    imported: 'Blueprint imported.',
+    preparingPackage: 'Preparing AI handoff package...',
+    packageReady: 'AI handoff package exported.',
+    viewportQualityBlocked: 'AI handoff blocked by {count} viewport layout issue(s).',
+    selected: 'selected',
+    components: 'Components',
+    templates: 'Templates',
+    layers: 'Layers',
+    searchComponents: 'Search components',
+    container: 'Container',
+    leaf: 'Element',
+    noLayers: 'Create or import a Blueprint to see layers.',
+    multipleSelected: '{count} components selected.',
+    'propertyTab.content': 'Content',
+    'propertyTab.layout': 'Layout',
+    'propertyTab.appearance': 'Appearance',
+    'propertyTab.interaction': 'Interaction',
+    parentContainer: 'Parent container',
+    zIndex: 'Layer',
+    contentText: 'Text',
+    contentLabel: 'Label',
+    placeholder: 'Placeholder',
+    sourceUrl: 'Source URL',
+    altText: 'Alternative text',
+    advancedJson: 'Advanced JSON',
+    backgroundToken: 'Background token',
+    foregroundToken: 'Foreground token',
+    typographyToken: 'Typography token',
+    radiusToken: 'Radius token',
+    shadowToken: 'Shadow token',
+    variant: 'Variant',
+    opacity: 'Opacity',
+    actionIntent: 'Action intent',
+    supportedStates: 'Supported states',
+    declaredInteractions: 'Declared interactions',
+    noDeclaredInteractions: 'No interaction record uses this component as its source.',
   },
   'zh-Hant': {
     appTitle: 'AUB 編輯器',
     noBlueprintLoaded: '尚未載入藍圖',
     importJson: '匯入 JSON',
+    importAngular: '匯入 Angular 元件檔案',
+    importPersonalTemplate: '匯入個人範本',
+    downloadAuthoringKit: '下載 AI 建圖規格包',
     exportJson: '匯出 JSON',
     exportMarkdown: '匯出 Markdown',
+    exportPackage: '匯出 AI 交付包',
     valid: '有效',
     schemaValid: '結構有效',
     schemaError: '個結構錯誤',
@@ -245,13 +375,15 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     parseJsonFailed: 'JSON 解析失敗：{message}',
     language: '語言',
     componentPalette: '元件面板',
-    paletteHint: '點擊可新增到目前選取的容器，也可以拖曳到畫布。',
+    paletteHint: '點擊或拖曳可新增元件；既有元件請從上方邊框中央的把手移動。',
     kindContainer: '容器',
     kindLeaf: '單一元件',
     properties: '屬性',
     selectNode: '選取一個元件來編輯。',
     delete: '刪除',
     deleteComponent: '刪除元件',
+    dragComponent: '拖曳「{component}」',
+    dragComponentHint: '拖曳以移動「{component}」；按住 Option／Alt 可將它放入另一個容器。',
     rootCannotDelete: '根節點不能刪除',
     selectParent: '選取父容器',
     hideProperties: '隱藏',
@@ -330,6 +462,8 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     starterPageCreated: '已建立單一頁面，可在「頁面」內加入容器或元件。',
     starterAppCreated: '已建立應用程式骨架，並選取「主頁面」。',
     addedToContainer: '已將「{component}」新增到「{container}」。',
+    placedFreely: '已將「{component}」自由放置於「{container}」，並保留既有元件位置。',
+    movedToContainer: '已將「{component}」移入「{container}」。',
     createdRoot: '已建立「{component}」作為根容器。',
     shellSlotPlaced: '已建立應用框架，並將「{component}」放入固定位置；原頁面保留為主內容。',
     pageSidebarPlaced: '已將頁面側欄加入「{container}」，並切換為水平排列。',
@@ -341,8 +475,63 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     templateSettings: '設定表單',
     templateLoaded: '已載入範本：「{template}」。',
     zoom: '縮放',
+    fitArtboard: '適應畫板',
     zoomOut: '縮小',
     zoomIn: '放大',
+    undo: '復原',
+    redo: '重做',
+    duplicate: '複製',
+    duplicateName: '{name} 副本',
+    bringFront: '移到最上層',
+    sendBack: '移到最下層',
+    alignLeft: '靠左對齊',
+    alignCenter: '水平置中',
+    alignRight: '靠右對齊',
+    alignTop: '靠上對齊',
+    alignMiddle: '垂直置中',
+    alignBottom: '靠下對齊',
+    distributeHorizontal: '水平平均分布',
+    distributeVertical: '垂直平均分布',
+    toggleLayoutMode: '切換自動／自由佈局',
+    freeform: '自由',
+    autoLayout: '自動',
+    importMigrated: '已匯入並升級為 v0.3 藍圖。',
+    imported: '已匯入藍圖。',
+    preparingPackage: '正在準備 AI 交付包...',
+    packageReady: '已匯出 AI 交付包。',
+    viewportQualityBlocked: '偵測到 {count} 個裝置版面問題，已停止 AI 交付。',
+    selected: '個已選取',
+    components: '元件',
+    templates: '範本',
+    layers: '圖層',
+    searchComponents: '搜尋元件',
+    container: '容器',
+    leaf: '元件',
+    noLayers: '建立或匯入藍圖後即可查看圖層。',
+    multipleSelected: '已選取 {count} 個元件。',
+    'propertyTab.content': '內容',
+    'propertyTab.layout': '佈局',
+    'propertyTab.appearance': '外觀',
+    'propertyTab.interaction': '互動',
+    parentContainer: '父容器',
+    zIndex: '圖層順序',
+    contentText: '文字內容',
+    contentLabel: '標籤',
+    placeholder: '提示文字',
+    sourceUrl: '來源網址',
+    altText: '替代文字',
+    advancedJson: '進階 JSON',
+    backgroundToken: '背景 token',
+    foregroundToken: '前景 token',
+    typographyToken: '字體 token',
+    radiusToken: '圓角 token',
+    shadowToken: '陰影 token',
+    variant: '樣式變體',
+    opacity: '透明度',
+    actionIntent: '動作意圖',
+    supportedStates: '支援狀態',
+    declaredInteractions: '已宣告互動',
+    noDeclaredInteractions: '目前沒有互動紀錄以這個元件作為來源。',
   },
 };
 
@@ -361,6 +550,7 @@ const CATEGORY_LABELS: Record<Language, Record<string, string>> = {
   en: {},
   'zh-Hant': {
     layout: '版面',
+    visual: '視覺',
     data: '資料',
     form: '表單',
     action: '操作',
@@ -373,6 +563,7 @@ const CATEGORY_DESCRIPTIONS: Record<Language, Record<string, string>> = {
   en: {},
   'zh-Hant': {
     layout: '容器與結構元件，用 flex/grid 排列子元件。',
+    visual: '標題、文字、圖片、卡片與其他視覺內容元件。',
     data: '資料顯示元件，用於集合、彙總與資料來源綁定。',
     form: '表單容器與輸入元件。',
     action: '觸發操作的元件，需具備動作意圖。',
@@ -430,6 +621,22 @@ const TYPE_LABELS: Record<Language, Record<ComponentType, string>> = {
     pagination: '分頁控制',
     stepper: '步驟器',
     nav_item: '導覽項目',
+    heading: '標題',
+    text: '文字',
+    card: '卡片',
+    image: '圖片',
+    icon: '圖示',
+    avatar: '頭像',
+    badge: '徽章',
+    tag: '標籤',
+    divider: '分隔線',
+    link: '連結',
+    textarea: '多行文字',
+    search_input: '搜尋輸入',
+    calendar: '行事曆',
+    kanban_board: '看板',
+    kanban_column: '看板欄',
+    rich_text_editor: '富文字編輯器',
   },
 };
 
@@ -482,6 +689,22 @@ const TYPE_DESCRIPTIONS: Record<Language, Partial<Record<ComponentType, string>>
     pagination: '集合資料的頁碼導覽。',
     stepper: '多步驟流程指示器。',
     nav_item: '側邊欄或頂部導覽中的單一連結。',
+    heading: '具語意層級與字體 token 的標題。',
+    text: '段落、說明或輔助文字。',
+    card: '框住一組相關內容與操作的容器。',
+    image: '具來源與替代文字的圖片。',
+    icon: '以名稱指定的介面圖示。',
+    avatar: '使用者或實體的頭像。',
+    badge: '顯示狀態或數量的徽章。',
+    tag: '精簡的分類標籤。',
+    divider: '分隔內容群組的線條。',
+    link: '行內導覽操作。',
+    textarea: '多行文字輸入欄位。',
+    search_input: '具搜尋意圖的輸入欄位。',
+    calendar: '月、週或議程行事曆。',
+    kanban_board: '包含工作流程欄的橫向看板。',
+    kanban_column: '包含任務卡的工作流程階段。',
+    rich_text_editor: '包含工具列與文件內容的編輯器。',
   },
 };
 
@@ -497,6 +720,31 @@ const VIEWPORT_LABELS: Record<Language, Record<Viewport['id'], string>> = {
     tablet: '平板',
     mobile: '手機',
     wide: '寬螢幕',
+  },
+};
+
+const STATE_LABELS: Record<Language, Record<NodeState, string>> = {
+  en: {
+    default: 'Default',
+    hover: 'Hover',
+    focus: 'Focus',
+    active: 'Active',
+    disabled: 'Disabled',
+    loading: 'Loading',
+    empty: 'Empty',
+    error: 'Error',
+    selected: 'Selected',
+  },
+  'zh-Hant': {
+    default: '預設',
+    hover: '游標停留',
+    focus: '聚焦',
+    active: '作用中',
+    disabled: '停用',
+    loading: '載入中',
+    empty: '空狀態',
+    error: '錯誤',
+    selected: '已選取',
   },
 };
 
@@ -530,4 +778,8 @@ export function componentDescription(language: Language, type: ComponentType, fa
 
 export function viewportLabel(language: Language, id: Viewport['id']): string {
   return VIEWPORT_LABELS[language][id] ?? id;
+}
+
+export function stateLabel(language: Language, state: NodeState): string {
+  return STATE_LABELS[language][state] ?? state;
 }

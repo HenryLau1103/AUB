@@ -9,6 +9,7 @@ import { dirname, join } from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import yaml from 'js-yaml';
+import { validateBlueprintSemantics } from './validate-blueprint.lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -39,7 +40,8 @@ async function main() {
   }
 
   const ok = validate(document);
-  if (ok) {
+  const semanticErrors = ok ? validateBlueprintSemantics(document) : [];
+  if (ok && semanticErrors.length === 0) {
     console.log(`✓ valid: ${arg}`);
     process.exit(0);
   }
@@ -49,6 +51,9 @@ async function main() {
     const path = err.instancePath || '(root)';
     console.error(`  ${path} ${err.message}`);
     if (err.params) console.error(`    params: ${JSON.stringify(err.params)}`);
+  }
+  for (const error of semanticErrors) {
+    console.error(`  semantic: ${error}`);
   }
   process.exit(1);
 }

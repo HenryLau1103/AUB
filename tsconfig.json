@@ -15,5 +15,6 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["schema/**/*.ts", "tests/**/*.ts", "scripts/**/*.mjs"]
+  "include": ["schema/**/*.ts", "tests/**/*.ts", "scripts/**/*.mjs"],
+  "exclude": ["tests/fixtures/**"]
 }

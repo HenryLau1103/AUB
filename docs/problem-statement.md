@@ -23,7 +23,7 @@ A drag-and-drop canvas that emits a **structured UI Blueprint** (`.ui.json` / `.
 | # | Principle | Why |
 |---|-----------|-----|
 | P1 | **Semantic > visual** | Agents must know *what* a node is (`data_table`, `metric_card`), not just *where* it is. |
-| P2 | **Layout = contract, not pixels** | Express flex/grid/constraints, never absolute coordinates. Survives framework changes. |
+| P2 | **Layout = explicit contract** | Use flex/grid for auto flow and per-viewport placements for intentionally freeform composition. |
 | P3 | **Blueprint is the source of truth** | Editor state derives from `.ui.json`. Round-trip (export → import) must be lossless. |
 | P4 | **Acceptance is a checklist, not a vibe** | Every screen has ≥5 verifiable items spanning layout, interaction, responsive, a11y. |
 | P5 | **One schema, many agents** | The core format is agent-neutral. Per-agent differences live in thin adapters. |
@@ -36,7 +36,7 @@ A drag-and-drop canvas that emits a **structured UI Blueprint** (`.ui.json` / `.
 - Importer that restores canvas from `.ui.json` (round-trip)
 - Schema validation (build-time + runtime)
 - Acceptance checklist rendering
-- Component registry v1 (≈40 semantic types, 6 categories)
+- Component registry v0.2 (62 semantic types, 7 categories)
 - 5 example screens: dashboard, mobile form flow, SaaS settings, marketing landing, CRUD admin table
 
 ## 5. Out of Scope (Explicit Non-Goals)

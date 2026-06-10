@@ -1,105 +1,180 @@
-import { downloadBlob, readFileAsText } from '../lib/io';
+import {
+  Download,
+  BookOpenCheck,
+  FileArchive,
+  FileCode2,
+  FileJson,
+  FileText,
+  LibraryBig,
+  Redo2,
+  Undo2,
+  Upload,
+} from 'lucide-react';
+import { useRef } from 'react';
+import { readFileAsText } from '../lib/io';
 import { LANGUAGES, languageOptionLabel, t, type Language } from '../lib/i18n';
-import { TEMPLATE_IDS, templateLabel, type TemplateId } from '../lib/templates';
+import { TEMPLATE_GROUPS, templateLabel, type TemplateId } from '../lib/templates';
 import type { Blueprint } from '../types';
+import { Tooltip } from './Tooltip';
 
 interface Props {
   blueprint: Blueprint | null;
-  onImport: (b: Blueprint) => void;
+  onImport: (blueprint: Blueprint) => void;
+  onAngularFiles: (files: FileList) => void;
+  onPersonalTemplateFile: (file: File) => void;
+  onDownloadAuthoringKit: () => void;
+  onExportJson: () => void;
   onExportMarkdown: () => void;
+  onExportPackage: () => void;
+  packageBlocked: boolean;
   errorCount: number;
   fileInputRef: React.RefObject<HTMLInputElement>;
   language: Language;
   onLanguageChange: (language: Language) => void;
   onTemplateSelect: (templateId: TemplateId) => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
 }
 
 export function TopBar({
   blueprint,
   onImport,
+  onAngularFiles,
+  onPersonalTemplateFile,
+  onDownloadAuthoringKit,
+  onExportJson,
   onExportMarkdown,
+  onExportPackage,
+  packageBlocked,
   errorCount,
   fileInputRef,
   language,
   onLanguageChange,
   onTemplateSelect,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: Props) {
-  function handleImportClick() {
-    fileInputRef.current?.click();
-  }
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  const angularInputRef = useRef<HTMLInputElement>(null);
+  const personalTemplateInputRef = useRef<HTMLInputElement>(null);
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
     if (!file) return;
-    const text = await readFileAsText(file);
     try {
-      const parsed = JSON.parse(text) as Blueprint;
-      onImport(parsed);
-    } catch (err) {
-      window.alert(t(language, 'parseJsonFailed', { message: (err as Error).message }));
+      onImport(JSON.parse(await readFileAsText(file)) as Blueprint);
+    } catch (error) {
+      window.alert(t(language, 'parseJsonFailed', { message: (error as Error).message }));
     }
-    // Reset so the same file can be re-selected later.
-    e.target.value = '';
-  }
-
-  function handleExportJson() {
-    if (!blueprint) return;
-    downloadBlob(`${blueprint.screen.id}.ui.json`, JSON.stringify(blueprint, null, 2), 'application/json');
-  }
-
-  function handleTemplateChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const value = e.target.value as TemplateId | '';
-    if (value) onTemplateSelect(value);
-    e.target.value = '';
+    event.target.value = '';
   }
 
   return (
     <header className="topbar">
-      <h1>{t(language, 'appTitle')} — {blueprint ? blueprint.screen.name : t(language, 'noBlueprintLoaded')}</h1>
-      <div className="actions">
+      <div className="brand-block">
+        <strong>{t(language, 'appTitle')}</strong>
+        <span>{blueprint?.screen.name ?? t(language, 'noBlueprintLoaded')}</span>
+      </div>
+      <div className="topbar-actions">
+        <input ref={fileInputRef} type="file" accept="application/json,.json" onChange={handleFileChange} hidden />
         <input
-          ref={fileInputRef}
+          ref={angularInputRef}
           type="file"
-          accept="application/json,.json"
-          onChange={handleFileChange}
-          style={{ display: 'none' }}
+          accept=".html,.scss,.css,.ts,.zip,application/zip"
+          multiple
+          onChange={(event) => {
+            if (event.target.files?.length) onAngularFiles(event.target.files);
+            event.target.value = '';
+          }}
+          hidden
+        />
+        <input
+          ref={personalTemplateInputRef}
+          type="file"
+          accept=".json,.zip,application/json,application/zip"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onPersonalTemplateFile(file);
+            event.target.value = '';
+          }}
+          hidden
         />
         <label className="language-select">
           <span>{t(language, 'language')}</span>
-          <select value={language} onChange={(e) => onLanguageChange(e.target.value as Language)}>
-            {LANGUAGES.map((item) => (
-              <option key={item.id} value={item.id}>
-                {languageOptionLabel(language, item.id)}
-              </option>
-            ))}
+          <select value={language} onChange={(event) => onLanguageChange(event.target.value as Language)}>
+            {LANGUAGES.map((item) => <option key={item.id} value={item.id}>{languageOptionLabel(language, item.id)}</option>)}
           </select>
         </label>
         <label className="template-select">
           <span>{t(language, 'template')}</span>
-          <select defaultValue="" onChange={handleTemplateChange}>
-            <option value="" disabled>
-              {t(language, 'chooseTemplate')}
-            </option>
-            {TEMPLATE_IDS.map((templateId) => (
-              <option key={templateId} value={templateId}>
-                {templateLabel(language, templateId)}
-              </option>
+          <select defaultValue="" onChange={(event) => {
+            const value = event.target.value as TemplateId | '';
+            if (value) onTemplateSelect(value);
+            event.target.value = '';
+          }}>
+            <option value="" disabled>{t(language, 'chooseTemplate')}</option>
+            {TEMPLATE_GROUPS.map((group) => (
+              <optgroup key={group.id} label={language === 'zh-Hant' ? group.labelZh : group.labelEn}>
+                {group.ids.map((id) => <option key={id} value={id}>{templateLabel(language, id)}</option>)}
+              </optgroup>
             ))}
           </select>
         </label>
-        <button onClick={handleImportClick}>{t(language, 'importJson')}</button>
-        <button onClick={handleExportJson} disabled={!blueprint} className="primary">
-          {t(language, 'exportJson')}
-        </button>
-        <button onClick={onExportMarkdown} disabled={!blueprint}>
-          {t(language, 'exportMarkdown')}
-        </button>
-        <span style={{ marginLeft: 8, color: errorCount > 0 ? 'var(--danger)' : 'var(--ok)' }}>
-          {errorCount > 0
-            ? `${errorCount} ${t(language, errorCount === 1 ? 'schemaError' : 'schemaErrors')}`
-            : t(language, 'valid')}
+        <div className="topbar-icon-group">
+          <ToolButton icon={<Undo2 />} label={t(language, 'undo')} disabled={!canUndo} onClick={onUndo} />
+          <ToolButton icon={<Redo2 />} label={t(language, 'redo')} disabled={!canRedo} onClick={onRedo} />
+          <ToolButton icon={<Upload />} label={t(language, 'importJson')} onClick={() => fileInputRef.current?.click()} />
+          <ToolButton icon={<FileCode2 />} label={t(language, 'importAngular')} onClick={() => angularInputRef.current?.click()} />
+          <ToolButton icon={<LibraryBig />} label={t(language, 'importPersonalTemplate')} onClick={() => personalTemplateInputRef.current?.click()} />
+          <ToolButton icon={<BookOpenCheck />} label={t(language, 'downloadAuthoringKit')} onClick={onDownloadAuthoringKit} />
+        </div>
+        <div className="export-menu">
+          <Download />
+          <ToolButton icon={<FileJson />} label={t(language, 'exportJson')} disabled={!blueprint} onClick={onExportJson} />
+          <ToolButton icon={<FileText />} label={t(language, 'exportMarkdown')} disabled={!blueprint} onClick={onExportMarkdown} />
+          <ToolButton
+            icon={<FileArchive />}
+            label={t(language, 'exportPackage')}
+            tooltipAlign="end"
+            disabled={!blueprint || errorCount > 0 || packageBlocked}
+            onClick={onExportPackage}
+          />
+        </div>
+        <span className={`validation-pill ${errorCount ? 'invalid' : 'valid'}`}>
+          {errorCount ? `${errorCount} ${t(language, 'schemaErrors')}` : t(language, 'valid')}
         </span>
       </div>
     </header>
+  );
+}
+
+function ToolButton({
+  icon,
+  label,
+  tooltipAlign,
+  disabled,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  tooltipAlign?: 'center' | 'end';
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip label={label} align={tooltipAlign}>
+      <button
+        type="button"
+        className="icon-button"
+        aria-label={label}
+        title={label}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        {icon}
+      </button>
+    </Tooltip>
   );
 }

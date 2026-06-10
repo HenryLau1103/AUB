@@ -1,6 +1,6 @@
 {
   "$schema": "../ui-blueprint.schema.json",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Canonical registry of UI Blueprint component types. This file is the source of truth — the JSON Schema enum in ui-blueprint.schema.json must stay in sync. The editor (Phase 2) reads this file to render the component palette.",
   "categories": [
     {
@@ -22,6 +22,23 @@
       ]
     },
     {
+      "id": "visual",
+      "name": "Visual",
+      "description": "Common visual building blocks used to reproduce hierarchy, branding, and content density.",
+      "types": [
+        { "name": "heading", "displayName": "Heading", "isContainer": false, "description": "Semantic heading with declared typography.", "typicalContent": ["text"] },
+        { "name": "text", "displayName": "Text", "isContainer": false, "description": "Paragraph, caption, or helper text.", "typicalContent": ["text"] },
+        { "name": "card", "displayName": "Card", "isContainer": true, "description": "Framed group of related content and actions." },
+        { "name": "image", "displayName": "Image", "isContainer": false, "description": "Image with source and alternative text.", "typicalContent": ["src", "alt"] },
+        { "name": "icon", "displayName": "Icon", "isContainer": false, "description": "Named interface icon.", "typicalContent": ["icon", "label"] },
+        { "name": "avatar", "displayName": "Avatar", "isContainer": false, "description": "User or entity avatar.", "typicalContent": ["src", "alt"] },
+        { "name": "badge", "displayName": "Badge", "isContainer": false, "description": "Status or count badge.", "typicalContent": ["text", "variant"] },
+        { "name": "tag", "displayName": "Tag", "isContainer": false, "description": "Compact categorical label.", "typicalContent": ["text"] },
+        { "name": "divider", "displayName": "Divider", "isContainer": false, "description": "Visual separator between content groups." },
+        { "name": "link", "displayName": "Link", "isContainer": false, "description": "Inline navigation action.", "typicalContent": ["text", "action"] }
+      ]
+    },
+    {
       "id": "data",
       "name": "Data",
       "description": "Data display primitives. Bind to data sources, render collections and aggregates.",
@@ -33,6 +50,9 @@
         { "name": "chart_placeholder", "displayName": "Chart Placeholder", "isContainer": false, "description": "Render slot for a chart library (recharts, visx, etc.)." },
         { "name": "timeline", "displayName": "Timeline", "isContainer": true, "description": "Chronological event list." },
         { "name": "activity_feed", "displayName": "Activity Feed", "isContainer": true, "description": "Reverse-chronological event stream." }
+        ,{ "name": "calendar", "displayName": "Calendar", "isContainer": false, "description": "Month, week, or agenda calendar." }
+        ,{ "name": "kanban_board", "displayName": "Kanban Board", "isContainer": true, "description": "Horizontal workflow board containing columns." }
+        ,{ "name": "kanban_column", "displayName": "Kanban Column", "isContainer": true, "description": "Workflow stage containing task cards." }
       ]
     },
     {
@@ -50,6 +70,9 @@
         { "name": "slider", "displayName": "Slider", "isContainer": false, "description": "Numeric range input.", "typicalContent": ["label"] },
         { "name": "date_picker", "displayName": "Date Picker", "isContainer": false, "description": "Calendar-based date input.", "typicalContent": ["label"] },
         { "name": "file_upload", "displayName": "File Upload", "isContainer": false, "description": "Drag/drop or browse file input.", "typicalContent": ["label"] }
+        ,{ "name": "textarea", "displayName": "Textarea", "isContainer": false, "description": "Multi-line text input.", "typicalContent": ["label", "placeholder"] }
+        ,{ "name": "search_input", "displayName": "Search Input", "isContainer": false, "description": "Search field with query intent.", "typicalContent": ["label", "placeholder", "action"] }
+        ,{ "name": "rich_text_editor", "displayName": "Rich Text Editor", "isContainer": true, "description": "Document editing surface with toolbar and body." }
       ]
     },
     {

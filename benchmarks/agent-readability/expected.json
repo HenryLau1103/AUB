@@ -1,0 +1,28 @@
+{
+  "version": "0.3.0",
+  "root_id": "root",
+  "root_layout_mode": "freeform",
+  "node_count": 7,
+  "direct_root_children": ["hero_heading", "primary_cta", "secondary_cta", "stats_card"],
+  "primary_cta_desktop": {
+    "x": 80,
+    "y": 220,
+    "width": 160,
+    "height": 44,
+    "z_index": 2
+  },
+  "primary_cta_mobile": {
+    "x": 24,
+    "y": 240,
+    "width": 164,
+    "height": 48,
+    "z_index": 2
+  },
+  "secondary_cta_mobile_x": 202,
+  "stats_card_layout_mode": "auto",
+  "stats_card_direction": "column",
+  "action_primary_token": "#0f766e",
+  "primary_action": "navigate:/signup",
+  "interaction_count": 2,
+  "acceptance_count": 6
+}

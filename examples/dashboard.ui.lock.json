@@ -1,13 +1,14 @@
 {
   "$schema": "https://github.com/HenryLau1103/AUB/schema/lock.schema.json",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "source_file": "examples/dashboard.ui.json",
-  "exported_at": "2026-06-03T14:19:45.530Z",
-  "source_editor_version": "0.1.0",
+  "exported_at": "2026-06-09T18:51:23.892Z",
+  "source_editor_version": "0.3.0",
   "hashes": {
-    "blueprint": "sha256:425b258cbc392670ab7c35343be1f346b5a5cc732b90a53a3bb7c37df7375fdc",
+    "blueprint": "sha256:dc62ea076ec5c44990981e9edab8947cdd56ff9f94651ac8a93ee0b8a850abfa",
     "node_ids": "sha256:39fc092940c0113ac5e45418a477572648fbcb86548d968a498594b959de78dd",
-    "layout": "sha256:b7178f5f4d20635f5e72fba0c194bb6294fab7ff213a7274f186481ec5c1f1b1",
+    "layout": "sha256:1ce1269ad6ceb6e7e0445b7bb4db4aadad8404017f7444a9d2a4aa050d13502a",
+    "design_system": "sha256:d631865bb83cd8bf0fb7ed333821a7f5efaa8980708a12ffa11bef27eab551d2",
     "component_tree": "sha256:fe2d14a85c6cb74354f35e1a88b95c0546addc911c034698b6b3fb995d253a79",
     "interactions": "sha256:de0c09c40f8126c85fd1af0049a772f9f2fb63cda0afd7e032158b8634a67d75",
     "acceptance": "sha256:6e09bb63542cb3243a734289a0ba913af4107fdfcec4a1ba46c0620aa9d5c46b"

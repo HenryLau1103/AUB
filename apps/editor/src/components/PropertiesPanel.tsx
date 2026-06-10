@@ -1,309 +1,305 @@
-import { useState, useEffect } from 'react';
-import type { UINode, ComponentType } from '../types';
+import { useState } from 'react';
+import { ChevronLeft, Trash2 } from 'lucide-react';
+import { componentLabel, stateLabel, t, viewportLabel, type Language } from '../lib/i18n';
 import { isContainerType } from '../lib/registry';
-import { getCategories } from '../lib/registry';
-import { categoryLabel, componentLabel, t, type Language } from '../lib/i18n';
 import { defaultLayoutForType } from '../lib/store';
-import type { Layout } from '../types';
+import type { Blueprint, ComponentType, Layout, Placement, UINode, ViewportId } from '../types';
+import { Tooltip } from './Tooltip';
 
 interface Props {
+  blueprint: Blueprint | null;
   node: UINode | null;
+  selectedCount: number;
   language: Language;
   onUpdate: (patch: Partial<UINode>) => void;
+  onUpdatePlacement: (viewportId: ViewportId, patch: Partial<Placement>) => void;
   onDelete: () => void;
   onSelectParent: () => void;
+  onReparent: (parentId: string) => void;
   onCollapse: () => void;
 }
 
-export function PropertiesPanel({ node, language, onUpdate, onDelete, onSelectParent, onCollapse }: Props) {
+type PropertyTab = 'content' | 'layout' | 'appearance' | 'interaction';
+
+export function PropertiesPanel({
+  blueprint,
+  node,
+  selectedCount,
+  language,
+  onUpdate,
+  onUpdatePlacement,
+  onDelete,
+  onSelectParent,
+  onReparent,
+  onCollapse,
+}: Props) {
+  const [tab, setTab] = useState<PropertyTab>('content');
+  const [viewportId, setViewportId] = useState<ViewportId>('desktop');
   if (!node) {
     return (
       <aside className="panel properties">
-        <div className="properties-header">
-          <h2>{t(language, 'properties')}</h2>
-          <button type="button" onClick={onCollapse}>{t(language, 'hideProperties')}</button>
-        </div>
-        <p className="empty">{t(language, 'selectNode')}</p>
+        <PropertyHeader language={language} onCollapse={onCollapse} />
+        <p className="empty">{selectedCount > 1 ? t(language, 'multipleSelected', { count: selectedCount }) : t(language, 'selectNode')}</p>
       </aside>
     );
   }
+
   const canDelete = node.parent_id !== null;
+  const placement = node.placements?.[viewportId]
+    ?? node.placements?.desktop
+    ?? node.placements?.tablet
+    ?? node.placements?.mobile
+    ?? node.placements?.wide;
+  const descendantIds = blueprint ? collectDescendantIds(blueprint, node.id) : new Set<string>();
+  const containers = blueprint?.nodes.filter((candidate) => (
+    isContainerType(candidate.type) &&
+    candidate.id !== node.id &&
+    !descendantIds.has(candidate.id)
+  )) ?? [];
 
   return (
     <aside className="panel properties">
-      <div className="properties-header">
-        <h2>{t(language, 'properties')}</h2>
-        <div className="properties-header-actions">
-          <button type="button" onClick={onCollapse}>
-            {t(language, 'hideProperties')}
-          </button>
-          {node.parent_id && (
-            <button type="button" onClick={onSelectParent}>
-              {t(language, 'selectParent')}
-            </button>
-          )}
+      <PropertyHeader language={language} onCollapse={onCollapse} />
+      <div className="selected-summary">
+        <div>
+          <strong>{node.name}</strong>
+          <span>{componentLabel(language, node.type)}</span>
+        </div>
+        <Tooltip label={t(language, 'deleteComponent')} align="end">
           <button
             type="button"
-            className="danger-button"
-            onClick={onDelete}
+            className="danger-icon"
+            aria-label={t(language, 'deleteComponent')}
             disabled={!canDelete}
-            title={canDelete ? t(language, 'deleteComponent') : t(language, 'rootCannotDelete')}
+            onClick={onDelete}
           >
-            {t(language, 'delete')}
+            <Trash2 />
           </button>
-        </div>
+        </Tooltip>
       </div>
-      <div className="field">
-        <label>{t(language, 'id')}</label>
-        <input value={node.id} onChange={(e) => onUpdate({ id: e.target.value })} />
+      <div className="property-tabs">
+        {(['content', 'layout', 'appearance', 'interaction'] as PropertyTab[]).map((id) => (
+          <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>{t(language, `propertyTab.${id}` as Parameters<typeof t>[1])}</button>
+        ))}
       </div>
-      <div className="field">
-        <label>{t(language, 'name')}</label>
-        <input value={node.name} onChange={(e) => onUpdate({ name: e.target.value })} />
-      </div>
-      <div className="field">
-        <label>{t(language, 'type')}</label>
-        <TypeSelect
-          language={language}
-          value={node.type}
-          onChange={(nextType) => onUpdate({
-            type: nextType,
-            children: isContainerType(nextType) ? (node.children ?? []) : [],
-            layout: isContainerType(nextType) ? defaultLayoutForType(nextType) : undefined,
-          })}
-        />
-      </div>
-      <div className="field">
-        <label>{t(language, 'role')}</label>
-        <textarea
-          value={node.role}
-          onChange={(e) => onUpdate({ role: e.target.value })}
-          style={{ minHeight: 60 }}
-        />
-      </div>
-      {node.type === 'app_shell' && (
-        <div className="layout-fixed-note">
-          <strong>{t(language, 'layoutFixed')}</strong>
-          <p>{t(language, 'layoutAppShellHelp')}</p>
+
+      {tab === 'content' && (
+        <div className="property-section">
+          <Field label={t(language, 'name')}><input value={node.name} onChange={(event) => onUpdate({ name: event.target.value })} /></Field>
+          <Field label={t(language, 'type')}>
+            <TypeSelect
+              language={language}
+              value={node.type}
+              hasChildren={(node.children?.length ?? 0) > 0}
+              onChange={(type) => onUpdate({
+                type,
+                children: isContainerType(type) ? node.children ?? [] : [],
+                layout: isContainerType(type) ? defaultLayoutForType(type) : undefined,
+              })}
+            />
+          </Field>
+          <Field label={t(language, 'role')}><textarea value={node.role} onChange={(event) => onUpdate({ role: event.target.value })} /></Field>
+          <ContentField label={t(language, 'contentText')} value={node.content?.text} onChange={(text) => onUpdate({ content: { ...node.content, text } })} />
+          <ContentField label={t(language, 'contentLabel')} value={node.content?.label} onChange={(label) => onUpdate({ content: { ...node.content, label } })} />
+          <ContentField label={t(language, 'placeholder')} value={node.content?.placeholder} onChange={(placeholder) => onUpdate({ content: { ...node.content, placeholder } })} />
+          {(node.type === 'image' || node.type === 'avatar') && (
+            <>
+              <ContentField label={t(language, 'sourceUrl')} value={node.content?.src} onChange={(src) => onUpdate({ content: { ...node.content, src } })} />
+              <ContentField label={t(language, 'altText')} value={node.content?.alt} onChange={(alt) => onUpdate({ content: { ...node.content, alt } })} />
+            </>
+          )}
+          <details className="advanced-json">
+            <summary>{t(language, 'advancedJson')}</summary>
+            <JsonField value={node.content ?? null} onChange={(content) => onUpdate({ content: content as UINode['content'] })} />
+          </details>
         </div>
       )}
-      {isContainerType(node.type) && node.type !== 'app_shell' && (
-        <LayoutControls
-          layout={node.layout}
-          language={language}
-          onChange={(layout) => onUpdate({ layout })}
-        />
+
+      {tab === 'layout' && (
+        <div className="property-section">
+          {node.parent_id && <button type="button" className="select-parent-button" onClick={onSelectParent}>{t(language, 'selectParent')}</button>}
+          {node.parent_id && (
+            <Field label={t(language, 'parentContainer')}>
+              <select value={node.parent_id} onChange={(event) => onReparent(event.target.value)}>
+                {containers.map((container) => <option key={container.id} value={container.id}>{container.name} · {componentLabel(language, container.type)}</option>)}
+              </select>
+            </Field>
+          )}
+          {isContainerType(node.type) && (
+            <LayoutControls layout={node.layout} language={language} onChange={(layout) => onUpdate({ layout })} />
+          )}
+          {placement && (
+            <>
+              <div className="viewport-property-tabs">
+                {(blueprint?.viewports ?? []).map((viewport) => <button key={viewport.id} className={viewportId === viewport.id ? 'active' : ''} onClick={() => setViewportId(viewport.id)}>{viewportLabel(language, viewport.id)}</button>)}
+              </div>
+              <div className="geometry-grid">
+                {(['x', 'y', 'width', 'height'] as const).map((key) => (
+                  <Field key={key} label={key.toUpperCase()}>
+                    <input type="number" value={Math.round(placement[key])} onChange={(event) => onUpdatePlacement(viewportId, { [key]: Number(event.target.value) })} />
+                  </Field>
+                ))}
+                <Field label={t(language, 'zIndex')}><input type="number" value={placement.z_index ?? 1} onChange={(event) => onUpdatePlacement(viewportId, { z_index: Number(event.target.value) })} /></Field>
+              </div>
+            </>
+          )}
+          <details className="advanced-json">
+            <summary>{t(language, 'advancedJson')}</summary>
+            <JsonField value={node.layout ?? null} onChange={(layout) => onUpdate({ layout: layout as Layout })} />
+          </details>
+        </div>
       )}
-      <JsonField
-        label={t(language, 'layoutJson')}
-        value={node.layout ?? null}
-        onChange={(v) => onUpdate({ layout: v as UINode['layout'] })}
-      />
-      <JsonField
-        label={t(language, 'contentJson')}
-        value={node.content ?? null}
-        onChange={(v) => onUpdate({ content: v as UINode['content'] })}
-      />
+
+      {tab === 'appearance' && (
+        <div className="property-section">
+          <TokenSelect label={t(language, 'backgroundToken')} value={node.style?.background} options={blueprint?.design_system?.colors} onChange={(background) => onUpdate({ style: { ...node.style, background } })} />
+          <TokenSelect label={t(language, 'foregroundToken')} value={node.style?.foreground} options={blueprint?.design_system?.colors} onChange={(foreground) => onUpdate({ style: { ...node.style, foreground } })} />
+          <TokenSelect label={t(language, 'typographyToken')} value={node.style?.typography} options={blueprint?.design_system?.typography} onChange={(typography) => onUpdate({ style: { ...node.style, typography } })} />
+          <TokenSelect label={t(language, 'radiusToken')} value={node.style?.radius} options={blueprint?.design_system?.radii} onChange={(radius) => onUpdate({ style: { ...node.style, radius } })} />
+          <TokenSelect label={t(language, 'shadowToken')} value={node.style?.shadow} options={blueprint?.design_system?.shadows} onChange={(shadow) => onUpdate({ style: { ...node.style, shadow } })} />
+          <ContentField label={t(language, 'variant')} value={node.style?.variant} onChange={(variant) => onUpdate({ style: { ...node.style, variant } })} />
+          <Field label={t(language, 'opacity')}><input type="range" min="0" max="1" step="0.05" value={node.style?.opacity ?? 1} onChange={(event) => onUpdate({ style: { ...node.style, opacity: Number(event.target.value) } })} /></Field>
+          <details className="advanced-json">
+            <summary>{t(language, 'advancedJson')}</summary>
+            <JsonField value={node.style ?? null} onChange={(style) => onUpdate({ style: style as UINode['style'] })} />
+          </details>
+        </div>
+      )}
+
+      {tab === 'interaction' && (
+        <div className="property-section">
+          <ContentField label={t(language, 'actionIntent')} value={node.content?.action} onChange={(action) => onUpdate({ content: { ...node.content, action } })} />
+          <Field label={t(language, 'supportedStates')}>
+            <div className="state-options">
+              {(['default', 'hover', 'focus', 'active', 'disabled', 'loading', 'empty', 'error', 'selected'] as const).map((state) => (
+                <label key={state}><input type="checkbox" checked={node.states?.includes(state) ?? false} onChange={(event) => onUpdate({ states: event.target.checked ? [...(node.states ?? []), state] : (node.states ?? []).filter((item) => item !== state) })} />{stateLabel(language, state)}</label>
+              ))}
+            </div>
+          </Field>
+          <div className="interaction-list">
+            <strong>{t(language, 'declaredInteractions')}</strong>
+            {(blueprint?.interactions.filter((interaction) => interaction.source_node_id === node.id) ?? []).map((interaction) => (
+              <div key={interaction.id}><span>{interaction.trigger}</span><code>{interaction.action}</code><small>{interaction.result_state}</small></div>
+            ))}
+            {!blueprint?.interactions.some((interaction) => interaction.source_node_id === node.id) && <p className="empty">{t(language, 'noDeclaredInteractions')}</p>}
+          </div>
+        </div>
+      )}
     </aside>
   );
 }
 
-function LayoutControls({
-  layout,
-  language,
-  onChange,
-}: {
-  layout: Layout | undefined;
-  language: Language;
-  onChange: (layout: Layout) => void;
-}) {
-  const mode = layout?.display === 'grid'
-    ? 'grid'
-    : layout?.direction === 'row' || layout?.direction === 'row-reverse'
-      ? 'row'
-      : 'column';
-
-  function update(patch: Partial<Layout>) {
-    onChange({ ...layout, ...patch });
-  }
-
-  function setMode(nextMode: 'column' | 'row' | 'grid') {
-    if (nextMode === 'grid') {
-      update({
-        display: 'grid',
-        direction: undefined,
-        grid: layout?.grid ?? { columns: 2 },
-      });
-      return;
-    }
-    update({
-      display: 'flex',
-      direction: nextMode,
-      grid: undefined,
-    });
-  }
-
-  const gapX = layout?.gap?.x ?? 12;
-  const gapY = layout?.gap?.y ?? 12;
-
+function PropertyHeader({ language, onCollapse }: { language: Language; onCollapse: () => void }) {
+  const label = t(language, 'hideProperties');
   return (
-    <fieldset className="layout-controls">
-      <legend>{t(language, 'layoutControls')}</legend>
-      <div className="layout-mode-buttons">
-        <button type="button" className={mode === 'column' ? 'active' : ''} onClick={() => setMode('column')}>
-          {t(language, 'layoutVertical')}
+    <div className="properties-header">
+      <h2>{t(language, 'properties')}</h2>
+      <Tooltip label={label} align="end">
+        <button type="button" className="icon-button" aria-label={label} title={label} onClick={onCollapse}>
+          <ChevronLeft />
         </button>
-        <button type="button" className={mode === 'row' ? 'active' : ''} onClick={() => setMode('row')}>
-          {t(language, 'layoutHorizontal')}
-        </button>
-        <button type="button" className={mode === 'grid' ? 'active' : ''} onClick={() => setMode('grid')}>
-          {t(language, 'layoutGrid')}
-        </button>
-      </div>
-
-      <div className="layout-control-grid">
-        <label>
-          <span>{t(language, 'layoutAlign')}</span>
-          <select
-            value={layout?.align ?? 'stretch'}
-            onChange={(e) => update({ align: e.target.value as NonNullable<Layout['align']> })}
-          >
-            <option value="start">{t(language, 'layoutStart')}</option>
-            <option value="center">{t(language, 'layoutCenter')}</option>
-            <option value="end">{t(language, 'layoutEnd')}</option>
-            <option value="stretch">{t(language, 'layoutStretch')}</option>
-            <option value="baseline">{t(language, 'layoutBaseline')}</option>
-          </select>
-        </label>
-        <label>
-          <span>{t(language, 'layoutJustify')}</span>
-          <select
-            value={layout?.justify ?? 'start'}
-            onChange={(e) => update({ justify: e.target.value as NonNullable<Layout['justify']> })}
-          >
-            <option value="start">{t(language, 'layoutStart')}</option>
-            <option value="center">{t(language, 'layoutCenter')}</option>
-            <option value="end">{t(language, 'layoutEnd')}</option>
-            <option value="space-between">{t(language, 'layoutSpaceBetween')}</option>
-            <option value="space-around">{t(language, 'layoutSpaceAround')}</option>
-            <option value="space-evenly">{t(language, 'layoutSpaceEvenly')}</option>
-          </select>
-        </label>
-        <label>
-          <span>{t(language, 'layoutHorizontalGap')}</span>
-          <input
-            type="number"
-            min="0"
-            max="128"
-            value={gapX}
-            onChange={(e) => update({ gap: { ...layout?.gap, x: Math.max(0, Number(e.target.value)) } })}
-          />
-        </label>
-        <label>
-          <span>{t(language, 'layoutVerticalGap')}</span>
-          <input
-            type="number"
-            min="0"
-            max="128"
-            value={gapY}
-            onChange={(e) => update({ gap: { ...layout?.gap, y: Math.max(0, Number(e.target.value)) } })}
-          />
-        </label>
-        {mode === 'grid' && (
-          <label>
-            <span>{t(language, 'layoutColumns')}</span>
-            <input
-              type="number"
-              min="1"
-              max="24"
-              value={layout?.grid?.columns ?? 2}
-              onChange={(e) => update({
-                grid: {
-                  ...layout?.grid,
-                  columns: Math.min(24, Math.max(1, Number(e.target.value))),
-                },
-              })}
-            />
-          </label>
-        )}
-        {mode !== 'grid' && (
-          <label className="layout-checkbox">
-            <input
-              type="checkbox"
-              checked={layout?.wrap ?? false}
-              onChange={(e) => update({ wrap: e.target.checked })}
-            />
-            <span>{t(language, 'layoutWrap')}</span>
-          </label>
-        )}
-      </div>
-      <p>{t(language, 'layoutHelp')}</p>
-    </fieldset>
+      </Tooltip>
+    </div>
   );
 }
 
-function TypeSelect({ language, value, onChange }: { language: Language; value: ComponentType; onChange: (t: ComponentType) => void }) {
-  const categories = getCategories();
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="field"><span>{label}</span>{children}</label>;
+}
+
+function ContentField({ label, value, onChange }: { label: string; value?: string; onChange: (value: string) => void }) {
+  return <Field label={label}><input value={value ?? ''} onChange={(event) => onChange(event.target.value)} /></Field>;
+}
+
+function TokenSelect({ label, value, options, onChange }: { label: string; value?: string; options?: Record<string, string>; onChange: (value: string | undefined) => void }) {
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value as ComponentType)}
-      style={{
-        width: '100%',
-        background: 'var(--bg)',
-        color: 'var(--fg)',
-        border: '1px solid var(--border)',
-        borderRadius: 3,
-        padding: '4px 6px',
-        fontFamily: 'inherit',
-        fontSize: 12,
-      }}
-    >
-      {categories.map((cat) => (
-        <optgroup key={cat.id} label={categoryLabel(language, cat.id, cat.name)}>
-          {cat.types.map((typeMeta) => (
-            <option key={typeMeta.name} value={typeMeta.name}>
-              {language === 'zh-Hant'
-                ? componentLabel(language, typeMeta.name, typeMeta.displayName)
-                : `${componentLabel(language, typeMeta.name, typeMeta.displayName)} (${typeMeta.name})`}
-            </option>
-          ))}
-        </optgroup>
+    <Field label={label}>
+      <select value={value ?? ''} onChange={(event) => onChange(event.target.value || undefined)}>
+        <option value="">—</option>
+        {Object.entries(options ?? {}).map(([name, tokenValue]) => <option key={name} value={name}>{name} · {tokenValue}</option>)}
+      </select>
+    </Field>
+  );
+}
+
+function TypeSelect({
+  language,
+  value,
+  hasChildren,
+  onChange,
+}: {
+  language: Language;
+  value: ComponentType;
+  hasChildren: boolean;
+  onChange: (value: ComponentType) => void;
+}) {
+  const groups = [
+    ['app_shell', 'page', 'section', 'header', 'sidebar', 'top_bar', 'bottom_nav', 'stack', 'grid', 'split_pane', 'scroll_area'],
+    ['heading', 'text', 'card', 'image', 'icon', 'avatar', 'badge', 'tag', 'divider', 'link'],
+    ['metric_card', 'data_table', 'list', 'detail_panel', 'chart_placeholder', 'timeline', 'activity_feed', 'calendar', 'kanban_board', 'kanban_column'],
+    ['form', 'field_group', 'text_input', 'textarea', 'search_input', 'select', 'checkbox', 'radio_group', 'toggle', 'slider', 'date_picker', 'file_upload', 'rich_text_editor'],
+    ['button', 'icon_button', 'button_group', 'menu', 'toolbar', 'command_palette'],
+    ['modal', 'drawer', 'toast', 'alert', 'empty_state', 'loading_state', 'error_state'],
+    ['tabs', 'breadcrumb', 'pagination', 'stepper', 'nav_item'],
+  ] as ComponentType[][];
+  return (
+    <select value={value} onChange={(event) => onChange(event.target.value as ComponentType)}>
+      {groups.flat().map((type) => (
+        <option key={type} value={type} disabled={hasChildren && !isContainerType(type)}>
+          {componentLabel(language, type)}
+        </option>
       ))}
     </select>
   );
 }
 
-function JsonField({ label, value, onChange }: { label: string; value: unknown; onChange: (v: unknown) => void }) {
-  const [text, setText] = useState(() => (value == null ? '' : JSON.stringify(value, null, 2)));
-  const [err, setErr] = useState<string | null>(null);
-  useEffect(() => {
-    setText(value == null ? '' : JSON.stringify(value, null, 2));
-    setErr(null);
-  }, [value]);
-
-  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const next = e.target.value;
-    setText(next);
-    if (next.trim() === '') {
-      setErr(null);
-      onChange(null);
-      return;
-    }
-    try {
-      const parsed = JSON.parse(next);
-      setErr(null);
-      onChange(parsed);
-    } catch (e) {
-      setErr((e as Error).message);
-    }
-  }
-
+function LayoutControls({ layout, language, onChange }: { layout?: Layout; language: Language; onChange: (layout: Layout) => void }) {
+  const mode = layout?.display === 'grid' ? 'grid' : layout?.direction === 'row' ? 'row' : 'column';
+  const update = (patch: Partial<Layout>) => onChange({ ...layout, ...patch, mode: layout?.mode ?? 'auto' });
   return (
-    <div className="field">
-      <label>{label}</label>
-      <textarea value={text} onChange={handleChange} spellCheck={false} />
-      {err && <div style={{ color: 'var(--danger)', fontSize: 10, marginTop: 4 }}>{err}</div>}
-    </div>
+    <fieldset className="layout-controls">
+      <legend>{t(language, 'layoutControls')}</legend>
+      <div className="layout-mode-buttons">
+        {(['column', 'row', 'grid'] as const).map((next) => <button key={next} type="button" className={mode === next ? 'active' : ''} onClick={() => update(next === 'grid' ? { display: 'grid', direction: undefined, grid: layout?.grid ?? { columns: 2 } } : { display: 'flex', direction: next, grid: undefined })}>{t(language, next === 'column' ? 'layoutVertical' : next === 'row' ? 'layoutHorizontal' : 'layoutGrid')}</button>)}
+      </div>
+      <div className="layout-control-grid">
+        <Field label={t(language, 'layoutHorizontalGap')}><input type="number" min="0" value={layout?.gap?.x ?? 12} onChange={(event) => update({ gap: { ...layout?.gap, x: Number(event.target.value) } })} /></Field>
+        <Field label={t(language, 'layoutVerticalGap')}><input type="number" min="0" value={layout?.gap?.y ?? 12} onChange={(event) => update({ gap: { ...layout?.gap, y: Number(event.target.value) } })} /></Field>
+        {mode === 'grid' && <Field label={t(language, 'layoutColumns')}><input type="number" min="1" max="24" value={layout?.grid?.columns ?? 2} onChange={(event) => update({ grid: { ...layout?.grid, columns: Number(event.target.value) } })} /></Field>}
+      </div>
+    </fieldset>
   );
+}
+
+function JsonField({ value, onChange }: { value: unknown; onChange: (value: unknown) => void }) {
+  const [text, setText] = useState(JSON.stringify(value, null, 2));
+  const [error, setError] = useState('');
+  return (
+    <>
+      <textarea value={text} onChange={(event) => {
+        setText(event.target.value);
+        try {
+          onChange(JSON.parse(event.target.value));
+          setError('');
+        } catch (nextError) {
+          setError((nextError as Error).message);
+        }
+      }} />
+      {error && <small className="json-error">{error}</small>}
+    </>
+  );
+}
+
+function collectDescendantIds(blueprint: Blueprint, rootId: string): Set<string> {
+  const descendants = new Set<string>();
+  const visit = (id: string) => {
+    const current = blueprint.nodes.find((candidate) => candidate.id === id);
+    for (const childId of current?.children ?? []) {
+      if (descendants.has(childId)) continue;
+      descendants.add(childId);
+      visit(childId);
+    }
+  };
+  visit(rootId);
+  return descendants;
 }
