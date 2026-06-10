@@ -1,166 +1,226 @@
 # AUB — UI Blueprint Agent
 
-A structured spec format for AI coding agents. Drag-and-drop a UI canvas, export a `.ui.json` (machine), `.ui.yaml` (human), or `.ui.md` (agent prompt context). Code agents read it. They know what to build, where, and how to verify.
+**Draw the interface. Export a UI contract. Let coding agents build and verify it.**
 
-> 繁體中文版：[`README-ZH.MD`](./README-ZH.MD)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
+[![Blueprint](https://img.shields.io/badge/UI%20Blueprint-v0.3.0-0f766e.svg)](./schema/ui-blueprint.schema.json)
+[![Node](https://img.shields.io/badge/Node-%3E%3D20-339933.svg)](./package.json)
 
-## Status
+[繁體中文](./README-ZH.MD) · [Agent handoff guide](./docs/agent-handoff.md) · [Canonical example](./examples/dashboard.ui.json)
 
-- **Phase 0** — Problem definition, failure cases, success criteria — **done**
-- **Phase 1 / Milestone A** — Schema usable — **done** (8/8 Tier 1 criteria pass)
-- **Phase 2 / Milestone B** — Editor usable — **done** (freeform/auto layout, drag, resize, multi-select, built-in and personal templates)
-- **Phase 3 / Milestone C** — Agent handoff — **done locally** (`.ui.md`, `.aub.zip`, screenshots, hashes, and 22/22 exact extraction with local Qwen 3.6 35B)
-- **Milestone D/E foundations** — **done** (Blueprint diff, Codex/Claude Code adapters, implementation report schema and verifier)
-- **Blueprint v0.3 import/authoring** — **implemented** (Angular component bundles, source diagnostics, personal templates, and an AI authoring kit)
+![AUB visual editor showing a responsive onboarding screen](./docs/assets/aub-editor-en.jpg)
 
-## Repository layout
+AUB is a visual UI specification tool for people who need to communicate a screen precisely to Codex, Claude Code, GitHub Copilot, or another coding agent. Build the screen on an artboard, declare behavior and acceptance criteria, then export a structured package the agent can implement without guessing from prose or screenshots alone.
 
-```
-.
-├── schema/
-│   ├── ui-blueprint.schema.json    # Draft 2020-12 schema (single source of truth)
-│   ├── types.ts                    # hand-synced TypeScript types
-│   └── registry/components.json    # 62 semantic component types, 7 categories
-├── examples/
-│   ├── dashboard.ui.json           # SaaS dashboard: 24 nodes, 6 interactions, 11 acceptance
-│   ├── dashboard.ui.yaml           # same, hand-editable
-│   ├── dashboard.ui.md             # generated agent context
-│   ├── dashboard.ui.lock.json      # frozen acceptance snapshot (hashes)
-│   └── freeform-actions.ui.json    # compact freeform/AI-readability fixture
-├── scripts/
-│   ├── validate.mjs                # CLI: validate .ui.json/.yaml against schema
-│   ├── validate-blueprint.lib.mjs  # tree, reference, and geometry semantics
-│   ├── migrate-blueprint-cli.mjs   # CLI: migrate v0.1/v0.2 blueprints to v0.3
-│   ├── import-angular-component.mjs # CLI: Angular HTML/SCSS/TS → Blueprint v0.3
-│   ├── create-authoring-kit.mjs    # CLI: schema + registry + prompt authoring kit
-│   ├── export-md.mjs               # CLI: generate .ui.md from .ui.json
-│   ├── export-md.lib.mjs           # pure function (browser-safe, used by editor)
-│   ├── lock-blueprint.mjs          # CLI: generate .ui.lock.json snapshot
-│   ├── score-agent-readability.mjs # deterministic 22-check benchmark scorer
-│   └── run-agent-readability.mjs   # explicitly gated external-agent runner
-├── benchmarks/agent-readability/  # agent prompt and expected extraction
-├── apps/editor/                    # Vite + React + TypeScript visual editor
-├── tests/                          # 71 node:test cases
-└── docs/
-    ├── problem-statement.md
-    ├── failure-cases.md
-    ├── mvp-success-criteria.md
-    └── schema-versioning.md
+> AUB currently runs locally. There is no hosted public demo yet.
+
+## How it works
+
+```mermaid
+flowchart LR
+  A["1. Compose the UI<br/>on a visual artboard"] --> B["2. Export structure, behavior,<br/>responsive rules, and acceptance"]
+  B --> C["3. Give the package<br/>to a coding agent"]
+  C --> D["4. Implement, test,<br/>and report evidence"]
 ```
 
-## Quick start
+1. **Compose visually** — start from one of 18 common application and website templates, or arrange registered components directly on the canvas.
+2. **Export a contract** — AUB records semantic hierarchy, auto/freeform layout, exact viewport placement, interactions, design tokens, responsive rules, and acceptance criteria.
+3. **Hand off to an agent** — the `.aub.zip` package tells the agent what to read, what to build, and how to prove the result.
+
+## Who AUB is for
+
+- Product designers and developers who need more precision than a screenshot or prose prompt.
+- Teams using coding agents to implement dashboards, forms, content products, commerce flows, and application shells.
+- Agent and tooling developers who need a schema-valid, testable UI interchange format.
+- Teams converting existing Angular screens into reusable UI Blueprints.
+
+## The problem AUB solves
+
+Prompts such as "build a dashboard like Stripe" or "make this responsive like Notion" leave critical decisions unstated. A screenshot shows appearance but not component intent, interaction outcomes, breakpoints, accessibility requirements, or the acceptance bar.
+
+AUB turns those decisions into an explicit contract:
+
+- Registered semantic component types instead of anonymous rectangles.
+- Hierarchy and layout rules instead of inferred grouping.
+- Desktop, tablet, and mobile behavior instead of "make it responsive."
+- Declared interactions and states instead of guessed behavior.
+- Testable acceptance ids instead of subjective approval.
+
+See [failure cases](./docs/failure-cases.md) for concrete examples.
+
+## Local quick start
+
+Requirements: Node.js 20+ and pnpm.
 
 ```bash
-# 1. install deps (root + editor)
+git clone https://github.com/HenryLau1103/AUB.git
+cd AUB
 pnpm install
-cd apps/editor && pnpm install && cd ../..
+(cd apps/editor && pnpm install && pnpm dev)
+```
 
-# 2. validate the example
+Open the local URL printed by Vite, normally `http://127.0.0.1:5173/`.
+
+In the editor:
+
+1. Choose a template.
+2. Drag components from their top-center handle or add components from the palette.
+3. Complete Goal, Layout, Interactions, Responsive, Acceptance, and Handoff.
+4. Export the AI handoff package.
+
+## Give a Blueprint to an agent
+
+Export an `.aub.zip`, place it in the target code repository, and tell the agent:
+
+```text
+Read AGENT-README.md in this AUB handoff package.
+Explain the package to me in my language, inspect this repository,
+implement the Blueprint, run the relevant checks, and report every acceptance id with evidence.
+```
+
+Every handoff package contains:
+
+```text
+AGENT-README.md
+AGENT-README.zh-Hant.md
+<screen>.ui.json
+<screen>.ui.md
+<screen>.agent.md
+<screen>.codex.md
+implementation-report.template.json
+implementation-report.schema.json
+screenshots/
+  desktop.png
+  tablet.png
+  mobile.png
+manifest.json
+```
+
+`<screen>.ui.json` is the source of truth. Markdown and screenshots are supporting evidence. The agent must inspect the target repository's own instructions before editing and must not redesign or weaken acceptance criteria.
+
+Read the full [Agent handoff guide](./docs/agent-handoff.md).
+
+## Agent support
+
+| Agent | Support | Entry point |
+|---|---|---|
+| Codex | Dedicated adapter | `<screen>.codex.md` and repository `AGENTS.md` |
+| Claude Code | Dedicated adapter | Generate with `--adapter claude-code`; reads `CLAUDE.md` |
+| GitHub Copilot | Generic handoff | `AGENT-README.md`, `<screen>.agent.md`, and repository Copilot instructions |
+| Other coding agents | Generic handoff | `AGENT-README.md` and `<screen>.agent.md` |
+
+The core Blueprint is agent-neutral. Adapters change execution instructions, not schema, layout semantics, interactions, or acceptance criteria.
+
+Generate a prompt directly:
+
+```bash
+pnpm prompt examples/dashboard.ui.json dashboard.agent.md --adapter generic --task implement
+pnpm prompt examples/dashboard.ui.json dashboard.codex.md --adapter codex --task implement
+pnpm prompt examples/dashboard.ui.json dashboard.claude.md --adapter claude-code --task review
+```
+
+Supported tasks are `author`, `plan`, `implement`, and `review`.
+
+## What the Blueprint describes
+
+- A tree of registered semantic UI nodes.
+- Auto layout with flex/grid contracts or freeform per-viewport placements.
+- Component content, design tokens, bindings, states, and constraints.
+- User interactions and observable outcomes.
+- Responsive overrides for named viewports.
+- At least five acceptance criteria spanning layout, interaction, responsive behavior, and accessibility.
+- Optional provenance for imported source files and diagnostics.
+
+Primary formats:
+
+| Format | Use |
+|---|---|
+| `.ui.json` | Machine validation and source of truth |
+| `.ui.yaml` | Human editing |
+| `.ui.md` | Generated agent and reviewer context |
+| `.ui.lock.json` | Frozen acceptance snapshot |
+| `.aub.zip` | Complete agent handoff |
+
+## Existing-screen and AI authoring workflows
+
+Import an Angular HTML/SCSS/TS component bundle:
+
+```bash
+pnpm import:angular path/to/component-directory \
+  --entry app-example \
+  --output example.ui.json
+```
+
+Create a portable kit that teaches an AI to author valid AUB files:
+
+```bash
+pnpm authoring:kit aub-authoring-kit.zip
+```
+
+The kit includes the current schema, 62-component registry, canonical example, validation guide, and authoring prompt. See [Angular import](./docs/angular-import.md) and the [adapter interface](./docs/agent-adapter-interface.md).
+
+## Validate and review
+
+```bash
+# Validate a Blueprint
 pnpm validate examples/dashboard.ui.json
 
-# 3. regenerate the markdown
-node scripts/export-md.mjs examples/dashboard.ui.json examples/dashboard.ui.md
-
-# 4. migrate an older blueprint
+# Migrate v0.1/v0.2 to v0.3
 pnpm migrate old.ui.json migrated.ui.json
 
-# 5. freeze the design as a lock snapshot
-node scripts/lock-blueprint.mjs examples/dashboard.ui.json examples/dashboard.ui.lock.json
-
-# 6. run all tests
-pnpm test
-
-# 7. type-check (root + editor)
-pnpm typecheck
-(cd apps/editor && pnpm typecheck)
-
-# 8. score an agent's benchmark answer
-pnpm score:agent path/to/agent-output.json
-
-# 9. import an Angular component bundle
-pnpm import:angular path/to/component-directory --entry app-example --output example.ui.json
-
-# 10. create a kit that teaches an AI to author AUB files
-pnpm authoring:kit aub-authoring-kit.zip
-
-# 11. start the editor
-(cd apps/editor && pnpm dev)
-# → open http://127.0.0.1:5173/
-```
-
-## Design principles (from `ui-blueprint-agent-plan.md`)
-
-1. **Semantic > visual** — every node carries a registered `type` (`data_table`, `metric_card`, …), not just a rectangle.
-2. **Layout = explicit contract** — auto containers use flex/grid; freeform containers use per-viewport placements. Agents must preserve the declared mode.
-3. **Blueprint is source of truth** — editor state derives from `.ui.json`. Round-trip (export → import) is lossless.
-4. **Acceptance is a checklist, not a vibe** — every screen has ≥5 verifiable items spanning layout, interaction, responsive, a11y.
-5. **One schema, many agents** — core format is agent-neutral. Per-agent differences live in thin adapters (Phase 4+).
-6. **No vibes-based approval** — schema validation, layout diff, and acceptance checklist are the only review signals.
-
-Direct placement in the editor is an explicit freeform action. Normal handle dragging keeps a node in its current parent; hold Option/Alt while dragging over another container to reparent it. When a palette drop targets an auto-layout container, the editor preserves the rendered child geometry before switching that container to freeform.
-
-## Agent readability benchmark
-
-Give `benchmarks/agent-readability/prompt.md` and `examples/freeform-actions.ui.json` to an agent, save its JSON-only answer, then run:
-
-```bash
-pnpm score:agent path/to/agent-output.json
-```
-
-The scorer compares 22 exact facts covering hierarchy, freeform geometry, layout mode, design tokens, interactions, and acceptance criteria.
-
-See `benchmarks/agent-readability/README.md` for the explicitly gated Codex/other-CLI runner. It will not invoke an external agent unless `--allow-external` is present.
-
-## Agent implementation benchmark
-
-The implementation benchmark asks an agent to generate a working standalone UI and implementation report, then uses local Chrome to verify exact desktop/tablet/mobile geometry, hierarchy, auto layout, interactions, focus states, responsive overflow, computed styles, screenshots, and report completeness.
-
-```bash
-pnpm benchmark:implementation qwen-local --allow-external -- \
-  node scripts/run-ollama-prompt.mjs qwen3.6:35b http://100.64.168.99:11434
-```
-
-See `benchmarks/agent-implementation/README.md`. The deterministic reference implementation passes every check; the latest local `qwen3.6:35b` result passes 420/420 checks after prompt-contract refinement.
-
-## Agent tasks and Blueprint diffs
-
-Generate an authoring, implementation, planning, or review task for a supported agent:
-
-```bash
-pnpm prompt examples/dashboard.ui.json dashboard.codex.md --adapter codex --task implement
-pnpm prompt examples/dashboard.ui.json author.codex.md --adapter codex --task author
-node adapters/claude-code/export-prompt.mjs examples/dashboard.ui.json - --task review
-```
-
-Compare two Blueprint revisions and list changed node ids and exact fields:
-
-```bash
+# Compare Blueprint revisions
 pnpm diff before.ui.json after.ui.json
-pnpm diff before.ui.json after.ui.json --json
-```
 
-See `docs/agent-adapter-interface.md` and `docs/capability-matrix.md`.
-
-Create and verify the machine-readable implementation report returned by an agent:
-
-```bash
+# Create and verify an implementation report
 pnpm report:init examples/dashboard.ui.json implementation-report.json
 pnpm report:verify examples/dashboard.ui.json implementation-report.json
 ```
 
-## Failure modes this design prevents
+AUB includes deterministic agent-readability and browser-based implementation benchmarks. The current local reference checks cover hierarchy, geometry, layout mode, responsive overflow, interactions, accessibility states, screenshots, and report completeness.
 
-See `docs/failure-cases.md` for the 5 concrete cases. Short version: "match the Figma", "make it responsive like Notion", "add a settings page", "clean sidebar", and "build a dashboard like Stripe" all fail with prose alone. The Blueprint format forces explicit decisions on every dimension.
+See [agent readability](./benchmarks/agent-readability/README.md) and [implementation benchmark](./benchmarks/agent-implementation/README.md).
 
-## Schema versioning
+## Project status
 
-See `docs/schema-versioning.md`. SemVer 2.0.0. `$id` carries the version. Old major versions are immutable under `schema/archive/`.
+- Blueprint schema and semantic validation: implemented.
+- WYSIWYG editor with freeform/auto layout, drag, resize, multi-select, zoom, localization, and templates: implemented.
+- JSON, Markdown, screenshots, hashes, and `.aub.zip` handoff: implemented.
+- Codex and Claude Code adapters: implemented.
+- Angular import, personal templates, and AI authoring kit: implemented.
+- Blueprint diff and implementation report verification: implemented.
+- Multi-screen projects, YAML editing in the UI, and editor-side lock generation: backlog.
+
+The current format version is `0.3.0`. See [schema versioning](./docs/schema-versioning.md) and [capability matrix](./docs/capability-matrix.md).
+
+## Repository map
+
+```text
+schema/          JSON Schema, TypeScript types, component registry
+scripts/         Validation, migration, export, import, diff, and report tools
+examples/        Canonical JSON, YAML, Markdown, and lock fixtures
+apps/editor/     Vite + React visual editor
+adapters/        Agent-specific prompt adapters
+benchmarks/      Agent readability and implementation verification
+docs/            Product decisions, guides, audits, and acceptance constraints
+tests/           Node test suites for all contracts
+```
+
+The schema is the single source of truth. Keep [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.schema.json) and [`schema/types.ts`](./schema/types.ts) synchronized.
 
 ## Contributing
 
 Before opening a PR:
-1. `pnpm test` — all tests pass
-2. `pnpm typecheck` and `(cd apps/editor && pnpm typecheck)` — both clean
-3. `(cd apps/editor && pnpm build)` — production build succeeds
-4. If you changed the schema, run `pnpm validate examples/dashboard.ui.json` to confirm the example still passes
-5. Atomic commits in `chore:` / `feat:` / `fix:` / `docs:` / `test:` style, zh-TW body
+
+```bash
+pnpm test
+pnpm typecheck
+(cd apps/editor && pnpm typecheck)
+(cd apps/editor && pnpm build)
+pnpm validate examples/dashboard.ui.json
+```
+
+Keep changes scoped, preserve round-trip integrity, and do not add unregistered semantic component types.
+
+## License
+
+Licensed under the [Apache License 2.0](./LICENSE).

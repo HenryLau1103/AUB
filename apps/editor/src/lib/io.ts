@@ -7,6 +7,8 @@ import blueprintSchema from '../../../../schema/ui-blueprint.schema.json';
 import componentRegistry from '../../../../schema/registry/components.json';
 import canonicalExample from '../../../../examples/dashboard.ui.json';
 import { migrateBlueprint } from '../../../../scripts/migrate-blueprint.mjs';
+import agentGuide from '../../../../docs/agent-handoff.md?raw';
+import agentGuideZhHant from '../../../../docs/agent-handoff.zh-Hant.md?raw';
 
 export function downloadBlob(filename: string, content: BlobPart | Blob, mime: string): void {
   const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
@@ -32,47 +34,26 @@ export function readFileAsText(file: File): Promise<string> {
 export async function downloadHandoffPackage(
   blueprint: Blueprint,
   markdown: string,
-  agentPrompt: string,
+  genericPrompt: string,
+  codexPrompt: string,
   reportTemplate: Record<string, unknown>,
   viewportImages: Record<string, string>
 ): Promise<void> {
-  const { default: JSZip } = await import('jszip');
-  const zip = new JSZip();
-  const json = `${JSON.stringify(blueprint, null, 2)}\n`;
-  const files: Record<string, string | Uint8Array> = {
-    [`${blueprint.screen.id}.ui.json`]: json,
-    [`${blueprint.screen.id}.ui.md`]: markdown,
-    [`${blueprint.screen.id}.codex.md`]: agentPrompt,
-    'implementation-report.template.json': `${JSON.stringify(reportTemplate, null, 2)}\n`,
-    'implementation-report.schema.json': `${JSON.stringify(implementationReportSchema, null, 2)}\n`,
-  };
-
-  for (const [viewportId, dataUrl] of Object.entries(viewportImages)) {
-    files[`screenshots/${viewportId}.png`] = dataUrlToBytes(dataUrl);
-  }
-
-  const manifestFiles: Record<string, { sha256: string; bytes: number }> = {};
-  for (const [path, content] of Object.entries(files)) {
-    const bytes = typeof content === 'string' ? new TextEncoder().encode(content) : content;
-    manifestFiles[path] = {
-      sha256: await sha256(bytes),
-      bytes: bytes.byteLength,
-    };
-    zip.file(path, content);
-  }
-
-  zip.file('manifest.json', `${JSON.stringify({
-    format: 'aub-handoff',
-    format_version: '1.0.0',
-    blueprint_version: blueprint.version,
-    screen_id: blueprint.screen.id,
-    generated_at: new Date().toISOString(),
-    viewports: blueprint.viewports,
-    files: manifestFiles,
-  }, null, 2)}\n`);
-
-  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
-  downloadBlob(`${blueprint.screen.id}.aub.zip`, blob, 'application/zip');
+  const { createHandoffArchive } = await import('../../../../scripts/handoff-package.lib.mjs');
+  const { bytes } = await createHandoffArchive({
+    blueprint,
+    markdown,
+    genericPrompt,
+    codexPrompt,
+    agentGuide,
+    agentGuideZhHant,
+    reportTemplate,
+    reportSchema: implementationReportSchema,
+    viewportImages,
+  });
+  const archiveBuffer = new Uint8Array(bytes.byteLength);
+  archiveBuffer.set(bytes);
+  downloadBlob(`${blueprint.screen.id}.aub.zip`, archiveBuffer.buffer, 'application/zip');
 }
 
 export async function downloadAuthoringKit(): Promise<void> {

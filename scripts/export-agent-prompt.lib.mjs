@@ -95,6 +95,7 @@ export function exportAgentPrompt(blueprint, options = {}) {
     '',
     '## Required workflow',
     '',
+    '- Start by replying in the user\'s language. Explain what AUB is, list the supplied Blueprint evidence, name the task you will perform, and identify any unresolved product decisions.',
     ...task.steps.map((step, index) => `${index + 1}. ${step}`),
     '',
     '## Final response contract',
