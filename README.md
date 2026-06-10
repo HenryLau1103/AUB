@@ -12,7 +12,7 @@
 
 AUB is a visual UI specification tool for people who need to communicate a screen precisely to Codex, Claude Code, GitHub Copilot, or another coding agent. Build the screen on an artboard, declare behavior and acceptance criteria, then export a structured package the agent can implement without guessing from prose or screenshots alone.
 
-> AUB currently runs locally. There is no hosted public demo yet.
+> **Live demo:** [henrylau1103.github.io/AUB](https://henrylau1103.github.io/AUB/) — the editor runs entirely in your browser.
 
 ## How it works
 
@@ -239,6 +239,24 @@ pnpm validate examples/dashboard.ui.json
 ```
 
 Keep changes scoped, preserve round-trip integrity, and do not add unregistered semantic component types.
+
+## Deployment (GitHub Pages)
+
+The landing page (`site/`) and the editor demo are published to
+[henrylau1103.github.io/AUB](https://henrylau1103.github.io/AUB/) by
+[`.github/workflows/pages.yml`](./.github/workflows/pages.yml) on every push to `main`. The
+workflow builds the editor with `VITE_BASE=/AUB/editor/` and serves it under `/AUB/editor/`.
+
+One-time repository setup (cannot be configured from code): **Settings → Pages → Build and
+deployment → Source = GitHub Actions**.
+
+Build the published site locally:
+
+```bash
+(cd apps/editor && VITE_BASE=/AUB/editor/ pnpm build)
+mkdir -p _site/editor && cp -r site/. _site/ && cp -r apps/editor/dist/. _site/editor/
+npx serve _site   # then open http://localhost:3000/AUB/  (paths assume the /AUB/ base)
+```
 
 ## License
 

@@ -12,7 +12,7 @@
 
 AUB 是一套視覺 UI 規格工具，協助使用者把畫面精準交給 Codex、Claude Code、GitHub Copilot 或其他編碼 Agent。你可以在畫板上組出畫面、宣告行為與驗收條件，再匯出結構化交付包，讓 Agent 不必只靠文字或截圖猜測。
 
-> AUB 目前以本機方式執行，尚未提供公開線上 Demo。
+> **線上 Demo：**[henrylau1103.github.io/AUB](https://henrylau1103.github.io/AUB/) — 編輯器完全在你的瀏覽器中執行。
 
 ## 運作方式
 
@@ -234,6 +234,20 @@ pnpm validate examples/dashboard.ui.json
 ```
 
 修改範圍應保持精簡、維持 round-trip 完整性，並且不得加入未註冊的語意元件類型。
+
+## 部署（GitHub Pages）
+
+landing 頁（`site/`）與編輯器 demo 由 [`.github/workflows/pages.yml`](./.github/workflows/pages.yml) 在每次 push 到 `main` 時發布到 [henrylau1103.github.io/AUB](https://henrylau1103.github.io/AUB/)。工作流程會以 `VITE_BASE=/AUB/editor/` 建置編輯器，並掛載在 `/AUB/editor/`。
+
+一次性 repository 設定（無法由程式碼設定）：**Settings → Pages → Build and deployment → Source = GitHub Actions**。
+
+在本機建置發布內容：
+
+```bash
+(cd apps/editor && VITE_BASE=/AUB/editor/ pnpm build)
+mkdir -p _site/editor && cp -r site/. _site/ && cp -r apps/editor/dist/. _site/editor/
+npx serve _site   # 開啟 http://localhost:3000/AUB/（路徑以 /AUB/ base 為準）
+```
 
 ## 授權
 
