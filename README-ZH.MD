@@ -203,6 +203,28 @@ pnpm report:init examples/dashboard.ui.json implementation-report.json
 pnpm report:verify examples/dashboard.ui.json implementation-report.json
 ```
 
+### 自動補全規格段落
+
+從既有的節點樹與 viewport，確定性地推導出最容易留空的規格段落——
+`interactions`、`responsive` 與 `acceptance`。補全是**非破壞性**的：只會附加缺少的項目
+（並把 acceptance 補到必備的五條，涵蓋 layout／interaction／responsive／a11y），
+不會覆寫或重排你既有的內容。執行第二次不會有任何變動。
+
+```bash
+# 預覽輸出到 stdout
+pnpm scaffold examples/dashboard.ui.json --stdout
+
+# 將補全結果寫回檔案
+pnpm scaffold path/to/screen.ui.json --write
+
+# 只補全特定段落，並本地化產生的敘述
+pnpm scaffold path/to/screen.ui.json --sections acceptance,responsive --language zh-Hant --write
+```
+
+在編輯器中，每個規格清單（Interactions、Responsive、Acceptance）都有一個
+**從佈局建議**按鈕，執行的是相同邏輯。透過 MCP 的 Agent 可呼叫 `scaffold_blueprint`
+工具，在交付實作前先取得規格完整的 blueprint。
+
 AUB 內建確定性的 Agent 可讀性評分，以及以瀏覽器執行的實作驗證。現有本機參考檢查涵蓋階層、幾何、layout mode、響應式 overflow、互動、無障礙狀態、截圖與報告完整性。
 
 請參考 [Agent 可讀性測試](./benchmarks/agent-readability/README.md)與[實作基準測試](./benchmarks/agent-implementation/README.md)。
@@ -234,7 +256,7 @@ Blueprint 檔案以 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.sc
 - Codex、Claude Code 與 GitHub Copilot adapter：已實作。
 - Angular 匯入、個人範本與 AI 生成工具包：已實作。
 - Blueprint diff 與 implementation report 驗證：已實作。
-- MCP server（stdio），提供 list／get／validate／export-prompt／submit-report 工具：已實作。
+- MCP server（stdio），提供 list／get／validate／scaffold／export-prompt／submit-report 工具：已實作。
 - 多畫面專案、UI 內 YAML 編輯與 editor 內 lock 產生：待辦。
 
 目前格式版本為 `0.3.0`。請看 [schema 版本管理](./docs/schema-versioning.md)與[能力矩陣](./docs/capability-matrix.md)。

@@ -6,6 +6,7 @@ import { createImplementationReportTemplate } from '../dist/aub.js';
 import { run as listBlueprints } from '../dist/tools/list-blueprints.js';
 import { run as getBlueprint } from '../dist/tools/get-blueprint.js';
 import { run as validateBlueprint } from '../dist/tools/validate-blueprint.js';
+import { run as scaffoldBlueprint } from '../dist/tools/scaffold-blueprint.js';
 import { run as exportPrompt } from '../dist/tools/export-prompt.js';
 import { run as submitReport } from '../dist/tools/submit-report.js';
 
@@ -90,6 +91,29 @@ test('validate_blueprint reports unknown extension types without a registry', as
     result.semanticErrors.some((message) => message.includes('unknown component type')),
     JSON.stringify(result.semanticErrors)
   );
+});
+
+test('scaffold_blueprint fills empty spec sections and the result validates', async () => {
+  const blueprint = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
+  const stripped = { ...blueprint, interactions: [], responsive: [], acceptance: [] };
+  const result = await scaffoldBlueprint(ctx, { blueprint: stripped });
+  assert.ok(result.summary.interactions > 0);
+  assert.ok(result.summary.acceptance >= 5);
+  const validated = await validateBlueprint(ctx, { blueprint: result.blueprint });
+  assert.equal(validated.valid, true, JSON.stringify(validated.semanticErrors));
+});
+
+test('scaffold_blueprint honors the sections argument', async () => {
+  const blueprint = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
+  const stripped = { ...blueprint, interactions: [], responsive: [], acceptance: [] };
+  const result = await scaffoldBlueprint(ctx, { blueprint: stripped, sections: ['acceptance'] });
+  assert.equal(result.summary.interactions, 0);
+  assert.equal(result.summary.responsive, 0);
+  assert.ok(result.summary.acceptance >= 5);
+});
+
+test('scaffold_blueprint requires a ref or an inline blueprint', async () => {
+  await assert.rejects(() => scaffoldBlueprint(ctx, {}), /ref.*blueprint/i);
 });
 
 test('export_prompt embeds blueprint context for a valid adapter and task', async () => {
