@@ -1,4 +1,5 @@
 {
+  "$schema": "../schema/ui-blueprint.schema.json",
   "version": "0.3.0",
   "screen": {
     "id": "benchmark.freeform-actions",

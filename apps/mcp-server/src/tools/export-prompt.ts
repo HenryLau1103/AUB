@@ -10,7 +10,7 @@ const inputSchema = {
   adapter: z
     .string()
     .optional()
-    .describe('Agent adapter: generic | codex | claude-code. Defaults to generic.'),
+    .describe('Agent adapter: generic | codex | claude-code | copilot. Defaults to generic.'),
   task: z
     .string()
     .optional()

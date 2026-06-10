@@ -2,9 +2,10 @@
 
 **畫出介面，匯出 UI 合約，讓編碼 Agent 精準實作並驗收。**
 
+[![CI](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml/badge.svg)](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Blueprint](https://img.shields.io/badge/UI%20Blueprint-v0.3.0-0f766e.svg)](./schema/ui-blueprint.schema.json)
-[![Node](https://img.shields.io/badge/Node-%3E%3D20-339933.svg)](./package.json)
+[![Node](https://img.shields.io/badge/Node-%3E%3D24-339933.svg)](./package.json)
 
 [English](./README.md) · [Agent 交付指南](./docs/agent-handoff.zh-Hant.md) · [標準範例](./examples/dashboard.ui.json)
 
@@ -50,7 +51,7 @@ AUB 把這些決策變成明確合約：
 
 ## 本機快速開始
 
-需求：Node.js 20+ 與 pnpm。
+需求：Node.js 24+ 與 pnpm。
 
 ```bash
 git clone https://github.com/HenryLau1103/AUB.git
@@ -106,7 +107,7 @@ manifest.json
 |---|---|---|
 | Codex | 專用 adapter | `<screen>.codex.md` 與 repository 的 `AGENTS.md` |
 | Claude Code | 專用 adapter | 使用 `--adapter claude-code` 產生；讀取 `CLAUDE.md` |
-| GitHub Copilot | 通用交付 | `AGENT-README.md`、`<screen>.agent.md` 與 repository Copilot instructions |
+| GitHub Copilot | 專用 adapter | 使用 `--adapter copilot` 產生；讀取 `.github/copilot-instructions.md` 與 `AGENTS.md` |
 | 其他編碼 Agent | 通用交付 | `AGENT-README.md` 與 `<screen>.agent.md` |
 
 核心 Blueprint 與 Agent 平台無關。Adapter 只調整執行指示，不會改變 schema、layout 語意、互動或驗收條件。
@@ -117,6 +118,7 @@ manifest.json
 pnpm prompt examples/dashboard.ui.json dashboard.agent.md --adapter generic --task implement
 pnpm prompt examples/dashboard.ui.json dashboard.codex.md --adapter codex --task implement
 pnpm prompt examples/dashboard.ui.json dashboard.claude.md --adapter claude-code --task review
+pnpm prompt examples/dashboard.ui.json dashboard.copilot.md --adapter copilot --task implement
 ```
 
 支援的任務為 `author`、`plan`、`implement` 與 `review`。
@@ -191,12 +193,31 @@ AUB 內建確定性的 Agent 可讀性評分，以及以瀏覽器執行的實作
 
 請參考 [Agent 可讀性測試](./benchmarks/agent-readability/README.md)與[實作基準測試](./benchmarks/agent-implementation/README.md)。
 
+## 編輯器 / IDE 整合
+
+Blueprint 檔案以 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.schema.json) 為依據，因此編輯器可在你輸入時即時驗證並自動補全。
+
+- **VS Code：**本 repo 內含 [`.vscode/settings.json`](./.vscode/settings.json)，會自動把 `*.ui.json` 與 `*.ui.yaml` 對應到 schema。請安裝建議的 [YAML 擴充套件](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) 以支援 `.ui.yaml`。
+- **獨立檔案／其他編輯器：**比照標準範例，加入指向 schema 的 `$schema` 欄位：
+
+  ```json
+  { "$schema": "../schema/ui-blueprint.schema.json", "version": "0.3.0" }
+  ```
+
+  YAML 則使用 YAML language server 指示行：
+
+  ```yaml
+  # yaml-language-server: $schema=../schema/ui-blueprint.schema.json
+  ```
+
+`$schema` 欄位為選填，AUB 工具會忽略它——它只用來驅動編輯器驗證。
+
 ## 專案狀態
 
 - Blueprint schema 與語意驗證：已實作。
 - WYSIWYG 編輯器，自由／自動佈局、拖曳、縮放、多選、畫板縮放、本地化與範本：已實作。
 - JSON、Markdown、截圖、雜湊與 `.aub.zip` 交付：已實作。
-- Codex 與 Claude Code adapter：已實作。
+- Codex、Claude Code 與 GitHub Copilot adapter：已實作。
 - Angular 匯入、個人範本與 AI 生成工具包：已實作。
 - Blueprint diff 與 implementation report 驗證：已實作。
 - MCP server（stdio），提供 list／get／validate／export-prompt／submit-report 工具：已實作。

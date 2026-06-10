@@ -1,6 +1,6 @@
 # Agent Adapter Capability Matrix
 
-| Capability | Generic / Copilot | Codex | Claude Code | MCP server |
+| Capability | Codex | Claude Code | Copilot | MCP server |
 |---|---:|---:|---:|---:|
 | Current Blueprint schema | Yes | Yes | Yes | Yes |
 | Blueprint authoring task | Yes | Yes | Yes | `export_prompt` |
@@ -12,13 +12,13 @@
 | Per-viewport geometry | Yes | Yes | Yes | `get_blueprint` |
 | Interactions and responsive rules | Yes | Yes | Yes | `get_blueprint` |
 | Acceptance evidence contract | Yes | Yes | Yes | `submit_report` |
-| Portable `.aub.zip` entrypoint | `AGENT-README.md` | `AGENT-README.md` + Codex prompt | `AGENT-README.md` + generated Claude prompt | — (tools over stdio) |
-| Repository instruction discovery | Generic / Copilot instructions | `AGENTS.md` | `CLAUDE.md` | — (caller's responsibility) |
+| Portable `.aub.zip` entrypoint | `AGENT-README.md` + Codex prompt | `AGENT-README.md` + generated Claude prompt | `AGENT-README.md` + Copilot prompt | — (tools over stdio) |
+| Repository instruction discovery | `AGENTS.md` | `CLAUDE.md` | `.github/copilot-instructions.md` + `AGENTS.md` | — (caller's responsibility) |
 | Schema validation | via CLI | via CLI | via CLI | `validate_blueprint` |
 | Implementation report submission | via CLI | via CLI | via CLI | `submit_report` |
 
-All adapters import the same exporter and schema-compatible Blueprint. No adapter-specific schema exists.
+All adapters import the same exporter and schema-compatible Blueprint. No adapter-specific schema exists. A `generic` adapter is also available as the default fallback for any other coding agent.
 
-GitHub Copilot currently uses the generic handoff contract; AUB does not ship a separate Copilot adapter.
+GitHub Copilot has a dedicated adapter (`adapters/copilot/`, adapter id `copilot`) that points Copilot at `.github/copilot-instructions.md` and applicable `AGENTS.md`. The MCP server's `export_prompt` tool accepts `adapter: "copilot"` as well.
 
 The MCP server (`apps/mcp-server/`) wraps the same libraries and exposes the same Blueprint contract as direct tools over stdio — no adapter-specific schema exists there either. See [`apps/mcp-server/README.md`](../apps/mcp-server/README.md) for registration instructions.

@@ -25,6 +25,14 @@ const ADAPTERS = {
       'Run the repository checks that cover every changed surface and report their exact result.',
     ],
   },
+  copilot: {
+    label: 'GitHub Copilot',
+    repositoryInstructions: [
+      'Read .github/copilot-instructions.md and any applicable AGENTS.md before editing files.',
+      'Inspect the existing codebase first and reuse the repository-native components, tokens, and patterns.',
+      'Run the repository checks that cover every changed surface and report their exact result.',
+    ],
+  },
 };
 
 const TASKS = {

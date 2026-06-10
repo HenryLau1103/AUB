@@ -10,8 +10,16 @@ import {
 const EXAMPLE = new URL('../examples/freeform-actions.ui.json', import.meta.url);
 
 test('P1: adapter interface exposes supported agents and tasks', () => {
-  assert.deepEqual(supportedAgentAdapters(), ['generic', 'codex', 'claude-code']);
+  assert.deepEqual(supportedAgentAdapters(), ['generic', 'codex', 'claude-code', 'copilot']);
   assert.deepEqual(supportedAgentTasks(), ['author', 'implement', 'plan', 'review']);
+});
+
+test('P1b: Copilot adapter embeds Copilot-native repository instructions', async () => {
+  const blueprint = JSON.parse(await readFile(EXAMPLE, 'utf8'));
+  const prompt = exportAgentPrompt(blueprint, { adapter: 'copilot', task: 'implement' });
+  assert.ok(prompt.includes('Adapter: **GitHub Copilot**'));
+  assert.ok(prompt.includes('.github/copilot-instructions.md'));
+  for (const item of blueprint.acceptance) assert.ok(prompt.includes(item.id));
 });
 
 test('P4: author task tells agents to generate validated registered components', async () => {

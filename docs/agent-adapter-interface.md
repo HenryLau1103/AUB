@@ -7,7 +7,7 @@ For the portable package entrypoint, precedence rules, first-response behavior, 
 ## Input
 
 - One valid current-major `.ui.json` or `.ui.yaml` Blueprint.
-- Adapter id: `generic`, `codex`, or `claude-code`.
+- Adapter id: `generic`, `codex`, `claude-code`, or `copilot`.
 - Task id: `author`, `implement`, `plan`, or `review`.
 
 ## Output
@@ -28,8 +28,9 @@ node scripts/export-agent-prompt.mjs examples/dashboard.ui.json - \
 
 node adapters/codex/export-prompt.mjs examples/dashboard.ui.json dashboard.codex.md
 node adapters/claude-code/export-prompt.mjs examples/dashboard.ui.json dashboard.claude.md
+node adapters/copilot/export-prompt.mjs examples/dashboard.ui.json dashboard.copilot.md
 ```
 
 Adapters may change instructions and invocation conventions. They may not change node types, layout semantics, interactions, responsive rules, or acceptance criteria.
 
-GitHub Copilot and agents without a dedicated adapter should use the `generic` adapter together with `AGENT-README.md` from the `.aub.zip` handoff package.
+Agents without a dedicated adapter should use the `generic` adapter together with `AGENT-README.md` from the `.aub.zip` handoff package.
