@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AUB — UI Blueprint Agent</title>
+    <meta
+      name="description"
+      content="Draw the interface, export a UI contract, and let coding agents build and verify it. AUB is a visual UI specification tool for Codex, Claude Code, GitHub Copilot, and other coding agents."
+    />
+    <meta property="og:title" content="AUB — UI Blueprint Agent" />
+    <meta
+      property="og:description"
+      content="Draw the interface. Export a UI contract. Let coding agents build and verify it."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="./assets/aub-editor-en.jpg" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f766e'/%3E%3Ctext x='16' y='22' font-family='system-ui,sans-serif' font-size='16' font-weight='700' text-anchor='middle' fill='white'%3EA%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./">
+        <span class="brand-mark">A</span>
+        <span class="brand-name">AUB</span>
+      </a>
+      <nav class="site-nav">
+        <a href="./editor/">Editor</a>
+        <a href="https://github.com/HenryLau1103/AUB">GitHub</a>
+        <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/agent-handoff.md">Agent handoff</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">UI Blueprint Agent</p>
+          <h1>Draw the interface.<br />Export a UI contract.<br />Let coding agents build it.</h1>
+          <p class="lede">
+            AUB is a visual UI specification tool for people who need to communicate a screen
+            precisely to Codex, Claude Code, GitHub Copilot, or another coding agent. Compose the
+            screen, declare behavior and acceptance criteria, then export a structured package the
+            agent can implement without guessing from prose or screenshots.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="./editor/">Open the live editor</a>
+            <a class="btn btn-ghost" href="https://github.com/HenryLau1103/AUB">View on GitHub</a>
+          </div>
+          <p class="note">The editor runs entirely in your browser. Nothing is uploaded.</p>
+        </div>
+        <a class="hero-shot" href="./editor/" aria-label="Open the AUB editor">
+          <img src="./assets/aub-editor-en.jpg" alt="AUB visual editor composing a responsive screen" loading="lazy" />
+        </a>
+      </section>
+
+      <section class="steps">
+        <h2>How it works</h2>
+        <ol class="step-grid">
+          <li>
+            <span class="step-num">1</span>
+            <h3>Compose visually</h3>
+            <p>Start from a common template or arrange registered semantic components on the canvas.</p>
+          </li>
+          <li>
+            <span class="step-num">2</span>
+            <h3>Export a contract</h3>
+            <p>Capture hierarchy, layout, interactions, design tokens, responsive rules, and acceptance criteria.</p>
+          </li>
+          <li>
+            <span class="step-num">3</span>
+            <h3>Hand off to an agent</h3>
+            <p>Give the package to a coding agent — over files or directly through the MCP server.</p>
+          </li>
+          <li>
+            <span class="step-num">4</span>
+            <h3>Implement &amp; verify</h3>
+            <p>The agent builds it, runs checks, and reports evidence for every acceptance id.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="why">
+        <h2>Why a contract beats a prompt</h2>
+        <p class="why-lede">
+          “Build a dashboard like Stripe” leaves critical decisions unstated. A screenshot shows
+          appearance but not component intent, interaction outcomes, breakpoints, accessibility, or
+          the acceptance bar. AUB turns those decisions into an explicit, testable contract.
+        </p>
+        <div class="why-grid">
+          <div class="card">
+            <h3>Semantic components</h3>
+            <p>Registered component types instead of anonymous rectangles.</p>
+          </div>
+          <div class="card">
+            <h3>Layout as a contract</h3>
+            <p>Flex/grid and per-viewport geometry instead of inferred grouping.</p>
+          </div>
+          <div class="card">
+            <h3>Declared behavior</h3>
+            <p>Explicit interactions, states, and responsive rules instead of guesses.</p>
+          </div>
+          <div class="card">
+            <h3>Enforceable acceptance</h3>
+            <p>Testable acceptance ids spanning layout, interaction, responsive, and accessibility.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="handoff">
+        <h2>Connect your agent</h2>
+        <p>
+          Export an <code>.aub.zip</code> handoff package, or let MCP-capable agents call AUB tools
+          directly over stdio: <code>list_blueprints</code>, <code>get_blueprint</code>,
+          <code>validate_blueprint</code>, <code>export_prompt</code>, and <code>submit_report</code>.
+        </p>
+        <div class="link-row">
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/agent-handoff.md">Agent handoff guide</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/apps/mcp-server/README.md">MCP server</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/schema/ui-blueprint.schema.json">Blueprint schema</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/examples/dashboard.ui.json">Canonical example</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        AUB · UI Blueprint Agent ·
+        <a href="https://github.com/HenryLau1103/AUB">github.com/HenryLau1103/AUB</a> ·
+        Apache-2.0
+      </p>
+    </footer>
+  </body>
+</html>

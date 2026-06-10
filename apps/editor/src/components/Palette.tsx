@@ -154,7 +154,7 @@ export function Palette({
               {group.ids.map((id) => (
                 <button key={id} type="button" onClick={() => onTemplateSelect(id)}>
                   <img
-                    src={`/template-previews/${id}.png`}
+                    src={`${import.meta.env.BASE_URL}template-previews/${id}.png`}
                     alt={language === 'zh-Hant'
                       ? `${templateLabel(language, id)}範本預覽`
                       : `${templateLabel(language, id)} template preview`}

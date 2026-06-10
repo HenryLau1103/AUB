@@ -13,5 +13,6 @@ benchmarks/agent-readability/results/
 benchmarks/agent-implementation/results/
 dist/
 build/
+_site/
 *.log
 .DS_Store
