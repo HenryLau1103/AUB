@@ -121,6 +121,17 @@ pnpm prompt examples/dashboard.ui.json dashboard.claude.md --adapter claude-code
 
 支援的任務為 `author`、`plan`、`implement` 與 `review`。
 
+## MCP server
+
+支援 [Model Context Protocol](https://modelcontextprotocol.io) 的 Agent 可以直接透過 stdio 呼叫 AUB 工具，不需要把檔案複製進目標 repository：`list_blueprints`、`get_blueprint`、`validate_blueprint`、`export_prompt`、`submit_report`。
+
+```bash
+(cd apps/mcp-server && pnpm install && pnpm build)
+node apps/mcp-server/dist/index.js /path/to/your/repo
+```
+
+在 Claude Code、Codex 或任何 MCP client 中註冊後即可使用。設定片段與說明請看 [`apps/mcp-server/README.md`](./apps/mcp-server/README.md)。Server 包裝的是與 CLI 相同的函式庫，schema、layout 語意、互動與驗收條件完全不變。
+
 ## Blueprint 描述的內容
 
 - 由已註冊語意 UI 節點組成的樹狀結構。
@@ -188,6 +199,7 @@ AUB 內建確定性的 Agent 可讀性評分，以及以瀏覽器執行的實作
 - Codex 與 Claude Code adapter：已實作。
 - Angular 匯入、個人範本與 AI 生成工具包：已實作。
 - Blueprint diff 與 implementation report 驗證：已實作。
+- MCP server（stdio），提供 list／get／validate／export-prompt／submit-report 工具：已實作。
 - 多畫面專案、UI 內 YAML 編輯與 editor 內 lock 產生：待辦。
 
 目前格式版本為 `0.3.0`。請看 [schema 版本管理](./docs/schema-versioning.md)與[能力矩陣](./docs/capability-matrix.md)。
@@ -199,6 +211,7 @@ schema/          JSON Schema、TypeScript 型別與元件 registry
 scripts/         驗證、遷移、匯出、匯入、diff 與報告工具
 examples/        標準 JSON、YAML、Markdown 與 lock 範例
 apps/editor/     Vite + React 視覺編輯器
+apps/mcp-server/ Model Context Protocol server（stdio），提供 Blueprint 工具
 adapters/        各 Agent 專用提示 adapter
 benchmarks/      Agent 可讀性與實作驗證
 docs/            產品決策、指南、審查與驗收限制
@@ -216,6 +229,7 @@ pnpm test
 pnpm typecheck
 (cd apps/editor && pnpm typecheck)
 (cd apps/editor && pnpm build)
+(cd apps/mcp-server && pnpm typecheck && pnpm build)
 pnpm validate examples/dashboard.ui.json
 ```
 

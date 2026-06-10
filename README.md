@@ -121,6 +121,23 @@ pnpm prompt examples/dashboard.ui.json dashboard.claude.md --adapter claude-code
 
 Supported tasks are `author`, `plan`, `implement`, and `review`.
 
+## MCP server
+
+Instead of copying files into the target repository, agents that speak the
+[Model Context Protocol](https://modelcontextprotocol.io) can call AUB tools directly over
+stdio: `list_blueprints`, `get_blueprint`, `validate_blueprint`, `export_prompt`, and
+`submit_report`.
+
+```bash
+(cd apps/mcp-server && pnpm install && pnpm build)
+node apps/mcp-server/dist/index.js /path/to/your/repo
+```
+
+Register it with Claude Code, Codex, or any MCP client. See
+[`apps/mcp-server/README.md`](./apps/mcp-server/README.md) for configuration snippets. The
+server wraps the same libraries as the CLI, so schema, layout semantics, interactions, and
+acceptance criteria are unchanged.
+
 ## What the Blueprint describes
 
 - A tree of registered semantic UI nodes.
@@ -188,6 +205,7 @@ See [agent readability](./benchmarks/agent-readability/README.md) and [implement
 - Codex and Claude Code adapters: implemented.
 - Angular import, personal templates, and AI authoring kit: implemented.
 - Blueprint diff and implementation report verification: implemented.
+- MCP server (stdio) exposing list/get/validate/export-prompt/submit-report tools: implemented.
 - Multi-screen projects, YAML editing in the UI, and editor-side lock generation: backlog.
 
 The current format version is `0.3.0`. See [schema versioning](./docs/schema-versioning.md) and [capability matrix](./docs/capability-matrix.md).
@@ -199,6 +217,7 @@ schema/          JSON Schema, TypeScript types, component registry
 scripts/         Validation, migration, export, import, diff, and report tools
 examples/        Canonical JSON, YAML, Markdown, and lock fixtures
 apps/editor/     Vite + React visual editor
+apps/mcp-server/ Model Context Protocol server (stdio) exposing Blueprint tools
 adapters/        Agent-specific prompt adapters
 benchmarks/      Agent readability and implementation verification
 docs/            Product decisions, guides, audits, and acceptance constraints
