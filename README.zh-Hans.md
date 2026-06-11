@@ -35,6 +35,17 @@ flowchart LR
 3. **只交付一份契约**：使用 `.aub.zip` 或 MCP，不因 Agent 不同而改变 schema 与验收语义。
 4. **用证据验收**：要求每个 node mapping 和 acceptance id 的证据，再用 GitHub Action 管控 PR。
 
+## 既有项目最快开始
+
+如果你已经有一个 app，想让 AUB 通过 MCP 扫描、生成模板、编辑并预览，请在那个 app 的根目录执行：
+
+```bash
+cd /path/to/your-existing-app
+npx aub-workspace
+```
+
+这会启动本机 AUB MCP server、打开内置 editor，并自动把 editor 连接到你的 workspace。这条路径不需要先 clone AUB repo。
+
 ## AUB 解决的问题
 
 “做一个像 Stripe 的 dashboard”或“像 Notion 一样响应式”会遗漏组件意图、交互结果、breakpoint、无障碍要求和验收标准。AUB 把这些决策变成显式契约：
@@ -47,7 +58,7 @@ flowchart LR
 
 ## 本地快速开始
 
-要求：Node.js 24+ 与 pnpm。
+这条路径只适合开发 AUB 本身。要求：Node.js 24+ 与 pnpm。
 
 ```bash
 git clone https://github.com/HenryLau1103/AUB.git

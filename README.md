@@ -43,6 +43,17 @@ flowchart LR
 - Design-system teams that want agents to reuse production components instead of creating lookalikes.
 - Teams converting existing Angular screens into reusable UI Blueprints.
 
+## Fastest path for an existing project
+
+If you already have an app and want AUB to scan, template, edit, and preview it through MCP, run this from that app's root directory:
+
+```bash
+cd /path/to/your-existing-app
+npx aub-workspace
+```
+
+This starts the local AUB MCP server, opens the bundled editor, and connects the editor to your workspace automatically. You do not need to clone the AUB repo for this path.
+
 ## The problem AUB solves
 
 Prompts such as "build a dashboard like Stripe" or "make this responsive like Notion" leave critical decisions unstated. A screenshot shows appearance but not component intent, interaction outcomes, breakpoints, accessibility requirements, or the acceptance bar.
@@ -59,7 +70,7 @@ See [failure cases](./docs/failure-cases.md) for concrete examples.
 
 ## Local quick start
 
-Requirements: Node.js 24+ and pnpm.
+Use this path only when developing AUB itself. Requirements: Node.js 24+ and pnpm.
 
 ```bash
 git clone https://github.com/HenryLau1103/AUB.git
