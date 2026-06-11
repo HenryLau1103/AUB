@@ -22,6 +22,8 @@ export type {
   AcceptancePriority,
   VerificationMethod,
   ComponentType,
+  ResolvedComponentType,
+  ExtensionComponentType,
   NodeState,
   Provenance,
   SourceReference,

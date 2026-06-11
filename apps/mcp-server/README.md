@@ -85,6 +85,14 @@ workspace-connected mode. `/rpc` calls the same registered tool implementations
 as `/mcp`; it exists so browser UI code does not need to implement the full
 Streamable HTTP MCP session protocol.
 
+Security hardening for `/rpc` can be enabled by setting one or both of:
+
+- `AUB_RPC_TOKEN` (or `--rpc-token`): one or more comma-separated tokens required via `Authorization: Bearer <token>`.
+- `AUB_RPC_ALLOWED_ORIGINS` (or `--rpc-allowed-origins`): comma-separated origin allow list.
+
+When neither is configured, `/rpc` keeps compatibility behavior while still limiting
+browser requests to localhost and `https://henrylau1103.github.io` origins.
+
 ## Register with an agent
 
 Point the agent at the built entry and pass the target repository as the workspace root.

@@ -29,6 +29,8 @@ export interface ProjectEntry {
 const IGNORED_DIRS = new Set(['node_modules', 'dist', '.git', '.aub', '.pnpm-store']);
 const BLUEPRINT_PATTERN = /\.ui\.(json|ya?ml)$/i;
 export const PROJECT_PATTERN = /\.aub\.project\.(json|ya?ml)$/i;
+const MAX_SCAN_DEPTH = 12;
+const MAX_SCAN_FILES = 2000;
 
 export function resolveWorkspacePath(root: string, filePath: string): string {
   const absRoot = resolve(root);
@@ -68,7 +70,8 @@ function toEntry(root: string, absPath: string, blueprint: Blueprint): Blueprint
   };
 }
 
-async function walk(dir: string, out: string[], pattern: RegExp): Promise<void> {
+async function walk(dir: string, out: string[], pattern: RegExp, maxDepth = MAX_SCAN_DEPTH, maxFiles = MAX_SCAN_FILES, depth = 0): Promise<void> {
+  if (depth >= maxDepth || out.length >= maxFiles) return;
   let dirents;
   try {
     dirents = await readdir(dir, { withFileTypes: true });
@@ -79,9 +82,10 @@ async function walk(dir: string, out: string[], pattern: RegExp): Promise<void> 
     const full = join(dir, dirent.name);
     if (dirent.isDirectory()) {
       if (IGNORED_DIRS.has(dirent.name) || dirent.name.startsWith('.')) continue;
-      await walk(full, out, pattern);
+      await walk(full, out, pattern, maxDepth, maxFiles, depth + 1);
     } else if (dirent.isFile() && pattern.test(dirent.name)) {
       out.push(full);
+      if (out.length >= maxFiles) return;
     }
   }
 }

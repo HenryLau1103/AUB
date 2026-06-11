@@ -3,7 +3,7 @@ import { ChevronLeft, Trash2 } from 'lucide-react';
 import { componentLabel, stateLabel, t, viewportLabel, type Language } from '../lib/i18n';
 import { isContainerType } from '../lib/registry';
 import { defaultLayoutForType } from '../lib/store';
-import type { Blueprint, ComponentType, Layout, Placement, UINode, ViewportId } from '../types';
+import type { Blueprint, ComponentType, Layout, Placement, ResolvedComponentType, UINode, ViewportId } from '../types';
 import { Tooltip } from './Tooltip';
 
 interface Props {
@@ -86,11 +86,11 @@ export function PropertiesPanel({
       {tab === 'content' && (
         <div className="property-section">
           <Field label={t(language, 'name')}><input value={node.name} onChange={(event) => onUpdate({ name: event.target.value })} /></Field>
-          <Field label={t(language, 'type')}>
-            <TypeSelect
-              language={language}
-              value={node.type}
-              hasChildren={(node.children?.length ?? 0) > 0}
+      <Field label={t(language, 'type')}>
+        <TypeSelect
+          language={language}
+          value={node.type}
+          hasChildren={(node.children?.length ?? 0) > 0}
               onChange={(type) => onUpdate({
                 type,
                 children: isContainerType(type) ? node.children ?? [] : [],
@@ -229,9 +229,9 @@ function TypeSelect({
   onChange,
 }: {
   language: Language;
-  value: ComponentType;
+  value: ResolvedComponentType;
   hasChildren: boolean;
-  onChange: (value: ComponentType) => void;
+  onChange: (value: ResolvedComponentType) => void;
 }) {
   const groups = [
     ['app_shell', 'page', 'section', 'header', 'sidebar', 'top_bar', 'bottom_nav', 'stack', 'grid', 'split_pane', 'scroll_area'],
@@ -243,7 +243,7 @@ function TypeSelect({
     ['tabs', 'breadcrumb', 'pagination', 'stepper', 'nav_item'],
   ] as ComponentType[][];
   return (
-    <select value={value} onChange={(event) => onChange(event.target.value as ComponentType)}>
+    <select value={value} onChange={(event) => onChange(event.target.value as ResolvedComponentType)}>
       {groups.flat().map((type) => (
         <option key={type} value={type} disabled={hasChildren && !isContainerType(type)}>
           {componentLabel(language, type)}

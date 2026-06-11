@@ -30,7 +30,7 @@ test('S4: schema/types.ts round-trips the example JSON via import-and-cast', asy
 
   const probeContent = `
 import blueprint from ${JSON.stringify(examplePath)};
-import type { Blueprint, Screen, InteractionTrigger, AcceptanceType, Viewport, ComponentType } from ${JSON.stringify(typesPath)};
+import type { Blueprint, Screen, InteractionTrigger, AcceptanceType, Viewport, ResolvedComponentType } from ${JSON.stringify(typesPath)};
 
 const typed: Blueprint = blueprint as Blueprint;
 
@@ -41,9 +41,9 @@ const vp: Viewport | undefined = typed.viewports[0];
 if (vp) {
   const vpId: Viewport['id'] = vp.id;
 }
-const node = typed.nodes[0];
-if (node) {
-  const type: ComponentType = node.type;
+  const node = typed.nodes[0];
+  if (node) {
+  const type: ResolvedComponentType = node.type;
   const trigger: InteractionTrigger | undefined = typed.interactions[0]?.trigger;
 }
 const a = typed.acceptance[0];

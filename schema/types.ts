@@ -95,11 +95,14 @@ export type ContainerComponentType = Extract<
 export type LeafComponentType = Exclude<ComponentType, ContainerComponentType>;
 // </generated:component-types>
 
+/** Namespace-qualified extension component type, e.g. `acme:data_card`. */
+export type ExtensionComponentType = `${string}:${string}`;
+
 /**
  * A fully resolved component type: a core type or a namespaced project
  * extension type (e.g. `acme:data_card`) declared in aub.registry.json.
  */
-export type ResolvedComponentType = ComponentType | `${string}:${string}`;
+export type ResolvedComponentType = ComponentType | ExtensionComponentType;
 
 export type NodeState =
   | 'default' | 'hover' | 'focus' | 'active' | 'disabled'
@@ -107,7 +110,7 @@ export type NodeState =
 
 export interface UINode {
   id: string;
-  type: ComponentType;
+  type: ResolvedComponentType;
   name: string;
   /** Agent-facing role/intent. WHY this node exists. */
   role: string;

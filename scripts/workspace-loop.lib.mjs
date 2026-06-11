@@ -1,7 +1,7 @@
 import { access, mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
-import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { defaultDesignSystem } from './migrate-blueprint.mjs';
+import { EXTENSION_NAME_PATTERN } from './registry.lib.mjs';
 
 export const WORKSPACE_LOOP_VERSION = '0.1.0';
 export const AUB_DIR = '.aub';
@@ -25,6 +25,15 @@ const IGNORE_DIRS = new Set([
 ]);
 
 const SOURCE_EXTENSIONS = new Set(['.tsx', '.jsx', '.ts', '.js', '.vue', '.html']);
+const SOURCE_TEXT_CACHE_TTL_MS = 5 * 60 * 1000;
+const SOURCE_TEXT_CACHE_MAX_ENTRIES = 2000;
+const MAX_TEMPLATE_NAME_LENGTH = 120;
+const MAX_TEMPLATE_ID_LENGTH = 120;
+const MAX_ROUTE_LENGTH = 220;
+const MAX_CATEGORY_LENGTH = 80;
+const MAX_SOURCE_KIND_LENGTH = 32;
+const MAX_FRAMEWORK_LENGTH = 32;
+const CORE_TYPE_PATTERN = /^[a-z][a-z0-9_]*$/;
 const CORE_KIND_BY_NAME = [
   [/button|cta|action/i, 'button'],
   [/sidebar|nav/i, 'sidebar'],
@@ -99,6 +108,133 @@ function title(value, fallback = 'Screen') {
   return cleaned
     ? cleaned.replace(/\b\w/g, (letter) => letter.toUpperCase())
     : fallback;
+}
+
+function normalizeText(value, fallback, maxLength = 256) {
+  const text = String(value ?? fallback)
+    .replace(/[\r\n\t]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const safe = text || String(fallback);
+  return safe.length > maxLength ? safe.slice(0, maxLength).trim() : safe;
+}
+
+function normalizeNamespace(value, fallback = 'app') {
+  const normalized = normalizeText(value, fallback, MAX_TEMPLATE_ID_LENGTH)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  return normalized || snake(fallback, 'app');
+}
+
+function sanitizeTemplateId(value, fallback) {
+  const normalized = slugify(value, fallback).replace(/-/g, '_');
+  return normalized.slice(0, MAX_TEMPLATE_ID_LENGTH) || fallback;
+}
+
+function normalizeRoute(value, fallback) {
+  const route = normalizeText(value, fallback, MAX_ROUTE_LENGTH).replace(/[\s]/g, '-');
+  const withSlash = route.startsWith('/') ? route : `/${route}`;
+  const collapsed = withSlash.replace(/\/+/g, '/');
+  if (!/^\/[A-Za-z0-9._~!$&'()*+,;=:@%\/:-]*$/.test(collapsed)) {
+    throw new Error(`Invalid route: ${route}`);
+  }
+  return collapsed;
+}
+
+function normalizeCategory(value, fallback = 'workspace') {
+  return normalizeText(value, fallback, MAX_CATEGORY_LENGTH).replace(/[^A-Za-z0-9._-]/g, '-');
+}
+
+function normalizeFrameworkLabel(value, fallback = 'other') {
+  const normalized = normalizeText(value, fallback, MAX_FRAMEWORK_LENGTH).toLowerCase().replace(/[^a-z]/g, '');
+  if (!normalized || normalized === 'undefined') return fallback;
+  return normalized;
+}
+
+function normalizeSourceKind(value, fallback = 'source-file') {
+  const normalized = normalizeText(value, fallback, MAX_SOURCE_KIND_LENGTH);
+  if (['route', 'component', 'source-file', 'angular-template'].includes(normalized)) return normalized;
+  return fallback;
+}
+
+function normalizeCoreType(value) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return CORE_TYPE_PATTERN.test(normalized) ? normalized : null;
+}
+
+function normalizeExtensionType(value) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return EXTENSION_NAME_PATTERN.test(normalized) ? normalized : null;
+}
+
+function normalizeBlueprintName(value, fallback) {
+  return normalizeText(value, fallback, MAX_TEMPLATE_NAME_LENGTH).replace(/[/\\]/g, '-');
+}
+
+let sourceTextCacheRoot = '';
+const sourceTextCache = new Map();
+
+function clearSourceTextCacheIfRootChanged(root) {
+  const normalized = resolve(root);
+  if (sourceTextCacheRoot && sourceTextCacheRoot !== normalized) {
+    sourceTextCache.clear();
+  }
+  sourceTextCacheRoot = normalized;
+}
+
+function pruneSourceTextCache() {
+  const now = Date.now();
+  for (const [filePath, entry] of sourceTextCache) {
+    if (now - entry.cachedAt > SOURCE_TEXT_CACHE_TTL_MS) {
+      sourceTextCache.delete(filePath);
+    }
+  }
+  if (sourceTextCache.size <= SOURCE_TEXT_CACHE_MAX_ENTRIES) return;
+  const entries = [...sourceTextCache.entries()].sort((a, b) => {
+    const aAt = Number(a[1]?.cachedAt);
+    const bAt = Number(b[1]?.cachedAt);
+    const aSafe = Number.isFinite(aAt) ? aAt : 0;
+    const bSafe = Number.isFinite(bAt) ? bAt : 0;
+    return aSafe - bSafe;
+  });
+  for (let index = 0; index < entries.length - SOURCE_TEXT_CACHE_MAX_ENTRIES; index += 1) {
+    sourceTextCache.delete(entries[index][0]);
+  }
+}
+
+function cacheKey(file) {
+  return file.absPath;
+}
+
+async function readSourceText(file) {
+  try {
+    const st = await stat(file.absPath);
+    const cached = sourceTextCache.get(cacheKey(file));
+    if (cached
+      && cached.size === st.size
+      && cached.mtimeMs === st.mtimeMs
+      && Date.now() - cached.cachedAt <= SOURCE_TEXT_CACHE_TTL_MS
+    ) {
+      return cached.text;
+    }
+    const text = await readFile(file.absPath, 'utf8');
+    sourceTextCache.set(cacheKey(file), { size: st.size, mtimeMs: st.mtimeMs, text, cachedAt: Date.now() });
+    pruneSourceTextCache();
+    return text;
+  } catch {
+    return '';
+  }
+}
+
+async function readSourceTexts(files) {
+  const sourceFiles = files.filter((file) => SOURCE_EXTENSIONS.has(extname(file.path).toLowerCase()));
+  const contents = new Map();
+  await Promise.all(
+    sourceFiles.map(async (file) => {
+      contents.set(file.absPath, await readSourceText(file));
+    })
+  );
+  return contents;
 }
 
 function inferNamespace(root, packageJson) {
@@ -225,16 +361,12 @@ function inferCoreType(name) {
 
 async function detectComponents(root, files, namespace, frameworks) {
   const candidates = [];
+  const sourceTexts = await readSourceTexts(files);
   for (const file of files) {
     const ext = extname(file.path).toLowerCase();
     if (!SOURCE_EXTENSIONS.has(ext)) continue;
     if (!/(component|components|ui|widgets|shared|src)/i.test(file.path)) continue;
-    let content = '';
-    try {
-      content = await readFile(file.absPath, 'utf8');
-    } catch {
-      continue;
-    }
+    const content = sourceTexts.get(file.absPath) ?? '';
     const names = ext === '.vue'
       ? [extractVueName(content, file.path)]
       : ext === '.ts' && /\.component\.ts$/.test(file.path)
@@ -256,7 +388,7 @@ async function detectComponents(root, files, namespace, frameworks) {
         suggestedCoreType: inferCoreType(componentName),
         isContainer: /card|panel|layout|section|list|table|form|shell|modal|drawer/i.test(componentName),
         props: extractProps(content),
-        usageCount: countUsage(baseName, files, root),
+        usageCount: countUsage(baseName, sourceTexts),
         confidence: selector ? 0.82 : 0.72,
         reason: 'Static scan found a reusable project component. Approve before adding it to aub.registry.json.',
       });
@@ -267,24 +399,13 @@ async function detectComponents(root, files, namespace, frameworks) {
   return [...byId.values()].slice(0, 100);
 }
 
-function countUsage(name, files) {
+function countUsage(name, sourceTexts) {
   const tag = String(name).replace(/^[a-z]+-/, '');
   let count = 0;
-  for (const file of files) {
-    if (!SOURCE_EXTENSIONS.has(extname(file.path).toLowerCase())) continue;
-    try {
-      const text = existsSync(file.absPath) ? String(readFileSyncSafe(file.absPath)) : '';
-      if (text.includes(`<${name}`) || text.includes(`<${tag}`) || text.includes(name)) count += 1;
-    } catch {
-      // Ignore unreadable files.
-    }
+  for (const text of sourceTexts.values()) {
+    if (text.includes(`<${name}`) || text.includes(`<${tag}`) || text.includes(name)) count += 1;
   }
   return Math.max(1, count);
-}
-
-function readFileSyncSafe(path) {
-  // Small helper isolated so async scanning can keep the component usage pass simple.
-  return existsSync(path) ? readFileSync(path, 'utf8') : '';
 }
 
 export async function readAubSession(root) {
@@ -362,6 +483,7 @@ export async function listWorkspaceTemplates(root) {
 }
 
 export async function getWorkspaceStatus(root) {
+  clearSourceTextCacheIfRootChanged(root);
   const files = [];
   await walk(root, root, files, 1500);
   const packageJson = await readPackage(root);
@@ -386,10 +508,12 @@ export async function getWorkspaceStatus(root) {
 }
 
 export async function scanProjectUi(root, options = {}) {
+  clearSourceTextCacheIfRootChanged(root);
   const files = [];
-  await walk(root, root, files, options.limit ?? 2000);
+  const limit = Number.isInteger(options.limit) && options.limit > 0 ? options.limit : 2000;
+  await walk(root, root, files, limit);
   const packageJson = await readPackage(root);
-  const namespace = snake(options.namespace ?? inferNamespace(root, packageJson), 'app');
+  const namespace = normalizeNamespace(options.namespace ?? inferNamespace(root, packageJson), 'app');
   const frameworks = detectFrameworks(packageJson, files);
   const routes = detectRoutes(files);
   const candidates = await detectComponents(root, files, namespace, frameworks);
@@ -452,22 +576,25 @@ function makeBlueprint({ id, name, framework, source, route, componentRefs = [] 
       children: [],
       content: { text: `Generated from ${framework} source ${source.path}${route ? ` (${route})` : ''}. Review before approving.` },
     },
-    ...componentRefs.map((ref, index) => ({
-      id: `component_${index + 1}`,
-      type: ref.coreType ?? 'card',
-      name: ref.name,
-      role: `Placeholder for project component ${ref.suggestedType}. Approve the component candidate before implementation reuse.`,
-      parent_id: 'root',
-      children: [],
-      layout: { mode: 'auto' },
-      content: { label: ref.suggestedType },
-      placements: {
-        desktop: { x: 64 + index * 280, y: 330, width: 240, height: 140, z_index: 1 },
-        tablet: { x: 48 + index * 220, y: 320, width: 200, height: 140, z_index: 1 },
-        mobile: { x: 16, y: 320 + index * 156, width: 358, height: 140, z_index: 1 },
-      },
-      source: { file: ref.sourcePath },
-    })),
+    ...componentRefs.map((ref, index) => {
+      const label = ref.suggestedType ?? ref.coreType ?? 'component';
+      return {
+        id: `component_${index + 1}`,
+        type: ref.coreType ?? 'card',
+        name: normalizeBlueprintName(ref.name, `Component ${index + 1}`),
+        role: `Placeholder for project component ${label}. Approve the component candidate before implementation reuse.`,
+        parent_id: 'root',
+        children: [],
+        layout: { mode: 'auto' },
+        content: { label },
+        placements: {
+          desktop: { x: 64 + index * 280, y: 330, width: 240, height: 140, z_index: 1 },
+          tablet: { x: 48 + index * 220, y: 320, width: 200, height: 140, z_index: 1 },
+          mobile: { x: 16, y: 320 + index * 156, width: 358, height: 140, z_index: 1 },
+        },
+        source: { file: ref.sourcePath },
+      };
+    }),
   ];
   return {
     version: '0.3.0',
@@ -507,6 +634,7 @@ function makeBlueprint({ id, name, framework, source, route, componentRefs = [] 
 
 export async function generateTemplateFromSource(root, args = {}) {
   if (!args.sourcePath) throw new Error('Provide sourcePath.');
+  if (typeof args.sourcePath !== 'string') throw new Error('sourcePath must be a string.');
   const sourcePath = resolveWorkspacePath(root, args.sourcePath);
   const relPath = toWorkspacePath(root, sourcePath);
   const candidates = (await readComponentCandidates(root)).candidates;
@@ -515,16 +643,25 @@ export async function generateTemplateFromSource(root, args = {}) {
     .slice(0, 4);
   const selectedCandidates = (nearbyCandidates.length ? nearbyCandidates : candidates.slice(0, 4))
     .map((candidate) => ({
-      name: candidate.componentName,
-      suggestedType: candidate.suggestedType,
+      name: normalizeBlueprintName(candidate.componentName, 'Component'),
+      suggestedType: normalizeExtensionType(candidate.suggestedType),
       sourcePath: candidate.sourcePath,
-      coreType: candidate.suggestedCoreType,
-    }));
-  const framework = args.framework ?? inferFrameworkFromPath(relPath);
-  const name = args.name ?? title(basename(relPath), 'Workspace screen');
-  const route = args.route ?? routeFromPath(relPath);
+      coreType: normalizeCoreType(candidate.suggestedCoreType),
+    }))
+    .filter((candidate) => candidate.suggestedType || candidate.coreType)
+    .slice(0, 4);
+  const framework = normalizeFrameworkLabel(
+    typeof args.framework === 'string' ? args.framework : inferFrameworkFromPath(relPath),
+    'web'
+  );
+  const name = normalizeBlueprintName(
+    typeof args.name === 'string' ? args.name : title(basename(relPath), 'Workspace screen'),
+    title(basename(relPath), 'Workspace screen')
+  );
+  const templateId = sanitizeTemplateId(args.id, `${framework}-${name}`);
+  const route = normalizeRoute(typeof args.route === 'string' ? args.route : routeFromPath(relPath), routeFromPath(relPath));
   const blueprint = makeBlueprint({
-    id: args.id ?? slugify(`${framework}-${name}`),
+    id: templateId,
     name,
     framework,
     route,
@@ -534,23 +671,29 @@ export async function generateTemplateFromSource(root, args = {}) {
   const template = {
     format: TEMPLATE_FORMAT,
     format_version: TEMPLATE_FORMAT_VERSION,
-    id: args.id ?? slugify(`${framework}-${name}`),
+    id: templateId,
     name,
-    category: args.category ?? 'workspace',
+    category: normalizeCategory(args.category, 'workspace'),
     framework,
     source: {
-      kind: args.sourceKind ?? 'source-file',
+      kind: normalizeSourceKind(args.sourceKind, 'source-file'),
       path: relPath,
       route,
     },
     blueprint,
-    registryRefs: selectedCandidates.map((candidate) => candidate.suggestedType),
+    registryRefs: selectedCandidates
+      .map((candidate) => candidate.suggestedType ?? candidate.coreType)
+      .filter((value) => typeof value === 'string' && value.length > 0),
     confidence: selectedCandidates.length ? 0.72 : 0.62,
     status: args.status === 'approved' ? 'approved' : 'candidate',
     createdAt: new Date().toISOString(),
   };
-  const output = args.output ?? `${TEMPLATE_DIR}/${slugify(template.id)}.aub.template.json`;
-  const outputPath = resolveWorkspacePath(root, output);
+  const normalizedOutput = typeof args.output === 'string' && args.output.length > 0
+    ? args.output
+    : `${TEMPLATE_DIR}/${slugify(template.id)}.aub.template.json`;
+  const outputPath = resolveWorkspacePath(root, normalizedOutput.endsWith('.aub.template.json')
+    ? normalizedOutput
+    : `${normalizedOutput.replace(/\.aub\.template\.json$/i, '').replace(/[/\\]+$/g, '')}.aub.template.json`);
   await writeJsonAtomic(outputPath, template);
   return {
     savedPath: toWorkspacePath(root, outputPath),
@@ -579,8 +722,12 @@ export async function approveComponentCandidate(root, args = {}) {
   }
 
   if (args.action === 'map_core') {
+    const normalizedCoreType = normalizeCoreType(args.coreType ?? candidate.suggestedCoreType);
+    if (!normalizedCoreType) {
+      throw new Error(`Invalid core type: ${args.coreType ?? candidate.suggestedCoreType}`);
+    }
     candidate.status = 'approved';
-    candidate.approvedAs = args.coreType ?? candidate.suggestedCoreType ?? 'card';
+    candidate.approvedAs = normalizedCoreType;
     candidate.reviewedAt = new Date().toISOString();
     await writeComponentCandidates(root, doc.candidates);
     return { candidate, registryPath: null };
@@ -590,9 +737,10 @@ export async function approveComponentCandidate(root, args = {}) {
     throw new Error('action must be one of create_extension, map_core, ignore.');
   }
 
-  const namespacedType = args.namespacedType ?? candidate.suggestedType;
-  if (!/^[a-z][a-z0-9]*:[a-z][a-z0-9_]*$/.test(namespacedType)) {
-    throw new Error(`Invalid namespaced type: ${namespacedType}`);
+  const inputNamespacedType = args.namespacedType ?? candidate.suggestedType;
+  const namespacedType = normalizeExtensionType(inputNamespacedType);
+  if (!namespacedType) {
+    throw new Error(`Invalid namespaced type: ${inputNamespacedType}`);
   }
   const registryPath = join(root, 'aub.registry.json');
   const registry = await readJsonIfExists(registryPath, {
@@ -606,12 +754,12 @@ export async function approveComponentCandidate(root, args = {}) {
   const componentEntry = {
     name: namespacedType,
     isContainer: Boolean(args.isContainer ?? candidate.isContainer),
-    description: args.description ?? `${candidate.componentName} scanned from ${candidate.sourcePath}.`,
+    description: normalizeText(args.description, `${candidate.componentName} scanned from ${candidate.sourcePath}.`, 240),
     implementations: [{
       id: candidate.framework || 'app',
       framework: normalizeFramework(candidate.framework),
-      module: args.module ?? candidate.sourcePath,
-      export: args.export ?? candidate.componentName,
+      module: normalizeText(args.module, candidate.sourcePath, 200),
+      export: normalizeText(args.export, candidate.componentName, 120),
       importStyle: args.importStyle ?? 'named',
       sourcePath: candidate.sourcePath,
       props: Object.fromEntries((candidate.props ?? []).map((prop) => [prop, { from: `content.${prop}`, required: false }])),
