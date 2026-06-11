@@ -1992,11 +1992,24 @@ button.primary {
   line-height: 1.2;
 }
 
+.brand-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.brand-title img {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+}
+
 .brand-block strong {
   font-size: 13px;
 }
 
 .brand-block span {
+  padding-left: 31px;
   max-width: 220px;
   color: var(--fg-2);
   font-size: 10px;

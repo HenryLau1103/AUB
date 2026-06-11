@@ -70,14 +70,9 @@ main {
 }
 
 .brand-mark {
-  display: grid;
-  place-items: center;
   width: 30px;
   height: 30px;
-  border-radius: 8px;
-  background: var(--brand-deep);
-  color: #fff;
-  font-weight: 800;
+  display: block;
 }
 
 .site-nav {

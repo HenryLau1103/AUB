@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="AUB monochrome light logo">
+  <rect x="40" y="40" width="232" height="232" rx="52" fill="#FFFFFF"/>
+  <rect x="296" y="40" width="176" height="232" rx="52" fill="#FFFFFF"/>
+  <rect x="40" y="296" width="232" height="176" rx="52" fill="#FFFFFF"/>
+  <rect x="296" y="296" width="176" height="176" rx="52" fill="#FFFFFF"/>
+  <circle cx="284" cy="284" r="54" fill="#0B1220"/>
+  <circle cx="284" cy="284" r="29" fill="#FFFFFF"/>
+</svg>

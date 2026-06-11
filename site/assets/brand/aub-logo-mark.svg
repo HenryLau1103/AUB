@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">AUB logo mark</title>
+  <desc id="desc">Four interface modules converge on a central agent handoff node.</desc>
+  <defs>
+    <linearGradient id="red" x1="48" y1="48" x2="272" y2="272" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF675A"/>
+      <stop offset="1" stop-color="#FF493F"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="296" y1="48" x2="472" y2="272" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1976FF"/>
+      <stop offset="1" stop-color="#075EE8"/>
+    </linearGradient>
+    <linearGradient id="green" x1="48" y1="296" x2="272" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#48D4AD"/>
+      <stop offset="1" stop-color="#2FC498"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="296" y1="296" x2="472" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2B3948"/>
+      <stop offset="1" stop-color="#182330"/>
+    </linearGradient>
+  </defs>
+  <rect x="40" y="40" width="232" height="232" rx="52" fill="url(#red)"/>
+  <rect x="296" y="40" width="176" height="232" rx="52" fill="url(#blue)"/>
+  <rect x="40" y="296" width="232" height="176" rx="52" fill="url(#green)"/>
+  <rect x="296" y="296" width="176" height="176" rx="52" fill="url(#ink)"/>
+  <circle cx="284" cy="284" r="54" fill="#FFFFFF"/>
+  <circle cx="284" cy="284" r="29" fill="#1C2835"/>
+</svg>
