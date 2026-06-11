@@ -30,6 +30,16 @@ const IGNORED_DIRS = new Set(['node_modules', 'dist', '.git', '.aub', '.pnpm-sto
 const BLUEPRINT_PATTERN = /\.ui\.(json|ya?ml)$/i;
 export const PROJECT_PATTERN = /\.aub\.project\.(json|ya?ml)$/i;
 
+export function resolveWorkspacePath(root: string, filePath: string): string {
+  const absRoot = resolve(root);
+  const absPath = resolve(absRoot, filePath);
+  const rel = relative(absRoot, absPath);
+  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new Error(`Path must stay inside the workspace root: ${filePath}`);
+  }
+  return absPath;
+}
+
 function isYaml(filePath: string): boolean {
   const ext = extname(filePath).toLowerCase();
   return ext === '.yaml' || ext === '.yml';

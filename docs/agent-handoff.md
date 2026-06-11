@@ -55,6 +55,8 @@ Do not silently resolve a conflict. Explain it and propose a concrete resolution
 2. Inspect existing routes, components, design tokens, dependencies, tests, and implementation patterns.
 3. Validate the Blueprint before relying on it.
 4. Map every Blueprint node id to an existing or new implementation component.
+   When `aub.registry.json` declares a matching production implementation, reuse its module,
+   export, source, and prop mappings before considering a new component.
 5. Preserve hierarchy, semantic component type, layout mode, viewport geometry, interactions, responsive rules, states, and constraints.
 6. Use repository-native components and tokens when they satisfy the contract.
 7. Run checks that cover every changed surface.

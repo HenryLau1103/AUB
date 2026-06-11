@@ -4,20 +4,22 @@
 
 # AUB — UI Blueprint Agent（UI 藍圖代理工具）
 
-**畫出介面，匯出 UI 合約，讓編碼 Agent 精準實作並驗收。**
+**定義 UI 合約、重用正式元件，再以證據把關實作。**
 
 [![CI](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml/badge.svg)](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Blueprint](https://img.shields.io/badge/UI%20Blueprint-v0.3.0-0f766e.svg)](./schema/ui-blueprint.schema.json)
 [![Node](https://img.shields.io/badge/Node-%3E%3D24-339933.svg)](./package.json)
 
-[English](./README.md) · [Agent 交付指南](./docs/agent-handoff.zh-Hant.md) · [標準範例](./examples/dashboard.ui.json)
+[English](./README.md) · **繁體中文** · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
+
+[Agent 交付指南](./docs/agent-handoff.zh-Hant.md) · [標準範例](./examples/dashboard.ui.json)
 
 ![AUB 視覺編輯器正在編輯響應式註冊流程](./docs/assets/aub-editor-zh-hant.jpg)
 
-AUB 是一套視覺 UI 規格工具，協助使用者把畫面精準交給 Codex、Claude Code、GitHub Copilot 或其他編碼 Agent。你可以在畫板上組出畫面、宣告行為與驗收條件，再匯出結構化交付包，讓 Agent 不必只靠文字或截圖猜測。
+AUB 是產品意圖與編碼 Agent 之間的開放、agent-neutral 合約層。你可以建立語意化的單畫面或多畫面專案，把自訂類型對應到正式元件，再將同一份可版本化合約交給 Codex、Claude Code、GitHub Copilot 或其他 Agent，最後在 CI 逐項驗證 acceptance id。
 
-> **線上 Demo：**[henrylau1103.github.io/AUB](https://henrylau1103.github.io/AUB/) — 編輯器完全在你的瀏覽器中執行。
+> **線上 Demo：**[henrylau1103.github.io/AUB/zh-hant](https://henrylau1103.github.io/AUB/zh-hant/) — 編輯器完全在你的瀏覽器中執行。
 
 ## 運作方式
 
@@ -28,15 +30,17 @@ flowchart LR
   C --> D["4. Agent 實作、測試，<br/>並逐項回報證據"]
 ```
 
-1. **視覺化組版**：從 18 個常用網站與應用範本開始，或直接在畫布上安排已註冊元件。
-2. **匯出 UI 合約**：AUB 記錄語意階層、自動／自由佈局、各 viewport 精確位置、互動、design token、響應式規則與驗收條件。
-3. **交給 Agent**：`.aub.zip` 會告訴 Agent 要讀什麼、要實作什麼，以及如何證明結果符合要求。
+1. **組合或匯入**：從 18 個範本開始、安排已註冊元件，或匯入 Angular 與 Figma／Penpot Design Bridge。
+2. **綁定正式元件**：將自訂語意類型對應到 framework module、export、source、Storybook、文件與 props。
+3. **只交付一份合約**：使用 `.aub.zip` 或 MCP，不因 Agent 不同而改變 schema 與驗收語意。
+4. **以證據驗收**：要求每個 node mapping 與 acceptance id 的證據，再用 GitHub Action 對 PR 把關。
 
 ## 適合誰使用
 
 - 需要比截圖或文字提示更精確的產品設計師與開發者。
 - 使用編碼 Agent 實作儀表板、表單、內容產品、商務流程與應用框架的團隊。
 - 需要 schema 驗證與可測試 UI 交換格式的 Agent 或工具開發者。
+- 希望 Agent 重用正式元件，而不是建立相似替代品的 design-system 團隊。
 - 希望把既有 Angular 畫面轉成可重用 UI Blueprint 的團隊。
 
 ## AUB 解決什麼問題
@@ -129,11 +133,13 @@ pnpm prompt examples/dashboard.ui.json dashboard.copilot.md --adapter copilot --
 
 ## MCP server
 
-支援 [Model Context Protocol](https://modelcontextprotocol.io) 的 Agent 可以直接透過 stdio 呼叫 AUB 工具，不需要把檔案複製進目標 repository：`list_blueprints`、`get_blueprint`、`validate_blueprint`、`export_prompt`、`submit_report`。
+支援 [Model Context Protocol](https://modelcontextprotocol.io) 的 Agent 可以直接透過 stdio 或 Streamable HTTP 呼叫 AUB 工具，不需要把檔案複製進目標 repository。16 個工具涵蓋 Blueprint／project 探索、Figma／Penpot Design Bridge 匯入、驗證後寫入、handoff 打包、規格補全、元件解析、prompt、diff、migration、lock 與 implementation report。
 
 ```bash
 (cd apps/mcp-server && pnpm install && pnpm build)
 node apps/mcp-server/dist/index.js /path/to/your/repo
+# 或透過 Streamable HTTP 提供相同工具
+node apps/mcp-server/dist/http.js --workspace /path/to/your/repo --port 3100
 ```
 
 在 Claude Code、Codex 或任何 MCP client 中註冊後即可使用。設定片段與說明請看 [`apps/mcp-server/README.md`](./apps/mcp-server/README.md)。Server 包裝的是與 CLI 相同的函式庫，schema、layout 語意、互動與驗收條件完全不變。
@@ -160,7 +166,7 @@ node apps/mcp-server/dist/index.js /path/to/your/repo
 
 ## 自訂元件類型
 
-62 個核心元件類型是精選且封閉的，確保每個類型都有 Agent 能解析的明確語意。需要客製元件的專案可在專案根目錄的 `aub.registry.json` 中宣告**具命名空間的擴充類型**，採用 `team:component` 命名（例如 `acme:insight_card`）。這些類型會被驗證、可被解析，並打包進交付包——絕不靠猜測。
+62 個核心元件類型是精選且封閉的，確保每個類型都有 Agent 能解析的明確語意。需要客製元件的專案可在專案根目錄的 `aub.registry.json` 中宣告**具命名空間的擴充類型**，採用 `team:component` 命名（例如 `acme:insight_card`）。這些類型會被驗證、可被解析，並打包進交付包——絕不靠猜測。`implementations` 還能指定正式元件的 module、export、source、Storybook 與 props mapping，讓 Agent 優先重用既有元件。
 
 ```bash
 # 從檔案所在目錄向上自動探索 aub.registry.json
@@ -182,13 +188,21 @@ pnpm import:angular path/to/component-directory \
   --output example.ui.json
 ```
 
+匯入已明確標註語意與節點對應的 Figma／Penpot Design Bridge：
+
+```bash
+pnpm import:design -- \
+  examples/design-bridge/figma-hero.aub.bridge.json \
+  --output marketing-hero.ui.json
+```
+
 建立可攜式工具包，教 AI 產生有效的 AUB 檔案：
 
 ```bash
 pnpm authoring:kit aub-authoring-kit.zip
 ```
 
-工具包包含目前 schema、62 種元件 registry、標準範例、驗證指南與生成提示。詳細內容請看 [Angular 匯入](./docs/angular-import.md)與 [adapter 介面](./docs/agent-adapter-interface.md)。
+工具包包含目前 schema、62 種元件 registry、標準範例、驗證指南與生成提示。詳細內容請看 [Angular 匯入](./docs/angular-import.md)、[Figma／Penpot Design Bridge](./docs/design-tool-bridge.md) 與 [adapter 介面](./docs/agent-adapter-interface.md)。
 
 ## 驗證與審查
 
@@ -261,6 +275,26 @@ AUB 內建確定性的 Agent 可讀性評分，以及以瀏覽器執行的實作
 
 請參考 [Agent 可讀性測試](./benchmarks/agent-readability/README.md)與[實作基準測試](./benchmarks/agent-implementation/README.md)。
 
+### Pull Request 驗收閘門
+
+在實作 repository 中加入 `.aub/ci.json`，再使用內建 GitHub Action：
+
+```yaml
+- uses: HenryLau1103/AUB@main
+  with:
+    config: .aub/ci.json
+    require-reports: "true"
+```
+
+這個 check 會驗證 Blueprint、project、extension registry、node mapping、acceptance
+證據與 unresolved work。本機可執行：
+
+```bash
+pnpm ci:verify -- --workspace /path/to/target/repo --require-reports
+```
+
+完整說明請看 [GitHub CI acceptance gate](./docs/github-ci.md)。
+
 ## 編輯器 / IDE 整合
 
 Blueprint 檔案以 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.schema.json) 為依據，因此編輯器可在你輸入時即時驗證並自動補全。
@@ -288,9 +322,12 @@ Blueprint 檔案以 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.sc
 - Codex、Claude Code 與 GitHub Copilot adapter：已實作。
 - Angular 匯入、個人範本與 AI 生成工具包：已實作。
 - Blueprint diff 與 implementation report 驗證：已實作。
-- MCP server（stdio），提供 list／get／validate／scaffold／export-prompt／submit-report 工具（以及專案工具）：已實作。
+- MCP server（stdio + Streamable HTTP），提供 16 個工具，包含 Design Bridge、驗證後寫入、handoff 打包、Blueprint／project／component／diff／migrate／lock／report：已實作。
+- `aub.registry.json` production component mapping：已實作。
+- GitHub Action 與本機 CI 驗收器：已實作。
 - 多畫面專案（參照式 `.aub.project.json`、CLI、MCP 工具、編輯器畫面切換器與導覽）：已實作。
 - 可設定的畫布解析度（預設值 + 自訂寬高）：已實作。
+- 英文、繁中、簡中、日文、韓文 GitHub Pages 與 README：已實作。
 - UI 內 YAML 編輯與 editor 內 lock 產生：待辦。
 
 目前格式版本為 `0.3.0`。請看 [schema 版本管理](./docs/schema-versioning.md)與[能力矩陣](./docs/capability-matrix.md)。
@@ -298,11 +335,11 @@ Blueprint 檔案以 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.sc
 ## Repository 結構
 
 ```text
-schema/          JSON Schema、TypeScript 型別與元件 registry
+schema/          JSON Schema、TypeScript 型別、元件 registry 與 CI 合約
 scripts/         驗證、遷移、匯出、匯入、diff 與報告工具
 examples/        標準 JSON、YAML、Markdown 與 lock 範例
 apps/editor/     Vite + React 視覺編輯器
-apps/mcp-server/ Model Context Protocol server（stdio），提供 Blueprint 工具
+apps/mcp-server/ Model Context Protocol server（stdio + Streamable HTTP）
 adapters/        各 Agent 專用提示 adapter
 benchmarks/      Agent 可讀性與實作驗證
 docs/            產品決策、指南、審查與驗收限制
@@ -323,6 +360,7 @@ pnpm gen:check
 (cd apps/editor && pnpm build)
 (cd apps/mcp-server && pnpm typecheck && pnpm build)
 pnpm validate examples/dashboard.ui.json
+pnpm ci:verify -- --config examples/ci/aub.ci.json
 ```
 
 新增**核心**元件類型時，請編輯 `schema/registry/components.json` 並執行 `pnpm gen`，schema enum 與 TypeScript 型別會自動重新產生。若要新增**專案專屬**元件而不分叉核心，請在 `aub.registry.json` 中宣告具命名空間的擴充類型（見 [自訂元件類型](./docs/custom-components.md)）。
@@ -335,9 +373,14 @@ landing 頁（`site/`）與編輯器 demo 由 [`.github/workflows/pages.yml`](./
 
 一次性 repository 設定（無法由程式碼設定）：**Settings → Pages → Build and deployment → Source = GitHub Actions**。
 
+英文位於 `/AUB/`；繁中、簡中、日文、韓文分別位於 `/zh-hant/`、`/zh-hans/`、
+`/ja/`、`/ko/`。五個 landing page 都由 `scripts/generate-site-locales.mjs` 產生；
+修改多語文案後請執行 `pnpm site:locales`。
+
 在本機建置發布內容：
 
 ```bash
+pnpm site:locales:check
 (cd apps/editor && VITE_BASE=/AUB/editor/ pnpm build)
 mkdir -p _site/editor && cp -r site/. _site/ && cp -r apps/editor/dist/. _site/editor/
 npx serve _site   # 開啟 http://localhost:3000/AUB/（路徑以 /AUB/ base 為準）

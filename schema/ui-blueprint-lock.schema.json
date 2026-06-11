@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://henrylau1103.github.io/AUB/schema/ui-blueprint-lock.schema.json",
+  "title": "AUB UI Blueprint Lock",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "source_file",
+    "exported_at",
+    "source_editor_version",
+    "hashes",
+    "counts"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "type": "string", "minLength": 1 },
+    "source_file": { "type": "string" },
+    "exported_at": { "type": "string", "format": "date-time" },
+    "source_editor_version": { "type": "string", "minLength": 1 },
+    "hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blueprint",
+        "node_ids",
+        "layout",
+        "design_system",
+        "component_tree",
+        "interactions",
+        "acceptance"
+      ],
+      "properties": {
+        "blueprint": { "$ref": "#/$defs/hash" },
+        "node_ids": { "$ref": "#/$defs/hash" },
+        "layout": { "$ref": "#/$defs/hash" },
+        "design_system": { "$ref": "#/$defs/hash" },
+        "component_tree": { "$ref": "#/$defs/hash" },
+        "interactions": { "$ref": "#/$defs/hash" },
+        "acceptance": { "$ref": "#/$defs/hash" }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodes", "interactions", "responsive", "acceptance"],
+      "properties": {
+        "nodes": { "type": "integer", "minimum": 0 },
+        "interactions": { "type": "integer", "minimum": 0 },
+        "responsive": { "type": "integer", "minimum": 0 },
+        "acceptance": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}

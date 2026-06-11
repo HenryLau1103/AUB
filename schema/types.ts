@@ -127,7 +127,7 @@ export interface UINode {
 }
 
 export interface Provenance {
-  source_kind: 'native' | 'angular-component' | 'html' | 'figma' | 'image' | 'other';
+  source_kind: 'native' | 'angular-component' | 'html' | 'figma' | 'penpot' | 'image' | 'other';
   framework?: string;
   importer_version: string;
   entry_file?: string;

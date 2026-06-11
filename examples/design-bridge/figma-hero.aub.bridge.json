@@ -1,0 +1,142 @@
+{
+  "$schema": "../../schema/design-bridge.schema.json",
+  "format": "aub-design-bridge",
+  "version": "1.0.0",
+  "source": {
+    "kind": "figma",
+    "document_id": "AUB_DEMO_FILE",
+    "page_id": "1:1",
+    "frame_id": "2:1",
+    "url": "https://www.figma.com/design/AUB_DEMO_FILE/AUB-Design-Bridge?node-id=2-1",
+    "exported_at": "2026-06-11T00:00:00.000Z"
+  },
+  "blueprint": {
+    "$schema": "../../schema/ui-blueprint.schema.json",
+    "version": "0.3.0",
+    "screen": {
+      "id": "marketing.hero",
+      "name": "Marketing Hero",
+      "type": "landing",
+      "platform": "web",
+      "primary_user_goal": "Understand the product value and start a trial.",
+      "notes": "Semantic component types and behavior were explicitly authored in the source design bridge."
+    },
+    "viewports": [
+      { "id": "desktop", "width": 1440, "height": 900 },
+      { "id": "mobile", "width": 390, "height": 844 }
+    ],
+    "nodes": [
+      {
+        "id": "root",
+        "type": "page",
+        "name": "Hero Page",
+        "role": "Contains the primary marketing message and conversion action.",
+        "parent_id": null,
+        "children": ["headline", "primary_cta"],
+        "layout": { "mode": "freeform" }
+      },
+      {
+        "id": "headline",
+        "type": "heading",
+        "name": "Value Proposition",
+        "role": "States the product outcome in one scannable sentence.",
+        "parent_id": "root",
+        "children": [],
+        "placements": {
+          "desktop": { "x": 96, "y": 160, "width": 720, "height": 96, "z_index": 1 },
+          "mobile": { "x": 24, "y": 112, "width": 342, "height": 144, "z_index": 1 }
+        },
+        "content": { "text": "Turn design intent into verifiable implementation contracts." }
+      },
+      {
+        "id": "primary_cta",
+        "type": "button",
+        "name": "Start Trial",
+        "role": "Moves an interested visitor into the trial flow.",
+        "parent_id": "root",
+        "children": [],
+        "placements": {
+          "desktop": { "x": 96, "y": 304, "width": 168, "height": 48, "z_index": 1 },
+          "mobile": { "x": 24, "y": 304, "width": 342, "height": 48, "z_index": 1 }
+        },
+        "content": { "label": "Start trial", "action": "navigate:/trial" },
+        "states": ["default", "hover", "focus"]
+      }
+    ],
+    "interactions": [
+      {
+        "id": "interaction_start_trial",
+        "trigger": "click",
+        "source_node_id": "primary_cta",
+        "action": "navigate:/trial",
+        "target": "/trial",
+        "result_state": "The trial signup route is visible."
+      }
+    ],
+    "responsive": [
+      {
+        "viewport": "mobile",
+        "rule": "keep",
+        "target_node_id": "root",
+        "changes": { "geometry": "placements.mobile" }
+      }
+    ],
+    "acceptance": [
+      {
+        "id": "acc_layout_desktop",
+        "type": "layout",
+        "statement": "Headline and primary action match their desktop placements.",
+        "target": "desktop",
+        "priority": "blocker",
+        "verification_method": "screenshot_diff"
+      },
+      {
+        "id": "acc_interaction_trial",
+        "type": "interaction",
+        "statement": "Activating the primary action opens the trial route.",
+        "target": "primary_cta",
+        "priority": "must",
+        "verification_method": "interaction_replay"
+      },
+      {
+        "id": "acc_responsive_mobile",
+        "type": "responsive",
+        "statement": "The mobile hero uses the declared mobile placements without horizontal overflow.",
+        "target": "mobile",
+        "priority": "must",
+        "verification_method": "screenshot_diff"
+      },
+      {
+        "id": "acc_a11y_focus",
+        "type": "a11y",
+        "statement": "The primary action has an understandable label and visible keyboard focus.",
+        "target": "primary_cta",
+        "priority": "must",
+        "verification_method": "axe_audit"
+      },
+      {
+        "id": "acc_content_message",
+        "type": "content",
+        "statement": "The headline communicates the product outcome without relying on imagery.",
+        "target": "headline",
+        "priority": "should",
+        "verification_method": "manual_ia_review"
+      }
+    ]
+  },
+  "node_map": {
+    "root": {
+      "source_id": "2:1",
+      "source_name": "Marketing Hero"
+    },
+    "headline": {
+      "source_id": "2:2",
+      "source_name": "Value Proposition"
+    },
+    "primary_cta": {
+      "source_id": "2:3",
+      "source_name": "Start Trial",
+      "component_key": "button/primary"
+    }
+  }
+}

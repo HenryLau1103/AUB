@@ -55,6 +55,8 @@ AUB 交付包可能包含：
 2. 檢查既有 route、元件、design token、依賴、測試與實作慣例。
 3. 驗證 Blueprint 後才能依賴其內容。
 4. 將每個 Blueprint node id 對應到既有或新建的實作元件。
+   若 `aub.registry.json` 宣告了符合的 production implementation，必須先重用其中的
+   module、export、source 與 prop mapping，再考慮新建元件。
 5. 保留階層、語意元件類型、layout mode、各 viewport 幾何、互動、響應式規則、狀態與限制。
 6. 只要符合合約，應優先使用 repository 既有元件與 token。
 7. 執行涵蓋所有修改面的檢查。

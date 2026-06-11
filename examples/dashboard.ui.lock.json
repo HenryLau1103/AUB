@@ -1,5 +1,5 @@
 {
-  "$schema": "https://github.com/HenryLau1103/AUB/schema/lock.schema.json",
+  "$schema": "https://henrylau1103.github.io/AUB/schema/ui-blueprint-lock.schema.json",
   "version": "0.3.0",
   "source_file": "examples/dashboard.ui.json",
   "exported_at": "2026-06-10T04:33:50.630Z",

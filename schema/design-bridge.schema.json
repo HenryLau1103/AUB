@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HenryLau1103/AUB/schema/1.0.0/design-bridge.schema.json",
+  "title": "AUB Design Bridge",
+  "description": "Vendor-neutral envelope for moving an explicitly authored semantic UI Blueprint from Figma or Penpot into AUB without inferring component meaning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "version", "source", "blueprint", "node_map"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": "aub-design-bridge" },
+    "version": { "const": "1.0.0" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "document_id", "frame_id"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["figma", "penpot"] },
+        "document_id": { "type": "string", "minLength": 1 },
+        "page_id": { "type": "string", "minLength": 1 },
+        "frame_id": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "exported_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "blueprint": {
+      "$ref": "https://github.com/HenryLau1103/AUB/schema/0.3.0/ui-blueprint.schema.json"
+    },
+    "node_map": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id"],
+        "properties": {
+          "source_id": { "type": "string", "minLength": 1 },
+          "source_name": { "type": "string" },
+          "component_key": { "type": "string" }
+        }
+      }
+    }
+  }
+}

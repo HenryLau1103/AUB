@@ -1,5 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import JSZip from 'jszip';
 import { findRepoRoot } from '../dist/repo.js';
 import { loadValidators } from '../dist/schema.js';
 import { createImplementationReportTemplate } from '../dist/aub.js';
@@ -7,11 +11,19 @@ import { run as listBlueprints } from '../dist/tools/list-blueprints.js';
 import { run as getBlueprint } from '../dist/tools/get-blueprint.js';
 import { run as validateBlueprint } from '../dist/tools/validate-blueprint.js';
 import { run as scaffoldBlueprint } from '../dist/tools/scaffold-blueprint.js';
+import { run as importDesignBridge } from '../dist/tools/import-design-bridge.js';
+import { run as writeBlueprint } from '../dist/tools/write-blueprint.js';
 import { run as exportPrompt } from '../dist/tools/export-prompt.js';
+import { run as exportHandoff } from '../dist/tools/export-handoff.js';
 import { run as submitReport } from '../dist/tools/submit-report.js';
 import { run as listProjects } from '../dist/tools/list-projects.js';
 import { run as getProject } from '../dist/tools/get-project.js';
 import { run as validateProject } from '../dist/tools/validate-project.js';
+import { run as resolveComponent } from '../dist/tools/resolve-component.js';
+import { run as diffBlueprints } from '../dist/tools/diff-blueprints.js';
+import { run as migrateBlueprint } from '../dist/tools/migrate-blueprint.js';
+import { run as lockBlueprint } from '../dist/tools/lock-blueprint.js';
+import { registeredToolNames } from '../dist/server.js';
 
 const SCREEN_ID = 'dashboard.overview';
 const ctx = { root: findRepoRoot(), validators: await loadValidators() };
@@ -96,6 +108,51 @@ test('validate_blueprint reports unknown extension types without a registry', as
   );
 });
 
+test('resolve_component returns production mappings for an extension type', async () => {
+  const result = await resolveComponent(ctx, {
+    type: 'acme:insight_card',
+    registry: 'examples/extensions/aub.registry.json',
+    implementation: 'react',
+  });
+  assert.equal(result.source, 'extension');
+  assert.equal(result.isContainer, true);
+  assert.equal(result.selectedImplementation.export, 'InsightCard');
+  assert.equal(result.selectedImplementation.props.title.from, 'content.title');
+});
+
+test('resolve_component returns metadata for a core type', async () => {
+  const result = await resolveComponent(ctx, { type: 'button' });
+  assert.equal(result.source, 'core');
+  assert.equal(result.isContainer, false);
+  assert.equal(result.selectedImplementation, null);
+});
+
+test('diff_blueprints reports changes between Blueprint revisions', async () => {
+  const result = await diffBlueprints(ctx, {
+    before: 'examples/dashboard.ui.json',
+    after: 'examples/project/dashboard.ui.json',
+  });
+  assert.ok(result.diff.summary.nodes_changed >= 0);
+  assert.equal(result.diff.before.screen_id, SCREEN_ID);
+});
+
+test('migrate_blueprint migrates an inline v0.1 Blueprint', async () => {
+  const current = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
+  const legacy = { ...current, version: '0.1.0', design_system: undefined };
+  const result = await migrateBlueprint(ctx, { blueprint: legacy });
+  assert.equal(result.fromVersion, '0.1.0');
+  assert.equal(result.toVersion, '0.3.0');
+  assert.ok(result.blueprint.design_system);
+});
+
+test('lock_blueprint returns deterministic structural hashes', async () => {
+  const result = await lockBlueprint(ctx, { ref: SCREEN_ID });
+  assert.match(result.lock.hashes.blueprint, /^sha256:[a-f0-9]{64}$/);
+  assert.equal(result.lock.counts.nodes, 24);
+  const second = await lockBlueprint(ctx, { ref: SCREEN_ID });
+  assert.equal(second.lock.hashes.blueprint, result.lock.hashes.blueprint);
+});
+
 test('scaffold_blueprint fills empty spec sections and the result validates', async () => {
   const blueprint = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
   const stripped = { ...blueprint, interactions: [], responsive: [], acceptance: [] };
@@ -117,6 +174,72 @@ test('scaffold_blueprint honors the sections argument', async () => {
 
 test('scaffold_blueprint requires a ref or an inline blueprint', async () => {
   await assert.rejects(() => scaffoldBlueprint(ctx, {}), /ref.*blueprint/i);
+});
+
+test('import_design_bridge preserves source mapping and returns a valid Blueprint', async () => {
+  const result = await importDesignBridge(ctx, {
+    path: 'examples/design-bridge/figma-hero.aub.bridge.json',
+  });
+  assert.equal(result.designSource.kind, 'figma');
+  assert.equal(result.blueprint.provenance.source_kind, 'figma');
+  assert.equal(result.sourceMap.primary_cta.component_key, 'button/primary');
+});
+
+test('write_blueprint validates, writes atomically, and rejects paths outside the workspace', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-write-'));
+  try {
+    const blueprint = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
+    const localCtx = { ...ctx, root };
+    const result = await writeBlueprint(localCtx, {
+      path: 'specs/dashboard.ui.json',
+      blueprint,
+    });
+    assert.equal(result.savedPath, 'specs/dashboard.ui.json');
+    assert.equal(JSON.parse(await readFile(join(root, result.savedPath), 'utf8')).screen.id, SCREEN_ID);
+    await assert.rejects(
+      () => writeBlueprint(localCtx, { path: '../outside.ui.json', blueprint }),
+      /inside the workspace root/
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('export_handoff writes a verifiable package inside the workspace', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-handoff-'));
+  try {
+    const blueprint = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
+    await writeFile(join(root, 'dashboard.ui.json'), `${JSON.stringify(blueprint, null, 2)}\n`);
+    const result = await exportHandoff({ ...ctx, root }, { ref: 'dashboard.ui.json' });
+    assert.match(result.sha256, /^[a-f0-9]{64}$/);
+    const zip = await JSZip.loadAsync(await readFile(join(root, result.savedPath)));
+    assert.ok(zip.file('AGENT-README.md'));
+    assert.ok(zip.file(`${SCREEN_ID}.ui.json`));
+    assert.ok(zip.file('implementation-report.schema.json'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('server exposes the complete transport-neutral tool set', () => {
+  assert.deepEqual(registeredToolNames(), [
+    'list_blueprints',
+    'get_blueprint',
+    'validate_blueprint',
+    'scaffold_blueprint',
+    'import_design_bridge',
+    'write_blueprint',
+    'export_prompt',
+    'export_handoff',
+    'submit_report',
+    'list_projects',
+    'get_project',
+    'validate_project',
+    'resolve_component',
+    'diff_blueprints',
+    'migrate_blueprint',
+    'lock_blueprint',
+  ]);
 });
 
 test('export_prompt embeds blueprint context for a valid adapter and task', async () => {

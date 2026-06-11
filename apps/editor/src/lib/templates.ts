@@ -550,7 +550,7 @@ function blueprint(id: TemplateId, type: Blueprint['screen']['type'], language: 
     ...designSystem.colors,
     'surface.canvas': '#f8fafc',
     'surface.panel': '#ffffff',
-    'action.primary': ['#2563eb', '#0f766e', '#7c3aed'][TEMPLATE_IDS.indexOf(id) % 3],
+    'action.primary': ['#2563eb', '#0f766e', '#7c3aed'][TEMPLATE_IDS.indexOf(id) % 3] ?? '#2563eb',
   };
   return {
     version: '0.3.0',

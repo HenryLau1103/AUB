@@ -1,0 +1,44 @@
+name: Verify AUB UI contracts
+description: Validate AUB Blueprints, multi-screen projects, custom component registries, and implementation evidence.
+author: AUB
+
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  config:
+    description: Workspace-relative path to aub-ci configuration.
+    required: false
+    default: .aub/ci.json
+  require-reports:
+    description: Fail when a configured Blueprint has no implementation report.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: 24
+
+    - name: Set up pnpm
+      shell: bash
+      run: corepack enable
+
+    - name: Install AUB verifier
+      shell: bash
+      run: pnpm --dir "$GITHUB_ACTION_PATH" install --frozen-lockfile --prod
+
+    - name: Verify AUB contracts
+      shell: bash
+      env:
+        AUB_REQUIRE_REPORTS: ${{ inputs.require-reports }}
+      run: |
+        args=(--workspace "$GITHUB_WORKSPACE" --config "${{ inputs.config }}")
+        if [[ "$AUB_REQUIRE_REPORTS" == "true" ]]; then
+          args+=(--require-reports)
+        fi
+        node "$GITHUB_ACTION_PATH/scripts/ci-verify.mjs" "${args[@]}"

@@ -6,12 +6,53 @@
     {
       "name": "acme:metric_sparkline",
       "isContainer": false,
-      "description": "Compact inline trend chart for a single KPI. Leaf node — renders its own series, no children."
+      "description": "Compact inline trend chart for a single KPI. Leaf node — renders its own series, no children.",
+      "implementations": [
+        {
+          "id": "react",
+          "framework": "react",
+          "module": "@acme/analytics-ui",
+          "export": "MetricSparkline",
+          "importStyle": "named",
+          "sourcePath": "packages/analytics-ui/src/MetricSparkline.tsx",
+          "storybookUrl": "https://storybook.example.com/?path=/story/analytics-metricsparkline--default",
+          "props": {
+            "series": {
+              "from": "content.series",
+              "required": true
+            },
+            "tone": {
+              "from": "content.tone"
+            }
+          }
+        }
+      ]
     },
     {
       "name": "acme:insight_card",
       "isContainer": true,
-      "description": "Branded card that frames an analytics insight. Container — holds a heading, a metric, and an acme:metric_sparkline."
+      "description": "Branded card that frames an analytics insight. Container — holds a heading, a metric, and an acme:metric_sparkline.",
+      "implementations": [
+        {
+          "id": "react",
+          "framework": "react",
+          "module": "@acme/analytics-ui",
+          "export": "InsightCard",
+          "importStyle": "named",
+          "sourcePath": "packages/analytics-ui/src/InsightCard.tsx",
+          "docsUrl": "https://design.example.com/components/insight-card",
+          "props": {
+            "title": {
+              "from": "content.title",
+              "required": true
+            },
+            "variant": {
+              "from": "content.variant"
+            }
+          },
+          "notes": "Preserve the component's built-in padding and focus treatment; pass Blueprint children through the default slot."
+        }
+      ]
     }
   ]
 }

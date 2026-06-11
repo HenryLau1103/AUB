@@ -1,0 +1,12 @@
+{
+  "$schema": "../../schema/aub-ci.schema.json",
+  "version": "1.0.0",
+  "blueprints": [
+    "examples/dashboard.ui.json",
+    "examples/freeform-actions.ui.json"
+  ],
+  "projects": [
+    "examples/project/app.aub.project.json"
+  ],
+  "reports": []
+}

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AUB — 코딩 Agent를 위한 UI 구현 계약</title>
+    <meta name="description" content="버전 관리 가능한 UI 구현 계약을 정의하고, 프로덕션 컴포넌트에 연결해 어떤 코딩 Agent에도 전달한 뒤 인수 증거로 Pull Request를 검증합니다." />
+    <link rel="canonical" href="https://henrylau1103.github.io/AUB/ko/" />
+    <link rel="alternate" hreflang="en" href="https://henrylau1103.github.io/AUB/" />
+    <link rel="alternate" hreflang="zh-Hant" href="https://henrylau1103.github.io/AUB/zh-hant/" />
+    <link rel="alternate" hreflang="zh-Hans" href="https://henrylau1103.github.io/AUB/zh-hans/" />
+    <link rel="alternate" hreflang="ja" href="https://henrylau1103.github.io/AUB/ja/" />
+    <link rel="alternate" hreflang="ko" href="https://henrylau1103.github.io/AUB/ko/" />
+    <link rel="alternate" hreflang="x-default" href="https://henrylau1103.github.io/AUB/" />
+    <meta property="og:title" content="AUB — 코딩 Agent를 위한 UI 구현 계약" />
+    <meta property="og:description" content="디자인 의도에서 검증 가능한 구현까지: 시맨틱 Blueprint, 프로덕션 컴포넌트, MCP, PR 인수 게이트." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://henrylau1103.github.io/AUB/ko/" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:locale:alternate" content="zh_TW" />
+    <meta property="og:locale:alternate" content="zh_CN" />
+    <meta property="og:locale:alternate" content="ja_JP" />
+    <meta property="og:image" content="../assets/aub-editor-en.jpg" />
+    <meta name="theme-color" content="#0B1220" />
+    <link rel="icon" href="../assets/brand/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="../assets/brand/favicon-32x32.png" sizes="32x32" type="image/png" />
+    <link rel="mask-icon" href="../assets/brand/safari-pinned-tab.svg" color="#0B67F0" />
+    <link rel="apple-touch-icon" href="../assets/brand/apple-touch-icon.png" />
+    <link rel="manifest" href="../manifest.webmanifest" />
+    <meta name="msapplication-config" content="../browserconfig.xml" />
+    <link rel="stylesheet" href="../styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="../">
+        <img class="brand-mark" src="../assets/brand/aub-logo-mark.svg" alt="" />
+        <span class="brand-name">AUB</span>
+      </a>
+      <div class="header-actions">
+        <nav class="site-nav">
+          <a href="../editor/">에디터</a>
+          <a href="#workflow">워크플로</a>
+          <a href="#integrations">통합</a>
+          <a href="https://github.com/HenryLau1103/AUB">GitHub</a>
+        </nav>
+        <nav class="language-nav" aria-label="언어">
+          <a href="../" hreflang="en" lang="en">EN</a>
+          <a href="../zh-hant/" hreflang="zh-Hant" lang="zh-Hant">繁中</a>
+          <a href="../zh-hans/" hreflang="zh-Hans" lang="zh-Hans">简中</a>
+          <a href="../ja/" hreflang="ja" lang="ja">日本語</a>
+          <a href="../ko/" hreflang="ko" lang="ko" aria-current="page">한국어</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">UI 구현 계약</p>
+          <h1>의도를 정의합니다.<br />프로덕션 컴포넌트를 재사용합니다.<br />증거로 PR을 검증합니다.</h1>
+          <p class="lede">AUB는 제품 의도와 코딩 Agent 사이의 개방형 계약 계층입니다. 시맨틱 Blueprint를 만들고 프로덕션 컴포넌트에 연결한 뒤, 동일한 단일 기준을 Codex, Claude Code, Copilot 또는 다른 Agent에 전달하고 CI에서 모든 acceptance id를 검증합니다.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="../editor/">온라인 에디터 열기</a>
+            <a class="btn btn-ghost" href="https://github.com/HenryLau1103/AUB">GitHub 보기</a>
+          </div>
+          <p class="note">Apache-2.0 · local-first · agent-neutral · 에디터는 데이터를 업로드하지 않습니다</p>
+        </div>
+        <a class="hero-shot" href="../editor/" aria-label="AUB 에디터 열기">
+          <img src="../assets/aub-editor-en.jpg" alt="반응형 화면을 구성하는 AUB 비주얼 에디터" loading="lazy" />
+        </a>
+      </section>
+
+      <section class="proof" aria-label="제품 기능">
+        <div><strong>62</strong><span>가지 시맨틱 컴포넌트 유형</span></div>
+        <div><strong>18</strong><span>가지 반응형 시작 템플릿</span></div>
+        <div><strong>16</strong><span>개의 Agent용 MCP 도구</span></div>
+        <div><strong>4</strong><span>가지 인수 카테고리</span></div>
+      </section>
+
+      <section class="steps" id="workflow">
+        <p class="section-kicker">골든 패스</p>
+        <h2>제품 의도부터 Pull Request까지 하나의 계약으로</h2>
+        <ol class="step-grid step-grid-five">
+          <li>
+            <span class="step-num">1</span>
+            <h3>구성 또는 가져오기</h3>
+            <p>단일 화면, Figma／Penpot bridge 또는 탐색 가능한 다중 화면 프로젝트를 만듭니다.</p>
+          </li>
+          <li>
+            <span class="step-num">2</span>
+            <h3>프로덕션 컴포넌트 연결</h3>
+            <p>사용자 정의 유형을 프로덕션 module, export, source, Storybook, props에 연결합니다.</p>
+          </li>
+          <li>
+            <span class="step-num">3</span>
+            <h3>한 번만 전달</h3>
+            <p>휴대 가능한 패키지나 MCP를 사용하며 모든 Agent가 동일한 핵심 계약을 공유합니다.</p>
+          </li>
+          <li>
+            <span class="step-num">4</span>
+            <h3>증거 반환</h3>
+            <p>Agent가 모든 노드를 매핑하고 각 acceptance id를 pass, fail, needs-review로 보고합니다.</p>
+          </li>
+          <li>
+            <span class="step-num">5</span>
+            <h3>PR 게이트</h3>
+            <p>AUB GitHub Action이 드리프트, 누락된 mapping, 인수 실패와 미해결 작업을 거부합니다.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="why">
+        <p class="section-kicker">구현을 위한 설계</p>
+        <h2>또 하나의 디자인 캔버스나 일회성 코드 생성기가 아닙니다</h2>
+        <p class="why-lede">디자인 도구는 제작을, 코드 생성기는 속도를 최적화합니다. AUB는 Git과 CI가 이해하는 형식으로 도구, Agent, 리비전과 리뷰 전반에서 의도를 보호합니다.</p>
+        <div class="why-grid">
+          <div class="card">
+            <h3>버전 관리 가능한 단일 기준</h3>
+            <p>JSON Schema, 시맨틱 검증, migration, diff, lock snapshot.</p>
+          </div>
+          <div class="card">
+            <h3>프로덕션 자산 재사용</h3>
+            <p>시맨틱 유형을 기존 framework 컴포넌트에 연결해 재구현을 방지합니다.</p>
+          </div>
+          <div class="card">
+            <h3>Agent-neutral 실행</h3>
+            <p>Codex, Claude Code, Copilot과 범용 Agent가 동일한 계약을 받습니다.</p>
+          </div>
+          <div class="card">
+            <h3>신뢰가 아닌 증거</h3>
+            <p>Implementation report와 PR check가 미완료 작업을 드러냅니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="integrations" id="integrations">
+        <p class="section-kicker">통합 계약</p>
+        <h2>이미 배포 중인 프로덕션 컴포넌트를 Agent가 사용하게 합니다</h2>
+        <div class="integration-grid">
+          <div>
+            <p>사용자 정의 registry에 프로덕션 package, export symbol, source file, Storybook, 문서와 정확한 Blueprint-to-prop mapping을 지정할 수 있습니다.</p>
+            <ul class="feature-list">
+              <li>비슷하게만 생긴 별도 컴포넌트 방지</li>
+              <li>repository 고유 token과 동작 유지</li>
+              <li>여러 framework 구현 지원</li>
+            </ul>
+          </div>
+          <pre><code>{
+  "name": "acme:insight_card",
+  "isContainer": true,
+  "implementations": [{
+    "id": "react",
+    "framework": "react",
+    "module": "@acme/analytics-ui",
+    "export": "InsightCard",
+    "props": {
+      "title": { "from": "content.title" }
+    }
+  }]
+}</code></pre>
+        </div>
+      </section>
+
+      <section class="handoff">
+        <p class="section-kicker">연결 및 검증</p>
+        <h2>이식성이 필요하면 파일을, Agent의 실시간 접근에는 MCP를 사용합니다.</h2>
+        <p><code>.aub.zip</code>을 내보내거나 MCP 지원 Agent가 stdio／HTTP를 통해 Blueprint와 다중 화면 프로젝트를 import, write, package, resolve, validate, scaffold, diff, migrate, lock, report하도록 합니다. 번들 GitHub Action을 추가하면 이 계약이 Pull Request 게이트가 됩니다.</p>
+        <div class="command-card">
+          <code>uses: HenryLau1103/AUB@main</code>
+          <span>계약과 구현 증거 검증</span>
+        </div>
+        <div class="link-row">
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/agent-handoff.md">Agent 전달 가이드</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/apps/mcp-server/README.md">MCP server</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-ci.md">GitHub CI 게이트</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/custom-components.md">프로덕션 mapping</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/design-tool-bridge.md">Figma／Penpot bridge</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/schema/ui-blueprint.schema.json">Blueprint schema</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        AUB · 코딩 Agent를 위한 UI 구현 계약 ·
+        <a href="https://github.com/HenryLau1103/AUB">github.com/HenryLau1103/AUB</a> ·
+        Apache-2.0
+      </p>
+    </footer>
+  </body>
+</html>

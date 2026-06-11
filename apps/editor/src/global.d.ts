@@ -36,11 +36,21 @@ declare module '*/handoff-package.lib.mjs' {
     reportTemplate: Record<string, unknown>;
     reportSchema: Record<string, unknown>;
     viewportImages: Record<string, string>;
+    extensionRegistry?: string;
     generatedAt?: string;
   }): Promise<{
     bytes: Uint8Array;
     manifest: Record<string, unknown>;
   }>;
+}
+
+declare module '*/design-bridge.lib.mjs' {
+  import type { Blueprint } from './types';
+  export function importDesignBridge(input: unknown): {
+    blueprint: Blueprint;
+    source: Record<string, unknown>;
+    sourceMap: Record<string, unknown>;
+  };
 }
 
 declare module '*.md?raw' {

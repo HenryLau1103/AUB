@@ -14,5 +14,6 @@ benchmarks/agent-implementation/results/
 dist/
 build/
 _site/
+schema/types.js
 *.log
 .DS_Store

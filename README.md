@@ -4,18 +4,20 @@
 
 # AUB — UI Blueprint Agent
 
-**Draw the interface. Export a UI contract. Let coding agents build and verify it.**
+**Define the UI contract. Reuse production components. Gate implementation on evidence.**
 
 [![CI](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml/badge.svg)](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Blueprint](https://img.shields.io/badge/UI%20Blueprint-v0.3.0-0f766e.svg)](./schema/ui-blueprint.schema.json)
 [![Node](https://img.shields.io/badge/Node-%3E%3D24-339933.svg)](./package.json)
 
-[繁體中文](./README-ZH.MD) · [Agent handoff guide](./docs/agent-handoff.md) · [Canonical example](./examples/dashboard.ui.json)
+**English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
+
+[Agent handoff guide](./docs/agent-handoff.md) · [Canonical example](./examples/dashboard.ui.json)
 
 ![AUB visual editor showing a responsive onboarding screen](./docs/assets/aub-editor-en.jpg)
 
-AUB is a visual UI specification tool for people who need to communicate a screen precisely to Codex, Claude Code, GitHub Copilot, or another coding agent. Build the screen on an artboard, declare behavior and acceptance criteria, then export a structured package the agent can implement without guessing from prose or screenshots alone.
+AUB is the open, agent-neutral contract layer between product intent and implementation. Build a semantic screen or multi-screen project, map custom types to production components, hand the same versioned contract to Codex, Claude Code, GitHub Copilot, or another coding agent, then verify every acceptance id in CI.
 
 > **Live demo:** [henrylau1103.github.io/AUB](https://henrylau1103.github.io/AUB/) — the editor runs entirely in your browser.
 
@@ -28,15 +30,17 @@ flowchart LR
   C --> D["4. Implement, test,<br/>and report evidence"]
 ```
 
-1. **Compose visually** — start from one of 18 common application and website templates, or arrange registered components directly on the canvas.
-2. **Export a contract** — AUB records semantic hierarchy, auto/freeform layout, exact viewport placement, interactions, design tokens, responsive rules, and acceptance criteria.
-3. **Hand off to an agent** — the `.aub.zip` package tells the agent what to read, what to build, and how to prove the result.
+1. **Compose or import** — start from one of 18 templates, arrange registered components, or import Angular and Figma/Penpot Design Bridge sources.
+2. **Bind production components** — map custom semantic types to framework modules, exports, source files, Storybook, docs, and props.
+3. **Hand off one contract** — use an `.aub.zip` or MCP without changing schema or acceptance semantics between agents.
+4. **Verify the implementation** — require node mappings and evidence for every acceptance id, then enforce them with the bundled GitHub Action.
 
 ## Who AUB is for
 
 - Product designers and developers who need more precision than a screenshot or prose prompt.
 - Teams using coding agents to implement dashboards, forms, content products, commerce flows, and application shells.
 - Agent and tooling developers who need a schema-valid, testable UI interchange format.
+- Design-system teams that want agents to reuse production components instead of creating lookalikes.
 - Teams converting existing Angular screens into reusable UI Blueprints.
 
 ## The problem AUB solves
@@ -131,12 +135,15 @@ Supported tasks are `author`, `plan`, `implement`, and `review`.
 
 Instead of copying files into the target repository, agents that speak the
 [Model Context Protocol](https://modelcontextprotocol.io) can call AUB tools directly over
-stdio: `list_blueprints`, `get_blueprint`, `validate_blueprint`, `export_prompt`, and
-`submit_report`.
+stdio or Streamable HTTP. The 16 tools cover Blueprint/project discovery, Figma/Penpot bridge
+import, validated writes, handoff packaging, validation, scaffolding, component resolution,
+prompt export, diff, migration, locking, and implementation-report submission.
 
 ```bash
 (cd apps/mcp-server && pnpm install && pnpm build)
 node apps/mcp-server/dist/index.js /path/to/your/repo
+# Or expose the same tools over Streamable HTTP
+node apps/mcp-server/dist/http.js --workspace /path/to/your/repo --port 3100
 ```
 
 Register it with Claude Code, Codex, or any MCP client. See
@@ -168,6 +175,28 @@ Primary formats:
 
 The 62 core component types are curated and closed so every type has a meaning agents can resolve. Projects that need bespoke components declare **namespaced extension types** in an `aub.registry.json` at the project root, using a `team:component` namespace (e.g. `acme:insight_card`). They are validated, resolvable, and bundled into handoffs — never free-guessed.
 
+Extension entries can also map the semantic type to production implementations:
+
+```json
+{
+  "name": "acme:insight_card",
+  "isContainer": true,
+  "implementations": [{
+    "id": "react",
+    "framework": "react",
+    "module": "@acme/analytics-ui",
+    "export": "InsightCard",
+    "sourcePath": "packages/analytics-ui/src/InsightCard.tsx",
+    "storybookUrl": "https://storybook.example.com/?path=/story/insight-card--default",
+    "props": {
+      "title": { "from": "content.title", "required": true }
+    }
+  }]
+}
+```
+
+Agents can call MCP `resolve_component` to retrieve the exact mapping before implementation.
+
 ```bash
 # Auto-discovers aub.registry.json from the file's directory upward
 pnpm validate examples/extensions/analytics-insights.ui.json
@@ -188,13 +217,21 @@ pnpm import:angular path/to/component-directory \
   --output example.ui.json
 ```
 
+Import an explicitly mapped Figma or Penpot Design Bridge:
+
+```bash
+pnpm import:design -- \
+  examples/design-bridge/figma-hero.aub.bridge.json \
+  --output marketing-hero.ui.json
+```
+
 Create a portable kit that teaches an AI to author valid AUB files:
 
 ```bash
 pnpm authoring:kit aub-authoring-kit.zip
 ```
 
-The kit includes the current schema, 62-component registry, canonical example, validation guide, and authoring prompt. See [Angular import](./docs/angular-import.md) and the [adapter interface](./docs/agent-adapter-interface.md).
+The kit includes the current schema, 62-component registry, canonical example, validation guide, and authoring prompt. See [Angular import](./docs/angular-import.md), the [Figma/Penpot Design Bridge](./docs/design-tool-bridge.md), and the [adapter interface](./docs/agent-adapter-interface.md).
 
 ## Validate and review
 
@@ -273,6 +310,26 @@ AUB includes deterministic agent-readability and browser-based implementation be
 
 See [agent readability](./benchmarks/agent-readability/README.md) and [implementation benchmark](./benchmarks/agent-implementation/README.md).
 
+### Pull-request acceptance gate
+
+Add `.aub/ci.json` to the implementation repository, then use the bundled GitHub Action:
+
+```yaml
+- uses: HenryLau1103/AUB@main
+  with:
+    config: .aub/ci.json
+    require-reports: "true"
+```
+
+The check validates Blueprints, projects, extension registries, node mappings, acceptance
+evidence, and unresolved work. Run the same verification locally with:
+
+```bash
+pnpm ci:verify -- --workspace /path/to/target/repo --require-reports
+```
+
+See [GitHub CI acceptance gate](./docs/github-ci.md).
+
 ## Editor / IDE integration
 
 Blueprint files are backed by the JSON Schema at [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.schema.json), so editors can validate and autocomplete them as you type.
@@ -298,11 +355,14 @@ The `$schema` key is optional and ignored by AUB tooling — it only drives edit
 - WYSIWYG editor with freeform/auto layout, drag, resize, multi-select, zoom, localization, and templates: implemented.
 - JSON, Markdown, screenshots, hashes, and `.aub.zip` handoff: implemented.
 - Codex, Claude Code, and GitHub Copilot adapters: implemented.
-- Angular import, personal templates, and AI authoring kit: implemented.
+- Angular import, Figma/Penpot semantic bridge, personal templates, and AI authoring kit: implemented.
 - Blueprint diff and implementation report verification: implemented.
-- MCP server (stdio) exposing list/get/validate/scaffold/export-prompt/submit-report tools (plus project tools): implemented.
+- MCP server (stdio + Streamable HTTP) exposing 16 tools including Design Bridge import, validated writes, handoff packaging, discovery, validation, component resolution, scaffolding, diff, migration, locks, and reports: implemented.
+- Production component mappings in `aub.registry.json`: implemented.
+- GitHub Action and local CI verifier for contracts plus implementation evidence: implemented.
 - Multi-screen projects (reference-based `.aub.project.json`, CLI, MCP tools, editor screen switcher + navigation): implemented.
 - Configurable canvas resolution (presets + custom width/height): implemented.
+- Localized GitHub Pages and README files in English, Traditional Chinese, Simplified Chinese, Japanese, and Korean: implemented.
 - YAML editing in the UI and editor-side lock generation: backlog.
 
 The current format version is `0.3.0`. See [schema versioning](./docs/schema-versioning.md) and [capability matrix](./docs/capability-matrix.md).
@@ -310,11 +370,11 @@ The current format version is `0.3.0`. See [schema versioning](./docs/schema-ver
 ## Repository map
 
 ```text
-schema/          JSON Schema, TypeScript types, component registry
+schema/          JSON Schema, TypeScript types, component registry, CI contract
 scripts/         Validation, migration, export, import, diff, and report tools
 examples/        Canonical JSON, YAML, Markdown, and lock fixtures
 apps/editor/     Vite + React visual editor
-apps/mcp-server/ Model Context Protocol server (stdio) exposing Blueprint tools
+apps/mcp-server/ Model Context Protocol server (stdio + Streamable HTTP)
 adapters/        Agent-specific prompt adapters
 benchmarks/      Agent readability and implementation verification
 docs/            Product decisions, guides, audits, and acceptance constraints
@@ -334,6 +394,7 @@ pnpm gen:check
 (cd apps/editor && pnpm typecheck)
 (cd apps/editor && pnpm build)
 pnpm validate examples/dashboard.ui.json
+pnpm ci:verify -- --config examples/ci/aub.ci.json
 ```
 
 To add a **core** component type, edit `schema/registry/components.json` and run `pnpm gen` — the schema enums and TypeScript unions regenerate from it. To add a **project-specific** component without forking core, declare a namespaced extension type in `aub.registry.json` (see [custom component types](./docs/custom-components.md)).
@@ -350,9 +411,14 @@ workflow builds the editor with `VITE_BASE=/AUB/editor/` and serves it under `/A
 One-time repository setup (cannot be configured from code): **Settings → Pages → Build and
 deployment → Source = GitHub Actions**.
 
+English is served at `/AUB/`; Traditional Chinese, Simplified Chinese, Japanese, and Korean
+are served at `/zh-hant/`, `/zh-hans/`, `/ja/`, and `/ko/`. All five landing pages are generated
+from `scripts/generate-site-locales.mjs`; run `pnpm site:locales` after changing localized copy.
+
 Build the published site locally:
 
 ```bash
+pnpm site:locales:check
 (cd apps/editor && VITE_BASE=/AUB/editor/ pnpm build)
 mkdir -p _site/editor && cp -r site/. _site/ && cp -r apps/editor/dist/. _site/editor/
 npx serve _site   # then open http://localhost:3000/AUB/  (paths assume the /AUB/ base)
