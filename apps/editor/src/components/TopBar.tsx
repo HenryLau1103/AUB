@@ -13,6 +13,7 @@ import {
   Save,
   Undo2,
   Upload,
+  Wifi,
   X,
 } from 'lucide-react';
 import { useRef } from 'react';
@@ -47,6 +48,10 @@ interface Props {
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  modeLabel: string;
+  workspaceLabel: string;
+  workspaceConnected: boolean;
+  onOpenWorkspace: () => void;
 }
 
 export function TopBar({
@@ -74,6 +79,10 @@ export function TopBar({
   canRedo,
   onUndo,
   onRedo,
+  modeLabel,
+  workspaceLabel,
+  workspaceConnected,
+  onOpenWorkspace,
 }: Props) {
   const angularInputRef = useRef<HTMLInputElement>(null);
   const personalTemplateInputRef = useRef<HTMLInputElement>(null);
@@ -175,6 +184,12 @@ export function TopBar({
         <div className="topbar-icon-group">
           <ToolButton icon={<Undo2 />} label={t(language, 'undo')} disabled={!canUndo} onClick={onUndo} />
           <ToolButton icon={<Redo2 />} label={t(language, 'redo')} disabled={!canRedo} onClick={onRedo} />
+          <ToolButton
+            icon={<Wifi />}
+            label={workspaceLabel}
+            active={workspaceConnected}
+            onClick={onOpenWorkspace}
+          />
           <ToolButton icon={<Upload />} label={t(language, 'importJson')} onClick={() => fileInputRef.current?.click()} />
           <ToolButton icon={<FileCode2 />} label={t(language, 'importAngular')} onClick={() => angularInputRef.current?.click()} />
           <ToolButton icon={<LibraryBig />} label={t(language, 'importPersonalTemplate')} onClick={() => personalTemplateInputRef.current?.click()} />
@@ -202,6 +217,7 @@ export function TopBar({
         <span className={`validation-pill ${errorCount ? 'invalid' : 'valid'}`}>
           {errorCount ? `${errorCount} ${t(language, 'schemaErrors')}` : t(language, 'valid')}
         </span>
+        <span className={`mode-pill ${workspaceConnected ? 'workspace' : 'demo'}`}>{modeLabel}</span>
       </div>
     </header>
   );
@@ -212,19 +228,21 @@ function ToolButton({
   label,
   tooltipAlign,
   disabled,
+  active,
   onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   tooltipAlign?: 'center' | 'end';
   disabled?: boolean;
+  active?: boolean;
   onClick: () => void;
 }) {
   return (
     <Tooltip label={label} align={tooltipAlign}>
       <button
         type="button"
-        className="icon-button"
+        className={`icon-button${active ? ' active' : ''}`}
         aria-label={label}
         title={label}
         disabled={disabled}

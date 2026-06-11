@@ -2106,6 +2106,12 @@ button.primary {
   opacity: 0.38;
 }
 
+.icon-button.active {
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--accent);
+}
+
 .validation-pill {
   min-width: 58px;
   padding: 4px 8px;
@@ -2120,6 +2126,87 @@ button.primary {
 .validation-pill.invalid {
   border-color: rgba(248, 113, 113, 0.4);
   color: #fca5a5;
+}
+
+.mode-pill {
+  min-width: 74px;
+  padding: 4px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  border-radius: 999px;
+  color: #cbd5e1;
+  font-size: 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.mode-pill.demo {
+  border-color: rgba(56, 189, 248, 0.38);
+  color: #7dd3fc;
+}
+
+.mode-pill.workspace {
+  border-color: rgba(74, 222, 128, 0.36);
+  color: #86efac;
+}
+
+.workspace-drawer-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.workspace-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: 0;
+  background: rgba(15, 23, 42, 0.42);
+  cursor: default;
+}
+
+.workspace-drawer-backdrop:hover {
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.workspace-drawer {
+  position: relative;
+  z-index: 1;
+  width: min(880px, calc(100vw - 28px));
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border-left: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow: -24px 0 70px rgba(15, 23, 42, 0.28);
+}
+
+.workspace-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #dbeafe;
+  background: #ffffff;
+}
+
+.workspace-drawer-header > div {
+  display: grid;
+  gap: 2px;
+}
+
+.workspace-drawer-header strong {
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.workspace-drawer-header span {
+  color: #64748b;
+  font-size: 11px;
 }
 
 .body {
@@ -3739,12 +3826,14 @@ button.primary {
 
 /* Workspace-connected mode */
 .workspace-panel {
-  border-bottom: 1px solid var(--line);
   background: #f8fafc;
   color: #0f172a;
-  padding: 10px 16px;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 14px 18px;
   display: grid;
   gap: 10px;
+  align-content: start;
 }
 
 .workspace-panel > header {
