@@ -18,6 +18,8 @@ const DENYLIST = [
   ['C', 'S', 'Q', 'S', 'T'].join(''),
   ['M', 'o', 'b', 'i', 'l', 'e', ' ', 'D', 'o', 'c', 'u', 'm', 'e', 'n', 't', 's'].join(''),
   ['s', 'f', 'a', 'p', '-', 'w', 'e', 'b'].join(''),
+  ['/', 'U', 's', 'e', 'r', 's', '/', 'h', '/', 'L', 'i', 'b', 'r', 'a', 'r', 'y'].join(''),
+  ['/', 'U', 's', 'e', 'r', 's', '/', 'h', '/', 'W', 'o', 'r', 'k', 's', 'p', 'a', 'c', 'e', '/', 's'].join(''),
 ];
 const TEXT_FILE_PATTERN = /\.(md|mdx|txt|json|ya?ml|mjs|mts|ts|tsx|js|jsx|css|scss|html)$/i;
 

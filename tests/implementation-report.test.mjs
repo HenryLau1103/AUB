@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import Ajv2020 from 'ajv/dist/2020.js';
 import {
   createImplementationReportTemplate,
+  scoreImplementationSafety,
   verifyImplementationReport,
 } from '../scripts/implementation-report.lib.mjs';
 
@@ -84,4 +85,36 @@ test('IR4: requireEvidence rejects narrative-only evidence and accepts machine e
   const machine = verifyImplementationReport(blueprint, report, { requireEvidence: true });
   assert.equal(machine.ready, true, machine.errors.join('\n'));
   assert.equal(machine.summary.evidence_items, blueprint.acceptance.length * 2);
+  assert.ok(machine.summary.safety_score.overall >= 70);
+  assert.equal(machine.summary.safety_score.grade, 'review');
+});
+
+test('IR5: safety score exposes source, viewport, evidence, and unresolved risk', async () => {
+  const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
+  const report = createImplementationReportTemplate(blueprint);
+  const initial = scoreImplementationSafety(blueprint, report);
+  assert.equal(initial.sourceCoverageScore, 0);
+  assert.equal(initial.acceptanceEvidenceScore, 0);
+  assert.ok(initial.unresolvedMappingCount >= blueprint.nodes.length);
+  assert.equal(initial.grade, 'fail');
+
+  report.node_mappings = report.node_mappings.map((item) => ({
+    ...item,
+    status: 'mapped',
+    file: 'src/Signup.tsx',
+  }));
+  report.acceptance_results = report.acceptance_results.map((item) => ({
+    ...item,
+    status: 'pass',
+    evidence: [
+      { type: 'screenshot', reference: '.aub/reports/assets/signup-desktop.png', viewport: 'desktop', bytes: 1000 },
+      { type: 'overflow', reference: 'desktop:horizontal-overflow', viewport: 'desktop', expected: false, actual: false, pass: true },
+      { type: 'component_reuse', reference: 'src/Signup.tsx' },
+    ],
+  }));
+  const improved = scoreImplementationSafety(blueprint, report);
+  assert.equal(improved.sourceCoverageScore, 100);
+  assert.equal(improved.acceptanceEvidenceScore, 100);
+  assert.ok(improved.lookalikePreventionCount > 0);
+  assert.ok(improved.overall > initial.overall);
 });

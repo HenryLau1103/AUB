@@ -13,7 +13,7 @@
 
 [English](./README.md) · [繁體中文](./README.zh-Hant.md) · **简体中文** · [日本語](./README.ja.md) · [한국어](./README.ko.md)
 
-[Workspace loop 指南](./docs/workspace-loop-user-manual.zh-Hans.md) · [10 分钟 demo](./docs/workspace-loop-10-minute-demo.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [标准示例](./examples/dashboard.ui.json)
+[Workspace loop 指南](./docs/workspace-loop-user-manual.zh-Hans.md) · [10 分钟 demo](./docs/workspace-loop-10-minute-demo.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [标准示例](./examples/dashboard.ui.json)
 
 ![AUB 可视化编辑器正在编辑响应式页面](./docs/assets/aub-editor-en.jpg)
 
@@ -49,7 +49,7 @@ npx aub-workspace
 
 这会启动本机 AUB MCP server、打开内置 editor，并自动把 editor 连接到你的 workspace。这条路径不需要先 clone AUB repo。
 
-`init` 会安装 AUB CI 配置、GitHub issue templates、Copilot instructions 和 PR workflow。进入 editor 后按这条路径走：**扫描项目 → 生成模板 → 审核自定义组件候选 → 保存 Blueprint/session → 复制 Agent 指令**。把指令贴给 Copilot、Codex 或其他 coding agent，让它修改真实 app 并返回证据。
+`init` 会安装 AUB CI 配置、`.aubignore`、`AGENTS.md`、GitHub issue templates、Copilot instructions 和 PR workflow。进入 editor 后按这条路径走：**扫描项目 → 生成模板 → 审核自定义组件候选 → 保存 Blueprint/session → 复制 Agent 指令**。把指令贴给 Copilot、Codex 或其他 coding agent，让它修改真实 app 并返回证据。
 
 ## AUB 解决的问题
 
@@ -174,6 +174,8 @@ pnpm report:init examples/dashboard.ui.json implementation-report.json
 pnpm report:verify examples/dashboard.ui.json implementation-report.json
 pnpm report:capture -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
 pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+pnpm report:score screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json
+pnpm report:playwright -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings --output tests/aub-ui.spec.ts
 ```
 
 补全缺少的 interaction、responsive 和 acceptance：
@@ -222,7 +224,7 @@ pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-e
 - Angular 与 Figma／Penpot bridge 导入：已实现。
 - Codex、Claude Code、GitHub Copilot adapter：已实现。
 - stdio／HTTP MCP server，23 个工具：已实现。
-- 一键 workspace 初始化（`npx aub-workspace init`）：CI 配置、issue templates、Copilot instructions 和 PR workflow：已实现。
+- 一键 workspace 初始化（`npx aub-workspace init`）：CI 配置、`.aubignore`、`AGENTS.md`、issue templates、Copilot instructions 和 PR workflow：已实现。
 - Workspace-connected editor loop、本机 MCP HTTP、session、项目扫描模板、自定义组件候选审核、直接保存 Blueprint 与实现预览：已实现。
 - Implementation evidence capture：viewport 截图、DOM query、overflow 与 report evidence 验证：已实现。
 - 生产组件 mapping、implementation report 与 GitHub Action：已实现。

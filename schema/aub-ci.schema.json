@@ -33,6 +33,12 @@
           "report": { "type": "string", "minLength": 1 }
         }
       }
+    },
+    "min_safety_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Optional minimum implementation safety score required for configured reports."
     }
   }
 }

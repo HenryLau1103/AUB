@@ -79,8 +79,13 @@ Evidence should include:
 ## Before and After
 
 Without AUB, a vague issue asks an agent to "make the settings page better" and
-the PR review is subjective.
+the PR review is subjective. Reviewers still need to inspect whether the agent
+reused real components, preserved responsive behavior, avoided horizontal
+overflow, and kept existing interactions intact.
 
 With AUB, the issue points at a Blueprint, approved component mappings, preview
-URL, and acceptance criteria. The PR is reviewed against evidence instead of
-visual opinion.
+URL, acceptance criteria, implementation evidence, and a PR Safety Score. The PR
+is reviewed against verifiable risk instead of visual opinion.
+
+Use the longer product proof in [No AUB vs AUB](./demo-no-aub-vs-aub.md) when
+explaining why this is different from an app builder.

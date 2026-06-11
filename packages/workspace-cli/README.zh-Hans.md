@@ -10,7 +10,7 @@ npx aub-workspace init
 npx aub-workspace
 ```
 
-`init` 会创建 AUB 配置、GitHub issue templates、Copilot instructions 和 PR workflow。`aub-workspace` 会启动本机 AUB MCP HTTP server、提供 bundled AUB editor、把 editor 连接到 MCP endpoint，并打开浏览器。
+`init` 会创建 AUB 配置、`.aubignore`、`AGENTS.md`、GitHub issue templates、Copilot instructions 和 PR workflow。`aub-workspace` 会启动本机 AUB MCP HTTP server、提供 bundled AUB editor、把 editor 连接到 MCP endpoint，并打开浏览器。
 
 成功时会看到类似输出：
 
@@ -37,6 +37,8 @@ AUB 可能会在既有项目创建：
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
 .aub/ci.json
+.aubignore
+AGENTS.md
 .github/workflows/aub-contracts.yml
 aub.registry.json
 screens/*.ui.json

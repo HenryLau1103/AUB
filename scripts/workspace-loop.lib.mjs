@@ -1,10 +1,12 @@
 import { access, mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { defaultDesignSystem } from './migrate-blueprint.mjs';
+import { scoreImplementationSafety } from './implementation-report.lib.mjs';
 import { EXTENSION_NAME_PATTERN } from './registry.lib.mjs';
 
 export const WORKSPACE_LOOP_VERSION = '0.1.0';
 export const AUB_DIR = '.aub';
+export const AUBIGNORE_PATH = '.aubignore';
 export const SESSION_PATH = '.aub/session.json';
 export const COMPONENT_CANDIDATES_PATH = '.aub/component-candidates.json';
 export const TEMPLATE_DIR = '.aub/templates';
@@ -23,6 +25,29 @@ const IGNORE_DIRS = new Set([
   'node_modules',
   '.pnpm-store',
 ]);
+const DEFAULT_IGNORE_PATTERNS = [
+  '.git/',
+  '.aub/',
+  '.next/',
+  '.nuxt/',
+  '.output/',
+  'coverage/',
+  'dist/',
+  'build/',
+  'node_modules/',
+  '.pnpm-store/',
+  '.env',
+  '.env.*',
+  '*.pem',
+  '*.key',
+  '*.p12',
+  '*.cert',
+  '*.crt',
+  '*.sqlite',
+  '*.db',
+  '*.log',
+];
+const HIDDEN_DIR_ALLOWLIST = new Set(['.storybook']);
 
 const SOURCE_EXTENSIONS = new Set(['.tsx', '.jsx', '.ts', '.js', '.vue', '.html']);
 const SOURCE_TEXT_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -279,6 +304,10 @@ function inferNamespace(root, packageJson) {
 }
 
 async function walk(root, dir, out, limit = 2000) {
+  return walkWithState(root, dir, out, limit, await createWalkState(root));
+}
+
+async function walkWithState(root, dir, out, limit = 2000, state) {
   if (out.length >= limit) return;
   let dirents;
   try {
@@ -287,15 +316,91 @@ async function walk(root, dir, out, limit = 2000) {
     return;
   }
   for (const dirent of dirents) {
-    if (out.length >= limit) return;
+    if (out.length >= limit) {
+      state.audit.limitReached = true;
+      return;
+    }
     const full = join(dir, dirent.name);
+    const relPath = toWorkspacePath(root, full);
+    if (shouldIgnoreWorkspaceEntry(relPath, dirent, state)) {
+      if (dirent.isDirectory()) state.audit.directoriesSkipped += 1;
+      else state.audit.filesSkipped += 1;
+      continue;
+    }
     if (dirent.isDirectory()) {
-      if (IGNORE_DIRS.has(dirent.name) || dirent.name.startsWith('.')) continue;
-      await walk(root, full, out, limit);
+      await walkWithState(root, full, out, limit, state);
     } else if (dirent.isFile()) {
-      out.push({ path: toWorkspacePath(root, full), absPath: full, name: dirent.name });
+      out.push({ path: relPath, absPath: full, name: dirent.name });
+      state.audit.filesScanned += 1;
     }
   }
+}
+
+async function createWalkState(root) {
+  const customPatterns = await readAubIgnore(root);
+  const ignoredPatterns = [...DEFAULT_IGNORE_PATTERNS, ...customPatterns];
+  return {
+    ignoredPatterns,
+    matchers: ignoredPatterns.map(compileIgnorePattern).filter(Boolean),
+    audit: {
+      filesScanned: 0,
+      filesSkipped: 0,
+      directoriesSkipped: 0,
+      ignoredPatterns,
+      limitReached: false,
+    },
+  };
+}
+
+async function readAubIgnore(root) {
+  try {
+    const text = await readFile(join(root, AUBIGNORE_PATH), 'utf8');
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#') && !line.startsWith('!'));
+  } catch {
+    return [];
+  }
+}
+
+function shouldIgnoreWorkspaceEntry(relPath, dirent, state) {
+  if (dirent.isDirectory()) {
+    if (IGNORE_DIRS.has(dirent.name)) return true;
+    if (dirent.name.startsWith('.') && !HIDDEN_DIR_ALLOWLIST.has(dirent.name)) return true;
+  }
+  return state.matchers.some((matcher) => matcher(relPath, dirent));
+}
+
+function compileIgnorePattern(pattern) {
+  const original = String(pattern ?? '').trim().replaceAll('\\', '/');
+  if (!original) return null;
+  const directoryOnly = original.endsWith('/');
+  const normalized = original.replace(/^\/+/, '').replace(/\/+$/, '');
+  const hasSlash = normalized.includes('/');
+  const hasGlob = /[*?]/.test(normalized);
+  if (!hasGlob) {
+    return (relPath, dirent) => {
+      if (directoryOnly && !dirent.isDirectory()) return false;
+      if (relPath === normalized || relPath.startsWith(`${normalized}/`)) return true;
+      return !hasSlash && dirent.name === normalized;
+    };
+  }
+  const regex = new RegExp(`^${globToRegex(normalized)}${directoryOnly ? '(?:/.*)?' : '$'}`);
+  const nameRegex = hasSlash ? null : new RegExp(`^${globToRegex(normalized)}$`);
+  return (relPath, dirent) => {
+    if (directoryOnly && !dirent.isDirectory()) return false;
+    return regex.test(relPath) || Boolean(nameRegex?.test(dirent.name));
+  };
+}
+
+function globToRegex(pattern) {
+  return pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*/g, '\u0000')
+    .replace(/\*/g, '[^/]*')
+    .replace(/\?/g, '[^/]')
+    .replace(/\u0000/g, '.*');
 }
 
 async function readPackage(root) {
@@ -516,7 +621,27 @@ function inferCoreType(name) {
   return CORE_KIND_BY_NAME.find(([regex]) => regex.test(name))?.[1] ?? 'card';
 }
 
-async function detectComponents(root, files, namespace, frameworks) {
+async function detectStorybook(files) {
+  const config = files.find((file) => /^\.storybook\/main\.(js|cjs|mjs|ts)$/.test(file.path));
+  const storyFiles = files.filter((file) => /\.stories\.(jsx?|tsx?|mdx|vue)$/.test(file.path));
+  const stories = [];
+  for (const file of storyFiles.slice(0, 100)) {
+    const content = await readSourceText(file);
+    stories.push({
+      path: file.path,
+      title: content.match(/title:\s*['"`]([^'"`]+)['"`]/)?.[1] ?? null,
+      component: content.match(/component:\s*([A-Za-z_$][A-Za-z0-9_$]*)/)?.[1] ?? null,
+    });
+  }
+  return {
+    detected: Boolean(config || storyFiles.length > 0),
+    configPath: config?.path ?? null,
+    storyCount: storyFiles.length,
+    stories,
+  };
+}
+
+async function detectComponents(root, files, namespace, frameworks, storybook = null) {
   const candidates = [];
   const sourceTexts = await readSourceTexts(files);
   for (const file of files) {
@@ -538,6 +663,8 @@ async function detectComponents(root, files, namespace, frameworks) {
       if (!suggestedComponent || ['page', 'index', 'app'].includes(suggestedComponent)) continue;
       const sourceUsage = findUsageLocations(baseName, sourceTexts);
       const suggestedCoreType = inferCoreType(componentName);
+      const storybookStories = findStorybookStoriesForComponent(componentName, selector, storybook);
+      const confidence = Math.min(0.92, (selector ? 0.82 : 0.72) + (storybookStories.length > 0 ? 0.05 : 0));
       candidates.push({
         id: `${slugify(file.path)}-${suggestedComponent}`,
         status: 'candidate',
@@ -551,10 +678,11 @@ async function detectComponents(root, files, namespace, frameworks) {
         props: extractProps(content),
         usageCount: Math.max(1, sourceUsage.length),
         sourceUsage,
-        confidence: selector ? 0.82 : 0.72,
+        storybookStories,
+        confidence,
         confidenceReason: selector
-          ? 'Angular selector and component metadata were found.'
-          : 'Static export/import scan found a reusable project component.',
+          ? `Angular selector and component metadata were found${storybookStories.length ? ', plus Storybook usage.' : '.'}`
+          : `Static export/import scan found a reusable project component${storybookStories.length ? ' with Storybook usage.' : '.'}`,
         mappingReason: `Name suggests AUB core type "${suggestedCoreType}" until a user approves a project-specific mapping.`,
         reviewHistory: [],
         reason: 'Static scan found a reusable project component. Approve before adding it to aub.registry.json.',
@@ -565,6 +693,21 @@ async function detectComponents(root, files, namespace, frameworks) {
   for (const candidate of candidates) byId.set(candidate.id, candidate);
   return [...byId.values()].slice(0, 100);
 }
+
+function findStorybookStoriesForComponent(componentName, selector, storybook) {
+  const stories = Array.isArray(storybook?.stories) ? storybook.stories : [];
+  return stories
+    .filter((story) => {
+      const haystack = [story.component, story.title, story.path].filter(Boolean).join(' ');
+      return haystack.includes(componentName) || (selector && haystack.includes(selector));
+    })
+    .map((story) => ({
+      path: story.path,
+      title: story.title,
+    }))
+    .slice(0, 10);
+}
+
 
 function countUsage(name, sourceTexts) {
   return Math.max(1, findUsageLocations(name, sourceTexts).length);
@@ -665,10 +808,12 @@ export async function listWorkspaceTemplates(root) {
 export async function getWorkspaceStatus(root) {
   clearSourceTextCacheIfRootChanged(root);
   const files = [];
-  await walk(root, root, files, 1500);
+  const walkState = await createWalkState(root);
+  await walkWithState(root, root, files, 1500, walkState);
   const packageJson = await readPackage(root);
   const frameworks = detectFrameworks(packageJson, files);
   const routes = await detectRoutes(files);
+  const storybook = await detectStorybook(files);
   const session = await readAubSession(root);
   const candidates = await readComponentCandidates(root);
   const templates = await listWorkspaceTemplates(root);
@@ -678,6 +823,8 @@ export async function getWorkspaceStatus(root) {
     aubDir: AUB_DIR,
     packageName: packageJson?.name ?? null,
     frameworks,
+    storybook,
+    scanAudit: walkState.audit,
     routeCount: routes.length,
     componentCandidateCount: candidates.candidates.length,
     templateCount: templates.length,
@@ -695,6 +842,7 @@ async function readImplementationReportSummary(root, session) {
   try {
     const absPath = resolveWorkspacePath(root, reportPath);
     const report = JSON.parse(await readFile(absPath, 'utf8'));
+    const safetyScore = report.safety_score ?? await readSafetyScoreForSession(root, session, report);
     const acceptance = Array.isArray(report.acceptance_results) ? report.acceptance_results : [];
     return {
       path: toWorkspacePath(root, absPath),
@@ -704,6 +852,7 @@ async function readImplementationReportSummary(root, session) {
       fail: acceptance.filter((item) => item.status === 'fail').length,
       needsReview: acceptance.filter((item) => item.status === 'needs-review').length,
       evidence: acceptance.reduce((count, item) => count + (Array.isArray(item.evidence) ? item.evidence.length : 0), 0),
+      safetyScore,
     };
   } catch {
     return {
@@ -713,22 +862,37 @@ async function readImplementationReportSummary(root, session) {
   }
 }
 
+async function readSafetyScoreForSession(root, session, report) {
+  const blueprintPath = session?.activeBlueprint;
+  if (!blueprintPath) return null;
+  try {
+    const blueprint = JSON.parse(await readFile(resolveWorkspacePath(root, blueprintPath), 'utf8'));
+    return scoreImplementationSafety(blueprint, report);
+  } catch {
+    return null;
+  }
+}
+
 export async function scanProjectUi(root, options = {}) {
   clearSourceTextCacheIfRootChanged(root);
   const files = [];
   const limit = Number.isInteger(options.limit) && options.limit > 0 ? options.limit : 2000;
-  await walk(root, root, files, limit);
+  const walkState = await createWalkState(root);
+  await walkWithState(root, root, files, limit, walkState);
   const packageJson = await readPackage(root);
   const namespace = normalizeNamespace(options.namespace ?? inferNamespace(root, packageJson), 'app');
   const frameworks = detectFrameworks(packageJson, files);
   const routes = await detectRoutes(files);
-  const candidates = await detectComponents(root, files, namespace, frameworks);
+  const storybook = await detectStorybook(files);
+  const candidates = await detectComponents(root, files, namespace, frameworks, storybook);
   const doc = await writeComponentCandidates(root, candidates);
   return {
     root,
     packageName: packageJson?.name ?? null,
     namespace,
     frameworks,
+    storybook,
+    scanAudit: walkState.audit,
     routes,
     components: candidates,
     componentCandidatesPath: COMPONENT_CANDIDATES_PATH,
@@ -1090,7 +1254,8 @@ export async function generateTemplateFromSource(root, args = {}) {
   const sourcePath = resolveWorkspacePath(root, args.sourcePath);
   const relPath = toWorkspacePath(root, sourcePath);
   const files = [];
-  await walk(root, root, files, 2000);
+  const walkState = await createWalkState(root);
+  await walkWithState(root, root, files, 2000, walkState);
   const candidates = (await readComponentCandidates(root)).candidates;
   const framework = normalizeFrameworkLabel(
     typeof args.framework === 'string' ? args.framework : inferFrameworkFromPath(relPath),
@@ -1144,6 +1309,7 @@ export async function generateTemplateFromSource(root, args = {}) {
   return {
     savedPath: toWorkspacePath(root, outputPath),
     template,
+    scanAudit: walkState.audit,
   };
 }
 

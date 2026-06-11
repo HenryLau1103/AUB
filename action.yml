@@ -19,6 +19,10 @@ inputs:
     description: Fail implementation reports that do not include machine-checkable evidence.
     required: false
     default: "false"
+  min-safety-score:
+    description: Optional minimum PR safety score for implementation reports.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -48,5 +52,8 @@ runs:
         fi
         if [[ "$AUB_REQUIRE_EVIDENCE" == "true" ]]; then
           args+=(--require-evidence)
+        fi
+        if [[ -n "${{ inputs.min-safety-score }}" ]]; then
+          args+=(--min-safety-score "${{ inputs.min-safety-score }}")
         fi
         node "$GITHUB_ACTION_PATH/scripts/ci-verify.mjs" "${args[@]}"

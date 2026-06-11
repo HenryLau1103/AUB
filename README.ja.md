@@ -13,7 +13,7 @@
 
 [English](./README.md) · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · **日本語** · [한국어](./README.ko.md)
 
-[Workspace loop ガイド](./docs/workspace-loop-user-manual.ja.md) · [10 分 demo](./docs/workspace-loop-10-minute-demo.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準サンプル](./examples/dashboard.ui.json)
+[Workspace loop ガイド](./docs/workspace-loop-user-manual.ja.md) · [10 分 demo](./docs/workspace-loop-10-minute-demo.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準サンプル](./examples/dashboard.ui.json)
 
 ![レスポンシブ画面を編集する AUB ビジュアルエディター](./docs/assets/aub-editor-en.jpg)
 
@@ -49,7 +49,7 @@ npx aub-workspace
 
 これにより local AUB MCP server が起動し、bundled editor が開き、editor が workspace に自動接続されます。この方法では AUB repo を clone する必要はありません。
 
-`init` は AUB CI config、GitHub issue templates、Copilot instructions、PR workflow を導入します。Editor では **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction** の順に進めます。その指示を Copilot、Codex、または他の coding agent に渡し、実 app の変更と証拠報告を依頼します。
+`init` は AUB CI config、`.aubignore`、`AGENTS.md`、GitHub issue templates、Copilot instructions、PR workflow を導入します。Editor では **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction** の順に進めます。その指示を Copilot、Codex、または他の coding agent に渡し、実 app の変更と証拠報告を依頼します。
 
 ## AUB が解決する問題
 
@@ -166,6 +166,8 @@ pnpm report:init examples/dashboard.ui.json implementation-report.json
 pnpm report:verify examples/dashboard.ui.json implementation-report.json
 pnpm report:capture -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
 pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+pnpm report:score screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json
+pnpm report:playwright -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings --output tests/aub-ui.spec.ts
 ```
 
 不足している interaction、responsive、acceptance を非破壊で補完します。
@@ -210,7 +212,7 @@ pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-e
 - Angular、Figma／Penpot bridge import：実装済み。
 - Codex、Claude Code、GitHub Copilot adapter：実装済み。
 - stdio／HTTP MCP server、23 ツール：実装済み。
-- One-command workspace initialization（`npx aub-workspace init`）：CI config、issue templates、Copilot instructions、PR workflow：実装済み。
+- One-command workspace initialization（`npx aub-workspace init`）：CI config、`.aubignore`、`AGENTS.md`、issue templates、Copilot instructions、PR workflow：実装済み。
 - Workspace-connected editor loop、local MCP HTTP、session、scanner-generated template、custom component candidate review、direct Blueprint save、implementation preview：実装済み。
 - Implementation evidence capture：viewport screenshot、DOM query、overflow、report evidence verification：実装済み。
 - 本番 component mapping、implementation report、GitHub Action：実装済み。

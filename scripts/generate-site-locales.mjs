@@ -57,6 +57,12 @@ const locales = {
       ['Agent-neutral execution', 'Codex, Claude Code, Copilot, and generic agents receive the same contract.'],
       ['Evidence, not confidence', 'Implementation reports and PR checks make incomplete work visible.'],
     ],
+    beforeAfterKicker: 'Before and after',
+    beforeAfterTitle: 'The difference shows up in pull request review',
+    beforeAfterCards: [
+      ['Without AUB', 'A vague issue asks an agent to improve a page. The PR may look plausible, but reviewers still have to guess whether the agent reused real components, preserved responsive behavior, or broke interactions.'],
+      ['With AUB', 'The issue references a Blueprint, approved component mappings, preview URL, acceptance ids, evidence, and a PR Safety Score. Review shifts from taste to verifiable risk.'],
+    ],
     integrationKicker: 'Integration contract',
     integrationTitle: 'Do not let agents invent your design system',
     integrationBody:
@@ -122,6 +128,12 @@ const locales = {
       ['Agent-neutral 執行', 'Codex、Claude Code、Copilot 與通用 Agent 取得相同合約。'],
       ['需要證據，不靠信心', 'Implementation report 與 PR check 會讓未完成工作清楚可見。'],
     ],
+    beforeAfterKicker: 'Before / After',
+    beforeAfterTitle: '差異會直接出現在 PR review',
+    beforeAfterCards: [
+      ['沒有 AUB', 'Issue 只叫 Agent 改善某個頁面。PR 也許看起來合理，但 reviewer 仍要猜它有沒有重用正式元件、有沒有保留響應式行為、有沒有破壞互動。'],
+      ['有 AUB', 'Issue 會引用 Blueprint、已核准 component mapping、preview URL、acceptance id、evidence 與 PR Safety Score。Review 從主觀喜好變成可驗證風險。'],
+    ],
     integrationKicker: '整合合約',
     integrationTitle: '不要讓 Agent 發明你的 design system',
     integrationBody: '自訂 registry 可指定正式 package、export symbol、source file、Storybook、文件，以及精確的 Blueprint-to-prop mapping。',
@@ -181,6 +193,12 @@ const locales = {
       ['复用生产组件', '把语义类型映射到现有 framework 组件，而不是重新创建相似组件。'],
       ['Agent-neutral 执行', 'Codex、Claude Code、Copilot 与通用 Agent 获得相同契约。'],
       ['需要证据，而非信心', 'Implementation report 与 PR check 会让未完成工作清晰可见。'],
+    ],
+    beforeAfterKicker: 'Before / After',
+    beforeAfterTitle: '差异会直接出现在 PR review',
+    beforeAfterCards: [
+      ['没有 AUB', 'Issue 只让 Agent 改善某个页面。PR 也许看起来合理，但 reviewer 仍要猜它有没有复用生产组件、保留响应式行为、或破坏交互。'],
+      ['有 AUB', 'Issue 会引用 Blueprint、已批准 component mapping、preview URL、acceptance id、evidence 与 PR Safety Score。Review 从主观喜好变成可验证风险。'],
     ],
     integrationKicker: '集成契约',
     integrationTitle: '不要让 Agent 发明你的 design system',
@@ -242,6 +260,12 @@ const locales = {
       ['Agent-neutral な実行', 'Codex、Claude Code、Copilot、汎用 Agent が同じ契約を受け取ります。'],
       ['信頼ではなく証拠', 'Implementation report と PR check が未完了作業を可視化します。'],
     ],
+    beforeAfterKicker: 'Before / After',
+    beforeAfterTitle: '違いは PR review に現れます',
+    beforeAfterCards: [
+      ['AUB なし', 'Issue が Agent にページ改善を曖昧に依頼します。PR はもっともらしく見えても、本番コンポーネント再利用、レスポンシブ挙動、既存インタラクションを reviewer が確認し直す必要があります。'],
+      ['AUB あり', 'Issue は Blueprint、承認済み component mapping、preview URL、acceptance id、evidence、PR Safety Score を参照します。Review は好みではなく検証可能なリスクになります。'],
+    ],
     integrationKicker: '連携契約',
     integrationTitle: 'Agent に design system を発明させない',
     integrationBody: 'カスタム registry で、本番 package、export symbol、source file、Storybook、ドキュメント、正確な Blueprint-to-prop mapping を指定できます。',
@@ -301,6 +325,12 @@ const locales = {
       ['프로덕션 자산 재사용', '시맨틱 유형을 기존 framework 컴포넌트에 연결해 재구현을 방지합니다.'],
       ['Agent-neutral 실행', 'Codex, Claude Code, Copilot과 범용 Agent가 동일한 계약을 받습니다.'],
       ['신뢰가 아닌 증거', 'Implementation report와 PR check가 미완료 작업을 드러냅니다.'],
+    ],
+    beforeAfterKicker: 'Before / After',
+    beforeAfterTitle: '차이는 PR review에서 드러납니다',
+    beforeAfterCards: [
+      ['AUB 없음', 'Issue가 Agent에게 페이지 개선을 모호하게 요청합니다. PR이 그럴듯해 보여도 reviewer는 프로덕션 컴포넌트 재사용, 반응형 동작, 기존 인터랙션 보존을 다시 확인해야 합니다.'],
+      ['AUB 있음', 'Issue는 Blueprint, 승인된 component mapping, preview URL, acceptance id, evidence, PR Safety Score를 참조합니다. Review는 취향이 아니라 검증 가능한 위험 평가가 됩니다.'],
     ],
     integrationKicker: '통합 계약',
     integrationTitle: 'Agent가 design system을 발명하지 못하게 합니다',
@@ -369,6 +399,14 @@ function renderPage(id, locale) {
     )
     .join('\n');
   const cards = locale.whyCards
+    .map(
+      ([title, body]) => `          <div class="card">
+            <h3>${title}</h3>
+            <p>${body}</p>
+          </div>`
+    )
+    .join('\n');
+  const beforeAfterCards = locale.beforeAfterCards
     .map(
       ([title, body]) => `          <div class="card">
             <h3>${title}</h3>
@@ -464,6 +502,14 @@ ${steps}
         <p class="why-lede">${locale.whyLede}</p>
         <div class="why-grid">
 ${cards}
+        </div>
+      </section>
+
+      <section class="before-after">
+        <p class="section-kicker">${locale.beforeAfterKicker}</p>
+        <h2>${locale.beforeAfterTitle}</h2>
+        <div class="why-grid">
+${beforeAfterCards}
         </div>
       </section>
 

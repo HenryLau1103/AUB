@@ -47,6 +47,7 @@
       "type": "array",
       "items": { "$ref": "#/$defs/acceptanceResult" }
     },
+    "safety_score": { "$ref": "#/$defs/safetyScore" },
     "unresolved": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
@@ -121,6 +122,40 @@
         },
         "bytes": { "type": "integer", "minimum": 0 },
         "pass": { "type": "boolean" }
+      }
+    },
+    "safetyScore": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overall",
+        "grade",
+        "sourceCoverageScore",
+        "acceptanceEvidenceScore",
+        "viewportEvidenceScore",
+        "overflowSafety",
+        "componentReuseScore",
+        "unresolvedMappingCount",
+        "lookalikePreventionCount",
+        "evidenceItems",
+        "expectedViewports"
+      ],
+      "properties": {
+        "overall": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "grade": { "enum": ["pass", "review", "risk", "fail"] },
+        "sourceCoverageScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "acceptanceEvidenceScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "viewportEvidenceScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "overflowSafety": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "componentReuseScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "unresolvedMappingCount": { "type": "integer", "minimum": 0 },
+        "lookalikePreventionCount": { "type": "integer", "minimum": 0 },
+        "evidenceItems": { "type": "integer", "minimum": 0 },
+        "expectedViewports": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
       }
     }
   }
