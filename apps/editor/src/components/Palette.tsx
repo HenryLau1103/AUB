@@ -5,6 +5,7 @@ import { getCategories, isContainerType } from '../lib/registry';
 import { TEMPLATE_GROUPS, templateDescription, templateLabel, type TemplateId } from '../lib/templates';
 import type { Blueprint, ComponentType, UINode } from '../types';
 import type { PersonalTemplate } from '../lib/personal-templates';
+import type { WorkspaceTemplate } from '../lib/workspace-client';
 
 interface Props {
   blueprint: Blueprint | null;
@@ -21,6 +22,8 @@ interface Props {
   onLoadPersonalTemplate: (template: PersonalTemplate) => void;
   onExportPersonalTemplate: (template: PersonalTemplate) => void;
   onDeletePersonalTemplate: (template: PersonalTemplate) => void;
+  workspaceTemplates: WorkspaceTemplate[];
+  onLoadWorkspaceTemplate: (template: WorkspaceTemplate) => void;
 }
 
 type PaletteTab = 'components' | 'templates' | 'layers';
@@ -40,6 +43,8 @@ export function Palette({
   onLoadPersonalTemplate,
   onExportPersonalTemplate,
   onDeletePersonalTemplate,
+  workspaceTemplates,
+  onLoadWorkspaceTemplate,
 }: Props) {
   const [tab, setTab] = useState<PaletteTab>('components');
   const [query, setQuery] = useState('');
@@ -148,6 +153,24 @@ export function Palette({
               </div>
             ))}
           </section>
+          {workspaceTemplates.length > 0 && (
+            <section className="workspace-template-section">
+              <h3>{language === 'zh-Hant' ? 'Workspace 範本' : 'Workspace templates'}</h3>
+              {workspaceTemplates.map((template) => (
+                <button key={template.path} type="button" onClick={() => onLoadWorkspaceTemplate(template)}>
+                  <div className="template-preview-empty"><LayoutTemplate /></div>
+                  <span className="template-browser-copy">
+                    <strong>{template.name}</strong>
+                    <span>
+                      {template.framework} · {template.status}
+                      {typeof template.confidence === 'number' ? ` · ${Math.round(template.confidence * 100)}%` : ''}
+                    </span>
+                    <span>{template.source?.path ?? template.path}</span>
+                  </span>
+                </button>
+              ))}
+            </section>
+          )}
           {TEMPLATE_GROUPS.map((group) => (
             <section key={group.id}>
               <h3>{language === 'zh-Hant' ? group.labelZh : group.labelEn}</h3>

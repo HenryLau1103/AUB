@@ -135,9 +135,10 @@ Supported tasks are `author`, `plan`, `implement`, and `review`.
 
 Instead of copying files into the target repository, agents that speak the
 [Model Context Protocol](https://modelcontextprotocol.io) can call AUB tools directly over
-stdio or Streamable HTTP. The 16 tools cover Blueprint/project discovery, Figma/Penpot bridge
+stdio or Streamable HTTP. The 23 tools cover Blueprint/project discovery, Figma/Penpot bridge
 import, validated writes, handoff packaging, validation, scaffolding, component resolution,
-prompt export, diff, migration, locking, and implementation-report submission.
+prompt export, diff, migration, locking, workspace sessions, app scanning, template generation,
+component candidate review, and implementation-report submission.
 
 ```bash
 (cd apps/mcp-server && pnpm install && pnpm build)
@@ -150,6 +151,33 @@ Register it with Claude Code, Codex, or any MCP client. See
 [`apps/mcp-server/README.md`](./apps/mcp-server/README.md) for configuration snippets. The
 server wraps the same libraries as the CLI, so schema, layout semantics, interactions, and
 acceptance criteria are unchanged.
+
+### Workspace-connected editor loop
+
+For an existing app, run the Streamable HTTP server against that app's repo and
+connect the AUB editor to `http://127.0.0.1:3100/mcp`:
+
+```bash
+node apps/mcp-server/dist/http.js --workspace /path/to/existing-app --port 3100
+```
+
+The editor uses the same server process to load and save Blueprints, update
+`.aub/session.json`, review `.aub/templates/*.aub.template.json`, approve
+`.aub/component-candidates.json`, and preview the app's local dev route. Coding
+agents continue to use MCP tools such as `get_aub_session`, `get_blueprint`,
+`resolve_component`, and `write_blueprint`.
+
+Agents can bootstrap the loop from existing code:
+
+```text
+scan_project_ui
+generate_template_from_source { "sourcePath": "app/settings/page.tsx" }
+export_template_authoring_prompt
+```
+
+Scanner output is candidate-first: custom components go to
+`.aub/component-candidates.json` and only become `aub.registry.json` extension
+types after user approval.
 
 ## What the Blueprint describes
 
@@ -357,7 +385,8 @@ The `$schema` key is optional and ignored by AUB tooling — it only drives edit
 - Codex, Claude Code, and GitHub Copilot adapters: implemented.
 - Angular import, Figma/Penpot semantic bridge, personal templates, and AI authoring kit: implemented.
 - Blueprint diff and implementation report verification: implemented.
-- MCP server (stdio + Streamable HTTP) exposing 16 tools including Design Bridge import, validated writes, handoff packaging, discovery, validation, component resolution, scaffolding, diff, migration, locks, and reports: implemented.
+- MCP server (stdio + Streamable HTTP) exposing 23 tools including Design Bridge import, validated writes, handoff packaging, discovery, validation, component resolution, scaffolding, diff, migration, locks, workspace sessions, app scanning, template generation, candidate review, and reports: implemented.
+- Workspace-connected editor loop for local MCP HTTP, session state, scanner-generated templates, component candidate review, direct Blueprint save, and implementation preview: implemented.
 - Production component mappings in `aub.registry.json`: implemented.
 - GitHub Action and local CI verifier for contracts plus implementation evidence: implemented.
 - Multi-screen projects (reference-based `.aub.project.json`, CLI, MCP tools, editor screen switcher + navigation): implemented.

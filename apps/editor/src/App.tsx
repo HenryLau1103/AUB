@@ -8,6 +8,7 @@ import { BlueprintPanel } from './components/BlueprintPanel';
 import { WorkflowBar, type WorkflowStage } from './components/WorkflowBar';
 import { ProjectBar } from './components/ProjectBar';
 import { AngularImportDialog } from './components/AngularImportDialog';
+import { WorkspacePanel } from './components/WorkspacePanel';
 import {
   downloadAuthoringKit,
   downloadBlob,
@@ -60,6 +61,14 @@ import {
   type PersonalTemplate,
 } from './lib/personal-templates';
 import type { ViewportQualityReport } from './lib/viewport-quality';
+import {
+  connectWorkspace,
+  workspaceRpc,
+  type ComponentCandidate,
+  type WorkspaceConnection,
+  type WorkspaceStatus,
+  type WorkspaceTemplate,
+} from './lib/workspace-client';
 import {
   buildEditorProject,
   createProjectFromBlueprint,
@@ -243,6 +252,12 @@ export function App() {
   const [project, setProject] = useState<EditorProject | null>(null);
   const [activeScreenId, setActiveScreenId] = useState<string | null>(null);
   const [extensionRegistry, setExtensionRegistry] = useState<string | null>(null);
+  const [workspaceEndpoint, setWorkspaceEndpoint] = useState('http://127.0.0.1:3100/mcp');
+  const [workspaceConnection, setWorkspaceConnection] = useState<WorkspaceConnection | null>(null);
+  const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus | null>(null);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [workspaceSavePath, setWorkspaceSavePath] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<CanvasHandle>(null);
   const blueprint = history.present;
@@ -366,6 +381,152 @@ export function App() {
     setCanvasResetKey((value) => value + 1);
     setSelectedIds([nextBlueprint.nodes.find((node) => node.parent_id === null)?.id].filter(Boolean) as string[]);
     setNotice(t(language, 'templateLoaded', { template: templateLabel(language, templateId) }));
+  }
+
+  async function loadWorkspaceStatus(connection: WorkspaceConnection): Promise<WorkspaceStatus> {
+    const [status, blueprints, projects] = await Promise.all([
+      workspaceRpc<WorkspaceStatus>(connection, 'get_workspace_status'),
+      workspaceRpc<{ blueprints: WorkspaceStatus['blueprints'] }>(connection, 'list_blueprints'),
+      workspaceRpc<{ projects: WorkspaceStatus['projects'] }>(connection, 'list_projects'),
+    ]);
+    return {
+      ...status,
+      blueprints: blueprints.blueprints ?? [],
+      projects: projects.projects ?? [],
+    };
+  }
+
+  async function handleConnectWorkspace() {
+    setWorkspaceLoading(true);
+    setWorkspaceError(null);
+    try {
+      const { connection } = await connectWorkspace(workspaceEndpoint);
+      const status = await loadWorkspaceStatus(connection);
+      setWorkspaceConnection(connection);
+      setWorkspaceStatus(status);
+      setWorkspaceEndpoint(connection.endpoint);
+      setWorkspaceSavePath(status.session.activeBlueprint ?? (blueprint ? `${blueprint.screen.id}.ui.json` : ''));
+      setNotice(language === 'zh-Hant' ? '已連到 AUB workspace。' : 'Connected to AUB workspace.');
+    } catch (error) {
+      setWorkspaceError((error as Error).message);
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }
+
+  async function handleRefreshWorkspace() {
+    if (!workspaceConnection) return;
+    setWorkspaceLoading(true);
+    setWorkspaceError(null);
+    try {
+      setWorkspaceStatus(await loadWorkspaceStatus(workspaceConnection));
+    } catch (error) {
+      setWorkspaceError((error as Error).message);
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }
+
+  async function handleLoadWorkspaceBlueprint(path: string) {
+    if (!workspaceConnection) return;
+    setWorkspaceLoading(true);
+    setWorkspaceError(null);
+    try {
+      const result = await workspaceRpc<{ blueprint: Blueprint }>(workspaceConnection, 'get_blueprint', { ref: path });
+      handleImport(result.blueprint);
+      setWorkspaceSavePath(path);
+      await workspaceRpc(workspaceConnection, 'update_aub_session', {
+        patch: { activeBlueprint: path },
+      });
+      setWorkspaceStatus(await loadWorkspaceStatus(workspaceConnection));
+      setNotice(language === 'zh-Hant' ? `已載入 workspace Blueprint：${path}` : `Loaded workspace Blueprint: ${path}`);
+    } catch (error) {
+      setWorkspaceError((error as Error).message);
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }
+
+  async function handleSaveWorkspaceBlueprint() {
+    if (!workspaceConnection || !blueprint) return;
+    const path = workspaceSavePath.trim() || `${blueprint.screen.id}.ui.json`;
+    setWorkspaceLoading(true);
+    setWorkspaceError(null);
+    try {
+      await workspaceRpc(workspaceConnection, 'write_blueprint', {
+        path,
+        blueprint,
+        overwrite: true,
+      });
+      await workspaceRpc(workspaceConnection, 'update_aub_session', {
+        patch: {
+          activeBlueprint: path,
+          activeProject: project ? `${project.id}.aub.project.json` : null,
+          targetRoute: workspaceStatus?.session?.preview?.route ?? null,
+        },
+      });
+      setWorkspaceSavePath(path);
+      setWorkspaceStatus(await loadWorkspaceStatus(workspaceConnection));
+      setNotice(language === 'zh-Hant' ? `已存回 workspace：${path}` : `Saved to workspace: ${path}`);
+    } catch (error) {
+      setWorkspaceError((error as Error).message);
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }
+
+  function handleLoadWorkspaceTemplate(template: WorkspaceTemplate) {
+    handleImport(template.blueprint);
+    setWorkspaceSavePath(`${template.blueprint.screen.id}.ui.json`);
+    setNotice(language === 'zh-Hant'
+      ? `已載入 Workspace 範本「${template.name}」。`
+      : `Loaded workspace template "${template.name}".`);
+  }
+
+  async function handleWorkspacePreviewChange(patch: { devServerUrl?: string; route?: string }) {
+    if (!workspaceConnection) return;
+    const currentPreview = workspaceStatus?.session.preview ?? {};
+    const nextPreview = { ...currentPreview, ...patch };
+    setWorkspaceLoading(true);
+    setWorkspaceError(null);
+    try {
+      await workspaceRpc(workspaceConnection, 'update_aub_session', {
+        patch: {
+          preview: nextPreview,
+          targetRoute: nextPreview.route ?? workspaceStatus?.session.targetRoute ?? null,
+        },
+      });
+      setWorkspaceStatus(await loadWorkspaceStatus(workspaceConnection));
+    } catch (error) {
+      setWorkspaceError((error as Error).message);
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }
+
+  async function handleReviewComponentCandidate(
+    candidate: ComponentCandidate,
+    action: 'create_extension' | 'map_core' | 'ignore',
+    coreType?: string
+  ) {
+    if (!workspaceConnection) return;
+    setWorkspaceLoading(true);
+    setWorkspaceError(null);
+    try {
+      await workspaceRpc(workspaceConnection, 'approve_component_candidate', {
+        id: candidate.id,
+        action,
+        ...(coreType ? { coreType } : {}),
+      });
+      setWorkspaceStatus(await loadWorkspaceStatus(workspaceConnection));
+      setNotice(language === 'zh-Hant'
+        ? `已審核元件候選：${candidate.componentName}`
+        : `Reviewed component candidate: ${candidate.componentName}`);
+    } catch (error) {
+      setWorkspaceError((error as Error).message);
+    } finally {
+      setWorkspaceLoading(false);
+    }
   }
 
   function handleCreateStarter(kind: 'page' | 'app') {
@@ -873,6 +1034,29 @@ export function App() {
         viewportQuality={viewportQuality}
         onChange={setWorkflowStage}
       />
+      <WorkspacePanel
+        language={language}
+        endpoint={workspaceEndpoint}
+        connected={workspaceConnection !== null}
+        loading={workspaceLoading}
+        error={workspaceError}
+        status={workspaceStatus}
+        blueprint={blueprint}
+        savePath={workspaceSavePath}
+        onEndpointChange={setWorkspaceEndpoint}
+        onConnect={() => void handleConnectWorkspace()}
+        onDisconnect={() => {
+          setWorkspaceConnection(null);
+          setWorkspaceStatus(null);
+          setWorkspaceError(null);
+        }}
+        onRefresh={() => void handleRefreshWorkspace()}
+        onLoadBlueprint={(path) => void handleLoadWorkspaceBlueprint(path)}
+        onSaveBlueprint={() => void handleSaveWorkspaceBlueprint()}
+        onSavePathChange={setWorkspaceSavePath}
+        onPreviewChange={(patch) => void handleWorkspacePreviewChange(patch)}
+        onReviewCandidate={(candidate, action, coreType) => void handleReviewComponentCandidate(candidate, action, coreType)}
+      />
       {project && (
         <ProjectBar
           project={project}
@@ -906,8 +1090,10 @@ export function App() {
             onDraggingTypeChange={setDraggingType}
             onTemplateSelect={handleTemplateSelect}
             personalTemplates={personalTemplates}
+            workspaceTemplates={workspaceStatus?.templates ?? []}
             onSavePersonalTemplate={(name) => void handleSavePersonalTemplate(name)}
             onLoadPersonalTemplate={handleLoadPersonalTemplate}
+            onLoadWorkspaceTemplate={handleLoadWorkspaceTemplate}
             onExportPersonalTemplate={(template) => void downloadPersonalTemplatePackage(template)}
             onDeletePersonalTemplate={handleDeletePersonalTemplate}
           />

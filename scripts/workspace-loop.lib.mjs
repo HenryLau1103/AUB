@@ -1,0 +1,674 @@
+import { access, mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
+import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
+import { defaultDesignSystem } from './migrate-blueprint.mjs';
+
+export const WORKSPACE_LOOP_VERSION = '0.1.0';
+export const AUB_DIR = '.aub';
+export const SESSION_PATH = '.aub/session.json';
+export const COMPONENT_CANDIDATES_PATH = '.aub/component-candidates.json';
+export const TEMPLATE_DIR = '.aub/templates';
+export const TEMPLATE_FORMAT = 'aub-workspace-template';
+export const TEMPLATE_FORMAT_VERSION = '0.1.0';
+
+const IGNORE_DIRS = new Set([
+  '.git',
+  '.aub',
+  '.next',
+  '.nuxt',
+  '.output',
+  'coverage',
+  'dist',
+  'build',
+  'node_modules',
+  '.pnpm-store',
+]);
+
+const SOURCE_EXTENSIONS = new Set(['.tsx', '.jsx', '.ts', '.js', '.vue', '.html']);
+const CORE_KIND_BY_NAME = [
+  [/button|cta|action/i, 'button'],
+  [/sidebar|nav/i, 'sidebar'],
+  [/header|topbar|toolbar/i, 'top_bar'],
+  [/table|grid/i, 'data_table'],
+  [/form|fields?/i, 'form'],
+  [/input|search/i, 'text_input'],
+  [/card|tile|panel/i, 'card'],
+  [/chart|sparkline|graph/i, 'chart_placeholder'],
+  [/modal|dialog/i, 'modal'],
+  [/drawer/i, 'drawer'],
+  [/tabs?/i, 'tabs'],
+  [/list|feed/i, 'list'],
+];
+
+export function resolveWorkspacePath(root, filePath) {
+  const absRoot = resolve(root);
+  const absPath = resolve(absRoot, filePath);
+  const rel = relative(absRoot, absPath);
+  if (rel === '..' || rel.startsWith(`..${sep}`) || rel === '' || rel.startsWith('/')) {
+    throw new Error(`Path must stay inside the workspace root: ${filePath}`);
+  }
+  return absPath;
+}
+
+async function exists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readJsonIfExists(path, fallback) {
+  if (!(await exists(path))) return fallback;
+  return JSON.parse(await readFile(path, 'utf8'));
+}
+
+async function writeJsonAtomic(path, value) {
+  await mkdir(dirname(path), { recursive: true });
+  const content = `${JSON.stringify(value, null, 2)}\n`;
+  const tempPath = `${path}.${process.pid}.tmp`;
+  await writeFile(tempPath, content, 'utf8');
+  await rename(tempPath, path);
+  return { bytes: Buffer.byteLength(content) };
+}
+
+function toWorkspacePath(root, absPath) {
+  return relative(root, absPath).split(sep).join('/');
+}
+
+function slugify(value, fallback = 'item') {
+  return String(value || fallback)
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || fallback;
+}
+
+function snake(value, fallback = 'component') {
+  return slugify(value, fallback).replace(/-/g, '_');
+}
+
+function title(value, fallback = 'Screen') {
+  const cleaned = String(value || fallback)
+    .replace(/\.[^.]+$/, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .trim();
+  return cleaned
+    ? cleaned.replace(/\b\w/g, (letter) => letter.toUpperCase())
+    : fallback;
+}
+
+function inferNamespace(root, packageJson) {
+  const packageName = packageJson?.name;
+  const base = packageName
+    ? packageName.split('/').pop()
+    : basename(root);
+  return slugify(base, 'app').replace(/[^a-z0-9]/g, '') || 'app';
+}
+
+async function walk(root, dir, out, limit = 2000) {
+  if (out.length >= limit) return;
+  let dirents;
+  try {
+    dirents = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const dirent of dirents) {
+    if (out.length >= limit) return;
+    const full = join(dir, dirent.name);
+    if (dirent.isDirectory()) {
+      if (IGNORE_DIRS.has(dirent.name) || dirent.name.startsWith('.')) continue;
+      await walk(root, full, out, limit);
+    } else if (dirent.isFile()) {
+      out.push({ path: toWorkspacePath(root, full), absPath: full, name: dirent.name });
+    }
+  }
+}
+
+async function readPackage(root) {
+  const path = join(root, 'package.json');
+  if (!(await exists(path))) return null;
+  try {
+    return JSON.parse(await readFile(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function detectFrameworks(packageJson, files) {
+  const deps = {
+    ...(packageJson?.dependencies ?? {}),
+    ...(packageJson?.devDependencies ?? {}),
+  };
+  const names = new Set(Object.keys(deps));
+  const frameworks = [];
+  if (names.has('next') || files.some((file) => /^app\/.+\/page\.[tj]sx?$|^pages\/.+\.[tj]sx?$/.test(file.path))) {
+    frameworks.push('next');
+  }
+  if (names.has('react') && !frameworks.includes('next')) frameworks.push('react');
+  if (names.has('nuxt') || files.some((file) => /^pages\/.+\.vue$|^app\.vue$/.test(file.path))) frameworks.push('nuxt');
+  if (names.has('vue') && !frameworks.includes('nuxt')) frameworks.push('vue');
+  if (names.has('@angular/core') || files.some((file) => /\.component\.(ts|html)$/.test(file.name))) frameworks.push('angular');
+  return frameworks.length ? frameworks : ['unknown'];
+}
+
+function routeFromPath(path) {
+  let route = path
+    .replace(/^src\//, '')
+    .replace(/^app\//, '/')
+    .replace(/^pages\//, '/')
+    .replace(/\/page\.[tj]sx?$/, '')
+    .replace(/\/index\.[tj]sx?$/, '')
+    .replace(/\.vue$/, '')
+    .replace(/\.[tj]sx?$/, '')
+    .replace(/\.component\.html$/, '');
+  if (!route.startsWith('/')) route = `/${route}`;
+  route = route.replace(/\[(.+?)\]/g, ':$1').replace(/\/+/g, '/');
+  return route === '/index' || route === '/app' ? '/' : route;
+}
+
+function detectRoutes(files) {
+  return files
+    .filter((file) => {
+      const path = file.path;
+      return /^app\/(?:.+\/)?page\.[tj]sx?$/.test(path)
+        || /^pages\/.+\.(tsx|jsx|ts|js|vue)$/.test(path)
+        || /^src\/pages\/.+\.(tsx|jsx|ts|js|vue)$/.test(path)
+        || /\.component\.html$/.test(path);
+    })
+    .map((file) => ({
+      id: slugify(routeFromPath(file.path), 'route'),
+      path: file.path,
+      route: routeFromPath(file.path),
+      kind: /\.vue$/.test(file.path) ? 'vue-route' : /\.component\.html$/.test(file.path) ? 'angular-template' : 'route',
+    }));
+}
+
+function extractReactExports(content) {
+  const names = new Set();
+  for (const match of content.matchAll(/export\s+(?:default\s+)?function\s+([A-Z][A-Za-z0-9_]*)/g)) names.add(match[1]);
+  for (const match of content.matchAll(/export\s+const\s+([A-Z][A-Za-z0-9_]*)\s*=/g)) names.add(match[1]);
+  for (const match of content.matchAll(/function\s+([A-Z][A-Za-z0-9_]*)\s*\(/g)) names.add(match[1]);
+  return [...names];
+}
+
+function extractVueName(content, path) {
+  const define = content.match(/name:\s*['"`]([^'"`]+)['"`]/)?.[1];
+  return define ?? title(basename(path), 'VueComponent').replace(/\s+/g, '');
+}
+
+function extractAngularSelector(content) {
+  return content.match(/selector:\s*['"`]([^'"`]+)['"`]/)?.[1] ?? null;
+}
+
+function extractProps(content) {
+  const props = new Set();
+  const iface = content.match(/interface\s+\w*Props\s*{([\s\S]*?)}/)?.[1];
+  if (iface) {
+    for (const match of iface.matchAll(/([A-Za-z_$][A-Za-z0-9_$]*)\??\s*:/g)) props.add(match[1]);
+  }
+  for (const match of content.matchAll(/@Input\(\)?\s+([A-Za-z_$][A-Za-z0-9_$]*)/g)) props.add(match[1]);
+  const defineProps = content.match(/defineProps\s*<\s*{([\s\S]*?)}\s*>/)?.[1];
+  if (defineProps) {
+    for (const match of defineProps.matchAll(/([A-Za-z_$][A-Za-z0-9_$]*)\??\s*:/g)) props.add(match[1]);
+  }
+  return [...props].slice(0, 20);
+}
+
+function inferCoreType(name) {
+  return CORE_KIND_BY_NAME.find(([regex]) => regex.test(name))?.[1] ?? 'card';
+}
+
+async function detectComponents(root, files, namespace, frameworks) {
+  const candidates = [];
+  for (const file of files) {
+    const ext = extname(file.path).toLowerCase();
+    if (!SOURCE_EXTENSIONS.has(ext)) continue;
+    if (!/(component|components|ui|widgets|shared|src)/i.test(file.path)) continue;
+    let content = '';
+    try {
+      content = await readFile(file.absPath, 'utf8');
+    } catch {
+      continue;
+    }
+    const names = ext === '.vue'
+      ? [extractVueName(content, file.path)]
+      : ext === '.ts' && /\.component\.ts$/.test(file.path)
+        ? [title(basename(file.path).replace(/\.component\.ts$/, ''), 'AngularComponent').replace(/\s+/g, '')]
+        : extractReactExports(content);
+    const selector = extractAngularSelector(content);
+    for (const componentName of names.filter(Boolean)) {
+      const baseName = selector ?? componentName;
+      const suggestedComponent = snake(baseName.replace(/^[a-z]+-/, ''), 'component');
+      if (!suggestedComponent || ['page', 'index', 'app'].includes(suggestedComponent)) continue;
+      candidates.push({
+        id: `${slugify(file.path)}-${suggestedComponent}`,
+        status: 'candidate',
+        sourcePath: file.path,
+        framework: frameworks.includes('angular') && selector ? 'angular' : frameworks[0],
+        componentName,
+        selector,
+        suggestedType: `${namespace}:${suggestedComponent}`,
+        suggestedCoreType: inferCoreType(componentName),
+        isContainer: /card|panel|layout|section|list|table|form|shell|modal|drawer/i.test(componentName),
+        props: extractProps(content),
+        usageCount: countUsage(baseName, files, root),
+        confidence: selector ? 0.82 : 0.72,
+        reason: 'Static scan found a reusable project component. Approve before adding it to aub.registry.json.',
+      });
+    }
+  }
+  const byId = new Map();
+  for (const candidate of candidates) byId.set(candidate.id, candidate);
+  return [...byId.values()].slice(0, 100);
+}
+
+function countUsage(name, files) {
+  const tag = String(name).replace(/^[a-z]+-/, '');
+  let count = 0;
+  for (const file of files) {
+    if (!SOURCE_EXTENSIONS.has(extname(file.path).toLowerCase())) continue;
+    try {
+      const text = existsSync(file.absPath) ? String(readFileSyncSafe(file.absPath)) : '';
+      if (text.includes(`<${name}`) || text.includes(`<${tag}`) || text.includes(name)) count += 1;
+    } catch {
+      // Ignore unreadable files.
+    }
+  }
+  return Math.max(1, count);
+}
+
+function readFileSyncSafe(path) {
+  // Small helper isolated so async scanning can keep the component usage pass simple.
+  return existsSync(path) ? readFileSync(path, 'utf8') : '';
+}
+
+export async function readAubSession(root) {
+  return readJsonIfExists(join(root, SESSION_PATH), {
+    version: WORKSPACE_LOOP_VERSION,
+    activeBlueprint: null,
+    activeProject: null,
+    targetRoute: null,
+    preview: {
+      devServerUrl: null,
+      route: null,
+      lastImplementationReport: null,
+    },
+    updatedAt: null,
+  });
+}
+
+export async function updateAubSession(root, patch = {}) {
+  const current = await readAubSession(root);
+  const next = {
+    ...current,
+    ...patch,
+    preview: {
+      ...(current.preview ?? {}),
+      ...(patch.preview ?? {}),
+    },
+    updatedAt: new Date().toISOString(),
+  };
+  await writeJsonAtomic(join(root, SESSION_PATH), next);
+  return { path: SESSION_PATH, session: next };
+}
+
+export async function readComponentCandidates(root) {
+  const doc = await readJsonIfExists(join(root, COMPONENT_CANDIDATES_PATH), null);
+  if (!doc) {
+    return { format: 'aub-component-candidates', format_version: WORKSPACE_LOOP_VERSION, candidates: [] };
+  }
+  return {
+    format: doc.format ?? 'aub-component-candidates',
+    format_version: doc.format_version ?? WORKSPACE_LOOP_VERSION,
+    candidates: Array.isArray(doc.candidates) ? doc.candidates : [],
+  };
+}
+
+async function writeComponentCandidates(root, candidates) {
+  const doc = {
+    format: 'aub-component-candidates',
+    format_version: WORKSPACE_LOOP_VERSION,
+    updatedAt: new Date().toISOString(),
+    candidates,
+  };
+  await writeJsonAtomic(join(root, COMPONENT_CANDIDATES_PATH), doc);
+  return doc;
+}
+
+export async function listWorkspaceTemplates(root) {
+  const dir = join(root, TEMPLATE_DIR);
+  if (!(await exists(dir))) return [];
+  const entries = await readdir(dir, { withFileTypes: true });
+  const templates = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.aub.template.json')) continue;
+    const absPath = join(dir, entry.name);
+    try {
+      const template = JSON.parse(await readFile(absPath, 'utf8'));
+      templates.push({
+        path: toWorkspacePath(root, absPath),
+        ...template,
+      });
+    } catch {
+      // Invalid templates are ignored by status and surfaced when opened directly.
+    }
+  }
+  return templates.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+
+export async function getWorkspaceStatus(root) {
+  const files = [];
+  await walk(root, root, files, 1500);
+  const packageJson = await readPackage(root);
+  const frameworks = detectFrameworks(packageJson, files);
+  const routes = detectRoutes(files);
+  const session = await readAubSession(root);
+  const candidates = await readComponentCandidates(root);
+  const templates = await listWorkspaceTemplates(root);
+  return {
+    root,
+    aubDir: AUB_DIR,
+    packageName: packageJson?.name ?? null,
+    frameworks,
+    routeCount: routes.length,
+    componentCandidateCount: candidates.candidates.length,
+    templateCount: templates.length,
+    session,
+    routes,
+    componentCandidates: candidates.candidates,
+    templates,
+  };
+}
+
+export async function scanProjectUi(root, options = {}) {
+  const files = [];
+  await walk(root, root, files, options.limit ?? 2000);
+  const packageJson = await readPackage(root);
+  const namespace = snake(options.namespace ?? inferNamespace(root, packageJson), 'app');
+  const frameworks = detectFrameworks(packageJson, files);
+  const routes = detectRoutes(files);
+  const candidates = await detectComponents(root, files, namespace, frameworks);
+  const doc = await writeComponentCandidates(root, candidates);
+  return {
+    root,
+    packageName: packageJson?.name ?? null,
+    namespace,
+    frameworks,
+    routes,
+    components: candidates,
+    componentCandidatesPath: COMPONENT_CANDIDATES_PATH,
+    componentCandidates: doc,
+  };
+}
+
+function makeBlueprint({ id, name, framework, source, route, componentRefs = [] }) {
+  const screenId = `workspace.${slugify(id, 'screen').replace(/-/g, '.')}`;
+  const rootChildren = ['hero_section', ...componentRefs.map((ref, index) => `component_${index + 1}`)];
+  const nodes = [
+    {
+      id: 'root',
+      type: 'page',
+      name,
+      role: `Workspace-derived screen from ${source.path}.`,
+      parent_id: null,
+      children: rootChildren,
+      layout: { mode: 'freeform' },
+    },
+    {
+      id: 'hero_section',
+      type: 'section',
+      name: 'Imported structure',
+      role: 'Represents the source route or component at a reviewable level before implementation.',
+      parent_id: 'root',
+      children: ['source_heading', 'source_summary'],
+      layout: { mode: 'auto', display: 'flex', direction: 'column', gap: { x: 12, y: 12 }, padding: { top: 32, right: 32, bottom: 32, left: 32 } },
+      placements: {
+        desktop: { x: 64, y: 64, width: 760, height: 220, z_index: 1 },
+        tablet: { x: 48, y: 56, width: 640, height: 220, z_index: 1 },
+        mobile: { x: 16, y: 48, width: 358, height: 240, z_index: 1 },
+      },
+      source: { file: source.path },
+    },
+    {
+      id: 'source_heading',
+      type: 'heading',
+      name: `${name} heading`,
+      role: 'Visible heading inferred from the source entry.',
+      parent_id: 'hero_section',
+      children: [],
+      content: { text: name },
+    },
+    {
+      id: 'source_summary',
+      type: 'text',
+      name: 'Source summary',
+      role: 'Records where the candidate template came from.',
+      parent_id: 'hero_section',
+      children: [],
+      content: { text: `Generated from ${framework} source ${source.path}${route ? ` (${route})` : ''}. Review before approving.` },
+    },
+    ...componentRefs.map((ref, index) => ({
+      id: `component_${index + 1}`,
+      type: ref.coreType ?? 'card',
+      name: ref.name,
+      role: `Placeholder for project component ${ref.suggestedType}. Approve the component candidate before implementation reuse.`,
+      parent_id: 'root',
+      children: [],
+      layout: { mode: 'auto' },
+      content: { label: ref.suggestedType },
+      placements: {
+        desktop: { x: 64 + index * 280, y: 330, width: 240, height: 140, z_index: 1 },
+        tablet: { x: 48 + index * 220, y: 320, width: 200, height: 140, z_index: 1 },
+        mobile: { x: 16, y: 320 + index * 156, width: 358, height: 140, z_index: 1 },
+      },
+      source: { file: ref.sourcePath },
+    })),
+  ];
+  return {
+    version: '0.3.0',
+    screen: {
+      id: screenId,
+      name,
+      type: route === '/' ? 'landing' : 'workspace',
+      platform: 'web',
+      primary_user_goal: `Review and implement the ${name} screen using the existing project source as context.`,
+      notes: 'Generated by AUB workspace scanner. Candidate custom components require approval before registry writes.',
+    },
+    viewports: [
+      { id: 'desktop', width: 1440, height: 900 },
+      { id: 'tablet', width: 1024, height: 768 },
+      { id: 'mobile', width: 390, height: 844 },
+    ],
+    design_system: defaultDesignSystem(),
+    provenance: {
+      source_kind: 'other',
+      framework,
+      importer_version: `workspace-loop-${WORKSPACE_LOOP_VERSION}`,
+      entry_file: source.path,
+      source_files: [source.path, ...componentRefs.map((ref) => ref.sourcePath)],
+    },
+    nodes,
+    interactions: [],
+    responsive: [],
+    acceptance: [
+      { id: 'acc_workspace_source_structure', type: 'layout', statement: 'The implementation preserves the reviewed Blueprint hierarchy and source route intent.', target: 'root', priority: 'must', verification_method: 'manual_ia_review' },
+      { id: 'acc_workspace_component_reuse', type: 'content', statement: 'Approved custom components are reused through aub.registry.json mappings instead of recreated as lookalikes.', target: '*', priority: 'must', verification_method: 'code_diff' },
+      { id: 'acc_workspace_responsive', type: 'responsive', statement: 'Desktop, tablet, and mobile layouts remain readable with no horizontal overflow.', target: 'desktop,tablet,mobile', priority: 'must', verification_method: 'screenshot_diff' },
+      { id: 'acc_workspace_interactions', type: 'interaction', statement: 'Visible controls keep their original route/component behavior.', target: '*', priority: 'must', verification_method: 'manual_ia_review' },
+      { id: 'acc_workspace_a11y', type: 'a11y', statement: 'Interactive elements expose accessible labels and focus states.', target: '*', priority: 'should', verification_method: 'axe_audit' },
+    ],
+  };
+}
+
+export async function generateTemplateFromSource(root, args = {}) {
+  if (!args.sourcePath) throw new Error('Provide sourcePath.');
+  const sourcePath = resolveWorkspacePath(root, args.sourcePath);
+  const relPath = toWorkspacePath(root, sourcePath);
+  const candidates = (await readComponentCandidates(root)).candidates;
+  const nearbyCandidates = candidates
+    .filter((candidate) => candidate.sourcePath === relPath || dirname(candidate.sourcePath) === dirname(relPath))
+    .slice(0, 4);
+  const selectedCandidates = (nearbyCandidates.length ? nearbyCandidates : candidates.slice(0, 4))
+    .map((candidate) => ({
+      name: candidate.componentName,
+      suggestedType: candidate.suggestedType,
+      sourcePath: candidate.sourcePath,
+      coreType: candidate.suggestedCoreType,
+    }));
+  const framework = args.framework ?? inferFrameworkFromPath(relPath);
+  const name = args.name ?? title(basename(relPath), 'Workspace screen');
+  const route = args.route ?? routeFromPath(relPath);
+  const blueprint = makeBlueprint({
+    id: args.id ?? slugify(`${framework}-${name}`),
+    name,
+    framework,
+    route,
+    source: { path: relPath },
+    componentRefs: selectedCandidates,
+  });
+  const template = {
+    format: TEMPLATE_FORMAT,
+    format_version: TEMPLATE_FORMAT_VERSION,
+    id: args.id ?? slugify(`${framework}-${name}`),
+    name,
+    category: args.category ?? 'workspace',
+    framework,
+    source: {
+      kind: args.sourceKind ?? 'source-file',
+      path: relPath,
+      route,
+    },
+    blueprint,
+    registryRefs: selectedCandidates.map((candidate) => candidate.suggestedType),
+    confidence: selectedCandidates.length ? 0.72 : 0.62,
+    status: args.status === 'approved' ? 'approved' : 'candidate',
+    createdAt: new Date().toISOString(),
+  };
+  const output = args.output ?? `${TEMPLATE_DIR}/${slugify(template.id)}.aub.template.json`;
+  const outputPath = resolveWorkspacePath(root, output);
+  await writeJsonAtomic(outputPath, template);
+  return {
+    savedPath: toWorkspacePath(root, outputPath),
+    template,
+  };
+}
+
+function inferFrameworkFromPath(path) {
+  if (path.endsWith('.vue')) return 'vue';
+  if (/\.component\.(ts|html)$/.test(path)) return 'angular';
+  if (/^app\//.test(path) || /^pages\//.test(path)) return 'next';
+  return 'react';
+}
+
+export async function approveComponentCandidate(root, args = {}) {
+  if (!args.id) throw new Error('Provide candidate id.');
+  const doc = await readComponentCandidates(root);
+  const candidate = doc.candidates.find((item) => item.id === args.id);
+  if (!candidate) throw new Error(`Component candidate not found: ${args.id}`);
+
+  if (args.action === 'ignore') {
+    candidate.status = 'ignored';
+    candidate.reviewedAt = new Date().toISOString();
+    await writeComponentCandidates(root, doc.candidates);
+    return { candidate, registryPath: null };
+  }
+
+  if (args.action === 'map_core') {
+    candidate.status = 'approved';
+    candidate.approvedAs = args.coreType ?? candidate.suggestedCoreType ?? 'card';
+    candidate.reviewedAt = new Date().toISOString();
+    await writeComponentCandidates(root, doc.candidates);
+    return { candidate, registryPath: null };
+  }
+
+  if (args.action !== 'create_extension') {
+    throw new Error('action must be one of create_extension, map_core, ignore.');
+  }
+
+  const namespacedType = args.namespacedType ?? candidate.suggestedType;
+  if (!/^[a-z][a-z0-9]*:[a-z][a-z0-9_]*$/.test(namespacedType)) {
+    throw new Error(`Invalid namespaced type: ${namespacedType}`);
+  }
+  const registryPath = join(root, 'aub.registry.json');
+  const registry = await readJsonIfExists(registryPath, {
+    $schema: 'https://henrylau1103.github.io/AUB/schema/aub.registry.schema.json',
+    version: '0.1.0',
+    description: 'AUB workspace custom components.',
+    components: [],
+  });
+  if (!Array.isArray(registry.components)) registry.components = [];
+  const existing = registry.components.find((item) => item.name === namespacedType);
+  const componentEntry = {
+    name: namespacedType,
+    isContainer: Boolean(args.isContainer ?? candidate.isContainer),
+    description: args.description ?? `${candidate.componentName} scanned from ${candidate.sourcePath}.`,
+    implementations: [{
+      id: candidate.framework || 'app',
+      framework: normalizeFramework(candidate.framework),
+      module: args.module ?? candidate.sourcePath,
+      export: args.export ?? candidate.componentName,
+      importStyle: args.importStyle ?? 'named',
+      sourcePath: candidate.sourcePath,
+      props: Object.fromEntries((candidate.props ?? []).map((prop) => [prop, { from: `content.${prop}`, required: false }])),
+      notes: 'Approved from AUB component candidate review. Preserve production behavior.',
+    }],
+  };
+  if (existing) Object.assign(existing, componentEntry);
+  else registry.components.push(componentEntry);
+  await writeJsonAtomic(registryPath, registry);
+
+  candidate.status = 'approved';
+  candidate.approvedAs = namespacedType;
+  candidate.reviewedAt = new Date().toISOString();
+  await writeComponentCandidates(root, doc.candidates);
+  return {
+    candidate,
+    registryPath: 'aub.registry.json',
+    registryComponent: componentEntry,
+  };
+}
+
+function normalizeFramework(framework) {
+  if (['react', 'vue', 'angular', 'svelte', 'web-component', 'html'].includes(framework)) return framework;
+  if (framework === 'next') return 'react';
+  if (framework === 'nuxt') return 'vue';
+  return 'other';
+}
+
+export function templateAuthoringPrompt() {
+  return [
+    '# AUB Workspace Template Authoring Contract',
+    '',
+    'You are scanning an existing application to create AUB workspace templates.',
+    '',
+    'Rules:',
+    '- Return only valid AUB workspace template documents or component candidates.',
+    '- Do not invent core component types. Use AUB core types or create a candidate namespaced type.',
+    '- Custom project components must be written to `.aub/component-candidates.json` first, never directly to `aub.registry.json`.',
+    '- A user must approve each candidate before it can become a registry extension.',
+    '- Every template must include source references and a confidence score.',
+    '- Low confidence mappings must remain `status: "candidate"`.',
+    '',
+    'Template shape:',
+    '```json',
+    JSON.stringify({
+      format: TEMPLATE_FORMAT,
+      format_version: TEMPLATE_FORMAT_VERSION,
+      id: 'workspace-settings',
+      name: 'Settings',
+      category: 'workspace',
+      framework: 'react',
+      source: { kind: 'route', path: 'src/pages/settings.tsx', route: '/settings' },
+      blueprint: { version: '0.3.0' },
+      registryRefs: ['app:settings_panel'],
+      confidence: 0.72,
+      status: 'candidate',
+    }, null, 2),
+    '```',
+  ].join('\n');
+}

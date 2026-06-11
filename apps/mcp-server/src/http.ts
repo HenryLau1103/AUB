@@ -4,10 +4,10 @@ import { resolve } from 'node:path';
 import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
-import type { Request, Response } from 'express';
+import express, { type Request, type Response } from 'express';
 import { loadValidators } from './schema.js';
 import type { ServerContext } from './context.js';
-import { createAubServer, registeredToolNames } from './server.js';
+import { createAubServer, registeredToolNames, runAubTool } from './server.js';
 
 function option(name: string): string | undefined {
   const index = process.argv.indexOf(name);
@@ -32,6 +32,24 @@ async function main(): Promise<void> {
   const app = createMcpExpressApp({ host });
   const transports = new Map<string, StreamableHTTPServerTransport>();
 
+  app.use(express.json({ limit: '20mb' }));
+  app.use((req: Request, res: Response, next) => {
+    const origin = req.headers.origin;
+    if (origin && /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else if (origin === 'https://henrylau1103.github.io') {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'content-type, mcp-session-id');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    if (req.method === 'OPTIONS') {
+      res.status(204).end();
+      return;
+    }
+    next();
+  });
+
   app.get('/health', (_req: Request, res: Response) => {
     res.json({
       status: 'ok',
@@ -40,6 +58,20 @@ async function main(): Promise<void> {
       workspace: root,
       tools: registeredToolNames(),
     });
+  });
+
+  app.post('/rpc', async (req: Request, res: Response) => {
+    try {
+      const tool = String(req.body?.tool ?? '');
+      const args = req.body?.args ?? {};
+      const result = await runAubTool(ctx, tool, args);
+      res.json({ ok: true, result });
+    } catch (error) {
+      res.status(400).json({
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   });
 
   app.all('/mcp', async (req: Request, res: Response) => {

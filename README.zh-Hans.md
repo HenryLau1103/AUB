@@ -83,7 +83,7 @@ Adapter 只调整执行说明，不会修改 schema、layout、interaction 或 a
 
 ## MCP server
 
-16 个 MCP 工具通过 stdio 或 Streamable HTTP 提供 Blueprint／project 查询、Figma／Penpot bridge 导入、验证后写入、handoff 打包、验证、规格补全、组件解析、prompt、diff、migration、lock 和 implementation report。
+23 个 MCP 工具通过 stdio 或 Streamable HTTP 提供 Blueprint／project 查询、Figma／Penpot bridge 导入、验证后写入、handoff 打包、验证、规格补全、组件解析、prompt、diff、migration、lock、workspace session、项目扫描、模板生成、自定义组件候选审核和 implementation report。
 
 ```bash
 (cd apps/mcp-server && pnpm install && pnpm build)
@@ -92,6 +92,8 @@ node apps/mcp-server/dist/index.js /path/to/your/repo
 # Streamable HTTP
 node apps/mcp-server/dist/http.js --workspace /path/to/your/repo --port 3100
 ```
+
+既有项目可以启动 `aub-mcp-http`，让 AUB editor 连接 `http://127.0.0.1:3100/mcp`。Editor 可直接加载／保存 workspace 中的 Blueprint，更新 `.aub/session.json`，读取 `.aub/templates/*.aub.template.json`，审核 `.aub/component-candidates.json`，并预览真实 dev server route。Scanner 产出的自定义组件永远先进入候选文件，用户确认后才写入正式 `aub.registry.json`。
 
 配置示例见 [`apps/mcp-server/README.md`](./apps/mcp-server/README.md)。
 
@@ -199,7 +201,8 @@ pnpm ci:verify -- --workspace /path/to/target/repo --require-reports
 - WYSIWYG 编辑器、18 个模板、多页面项目和五语 landing page：已实现。
 - Angular 与 Figma／Penpot bridge 导入：已实现。
 - Codex、Claude Code、GitHub Copilot adapter：已实现。
-- stdio／HTTP MCP server，16 个工具：已实现。
+- stdio／HTTP MCP server，23 个工具：已实现。
+- Workspace-connected editor loop、本机 MCP HTTP、session、项目扫描模板、自定义组件候选审核、直接保存 Blueprint 与实现预览：已实现。
 - 生产组件 mapping、implementation report 与 GitHub Action：已实现。
 - UI 内 YAML 编辑与 editor 内 lock 生成：待办。
 

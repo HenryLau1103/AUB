@@ -84,7 +84,7 @@ Adapter는 실행 지침만 변경하며 schema, layout, interaction, acceptance
 
 ## MCP server
 
-16개의 MCP 도구를 stdio 또는 Streamable HTTP로 제공합니다. Blueprint／project 탐색, Figma／Penpot bridge import, 검증된 write, handoff package, validation, scaffold, component resolve, prompt, diff, migration, lock, implementation report를 지원합니다.
+23개의 MCP 도구를 stdio 또는 Streamable HTTP로 제공합니다. Blueprint／project 탐색, Figma／Penpot bridge import, 검증된 write, handoff package, validation, scaffold, component resolve, prompt, diff, migration, lock, workspace session, project scan, template generation, custom component candidate review, implementation report를 지원합니다.
 
 ```bash
 (cd apps/mcp-server && pnpm install && pnpm build)
@@ -93,6 +93,8 @@ node apps/mcp-server/dist/index.js /path/to/your/repo
 # Streamable HTTP
 node apps/mcp-server/dist/http.js --workspace /path/to/your/repo --port 3100
 ```
+
+기존 프로젝트에서는 `aub-mcp-http`를 실행하고 AUB editor를 `http://127.0.0.1:3100/mcp`에 연결할 수 있습니다. Editor는 workspace의 Blueprint를 직접 load/save하고, `.aub/session.json`, `.aub/templates/*.aub.template.json`, `.aub/component-candidates.json`을 다루며 실제 dev server route를 preview합니다. Scanner가 찾은 custom component는 항상 candidate file에 먼저 들어가고, 사용자가 승인한 뒤에만 `aub.registry.json`에 기록됩니다.
 
 설정 예시는 [`apps/mcp-server/README.md`](./apps/mcp-server/README.md)를 참고하세요.
 
@@ -187,7 +189,8 @@ pnpm ci:verify -- --workspace /path/to/target/repo --require-reports
 - WYSIWYG 에디터, 18개 템플릿, 다중 화면 project, 5개 언어 landing page: 구현 완료.
 - Angular, Figma／Penpot bridge import: 구현 완료.
 - Codex, Claude Code, GitHub Copilot adapter: 구현 완료.
-- stdio／HTTP MCP server, 16개 도구: 구현 완료.
+- stdio／HTTP MCP server, 23개 도구: 구현 완료.
+- Workspace-connected editor loop, local MCP HTTP, session, scanner-generated template, custom component candidate review, direct Blueprint save, implementation preview: 구현 완료.
 - 프로덕션 component mapping, implementation report, GitHub Action: 구현 완료.
 - UI 내 YAML 편집, 에디터 내 lock 생성: backlog.
 
