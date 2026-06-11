@@ -1,7 +1,7 @@
 # AUB MCP Server
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes UI Blueprint
-tools to coding agents (Codex, Claude Code, MCP-capable IDEs) over **stdio**. Agents call AUB
+tools to coding agents (Codex, Claude Code, MCP-capable IDEs) over **stdio or Streamable HTTP**. Agents call AUB
 tools directly instead of manually moving `.ui.json`, prompt, and report files between repos.
 
 The server is a thin wrapper over the repository's existing pure-function libraries in
@@ -15,11 +15,18 @@ The server is a thin wrapper over the repository's existing pure-function librar
 | `get_blueprint` | `ref`, `format?` (`json` \| `yaml` \| `markdown`) | The resolved Blueprint as JSON/YAML, or derived `.ui.md` agent context. |
 | `validate_blueprint` | `ref?` or inline `blueprint?` | `{ valid, schemaErrors[], semanticErrors[] }` (JSON Schema + semantic rules). |
 | `scaffold_blueprint` | `ref?` or inline `blueprint?`, `sections?` (`interactions` \| `responsive` \| `acceptance`), `language?` (`en` \| `zh-Hant`) | `{ source, summary, blueprint }`. Non-destructively derives missing interactions, responsive rules, and acceptance criteria from the node tree and viewports. |
+| `import_design_bridge` | `path?` or inline `bridge?`, `registry?` | Imports an explicitly mapped Figma/Penpot Design Bridge and validates the resulting Blueprint without guessing component types. |
+| `write_blueprint` | `path`, `blueprint`, `registry?`, `overwrite?` | Validates and atomically writes a Blueprint inside the workspace. Refuses overwrite and path traversal by default. |
 | `export_prompt` | `ref`, `adapter?` (`generic` \| `codex` \| `claude-code` \| `copilot`), `task?` (`author` \| `plan` \| `implement` \| `review`) | An agent-ready prompt with embedded Blueprint context. |
+| `export_handoff` | `ref`, `output?`, `registry?`, `overwrite?`, `viewportImages?` | Writes a complete `.aub.zip` handoff inside the workspace and returns its manifest and SHA-256. |
 | `submit_report` | `ref`, `report`, `persist?` | Verifies an implementation report (schema + node mappings + acceptance evidence). Accepted reports are written to `<root>/.aub/reports/`. |
 | `list_projects` | — | Every `*.aub.project.json` under the workspace root with id, name, and screen count. |
 | `get_project` | `ref` (project path or id), `inlineScreens?` | The resolved project. With `inlineScreens: true`, each member screen includes its full Blueprint and merged design system. |
 | `validate_project` | `ref` (project path or id) | `{ valid, schemaErrors[], semanticErrors[], screens[] }` — validates the project document, project semantics, and every member screen. |
+| `resolve_component` | `type`, `registry?`, `implementation?` | Resolves core or custom component semantics and returns production module/export/prop mappings when declared. |
+| `diff_blueprints` | `before`, `after` | Returns structural changes between two Blueprint revisions. |
+| `migrate_blueprint` | `ref?` or inline `blueprint?` | Migrates v0.1/v0.2 to the current version without writing files. |
+| `lock_blueprint` | `ref?` or inline `blueprint?` | Creates a deterministic acceptance lock snapshot without writing files. |
 
 `ref` is either a file path (relative to the workspace root) or a Blueprint `screen.id`.
 
@@ -38,6 +45,17 @@ working directory.
 ```bash
 node dist/index.js /path/to/your/repo
 ```
+
+For Streamable HTTP, use the second entrypoint (bin: `aub-mcp-http`):
+
+```bash
+node dist/http.js --workspace /path/to/your/repo --host 127.0.0.1 --port 3100
+curl http://127.0.0.1:3100/health
+```
+
+The MCP endpoint is `http://127.0.0.1:3100/mcp`. Localhost bindings include the
+SDK's DNS rebinding protection. When exposing another host, put the endpoint
+behind your normal authentication and network controls.
 
 ## Register with an agent
 
@@ -93,7 +111,7 @@ pnpm test        # builds, then runs node:test against dist/
 pnpm typecheck
 ```
 
-## Scope
-
-stdio transport, five core tools. HTTP/SSE transport, `.aub.zip` packaging over MCP, and
-`diff` / `migrate` / `lock` tools are intentionally out of scope for this version.
+Both transports register the same tool list from one server factory. Transport
+integration tests initialize a real Streamable HTTP MCP client and call
+`validate_blueprint`; tool tests cover workspace path confinement, atomic writes,
+Design Bridge import, and `.aub.zip` package creation.

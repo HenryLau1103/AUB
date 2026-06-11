@@ -40,11 +40,18 @@ jobs:
         working-directory: apps/editor
         run: pnpm install --frozen-lockfile
 
+      - name: Install MCP server dependencies
+        working-directory: apps/mcp-server
+        run: pnpm install --frozen-lockfile
+
       - name: Test
         run: pnpm test
 
       - name: Check generated registry artifacts are up to date
         run: pnpm gen:check
+
+      - name: Check localized Pages output is up to date
+        run: pnpm site:locales:check
 
       - name: Typecheck
         run: pnpm typecheck
@@ -53,8 +60,23 @@ jobs:
         working-directory: apps/editor
         run: pnpm typecheck
 
+      - name: Build editor
+        working-directory: apps/editor
+        run: pnpm build
+
+      - name: Test MCP server
+        working-directory: apps/mcp-server
+        run: pnpm test
+
       - name: Validate example blueprints
         run: |
           pnpm validate examples/dashboard.ui.json
           pnpm validate examples/dashboard.ui.yaml
           pnpm validate examples/freeform-actions.ui.json
+          pnpm validate examples/extensions/analytics-insights.ui.json
+          pnpm project validate examples/project/app.aub.project.json
+          pnpm import:design -- examples/design-bridge/figma-hero.aub.bridge.json --output /tmp/figma-hero.ui.json
+          pnpm validate /tmp/figma-hero.ui.json
+
+      - name: Verify AUB CI configuration
+        run: pnpm ci:verify -- --config examples/ci/aub.ci.json

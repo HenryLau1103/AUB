@@ -242,6 +242,7 @@ export function App() {
   const [savedAt, setSavedAt] = useState<string | null>(initialDraft?.savedAt ?? null);
   const [project, setProject] = useState<EditorProject | null>(null);
   const [activeScreenId, setActiveScreenId] = useState<string | null>(null);
+  const [extensionRegistry, setExtensionRegistry] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<CanvasHandle>(null);
   const blueprint = history.present;
@@ -269,6 +270,20 @@ export function App() {
     setCanvasResetKey((value) => value + 1);
     setSelectedIds([migrated.nodes.find((node) => node.parent_id === null)?.id].filter(Boolean) as string[]);
     setNotice(input.version !== '0.3.0' ? t(language, 'importMigrated') : t(language, 'imported'));
+  }
+
+  async function handleRegistryFile(file: File) {
+    try {
+      const text = await readFileAsText(file);
+      const parsed = JSON.parse(text) as { components?: unknown[] };
+      if (!Array.isArray(parsed.components)) {
+        throw new Error('missing required "components" array');
+      }
+      setExtensionRegistry(`${JSON.stringify(parsed, null, 2)}\n`);
+      setNotice(t(language, 'registryImported', { count: parsed.components.length }));
+    } catch (error) {
+      setNotice(t(language, 'registryInvalid', { message: (error as Error).message }));
+    }
   }
 
   async function handleAngularFiles(input: FileList) {
@@ -394,6 +409,7 @@ export function App() {
         Array.from(files).map(async (file) => ({ file, text: await readFileAsText(file) }))
       );
       const projectEntry = entries.find((entry) => /\.aub\.project\.json$/i.test(entry.file.name));
+      const registryEntry = entries.find((entry) => /^aub\.registry\.json$/i.test(entry.file.name));
       if (!projectEntry) {
         setNotice(t(language, 'projectNoDocument'));
         return;
@@ -416,6 +432,15 @@ export function App() {
         return;
       }
       setProject(editorProject);
+      if (registryEntry) {
+        const parsedRegistry = JSON.parse(registryEntry.text) as { components?: unknown[] };
+        if (!Array.isArray(parsedRegistry.components)) {
+          throw new Error('aub.registry.json is missing the required "components" array');
+        }
+        setExtensionRegistry(`${JSON.stringify(parsedRegistry, null, 2)}\n`);
+      } else {
+        setExtensionRegistry(null);
+      }
       const entryScreen = editorProject.screens.find((screen) => screen.id === editorProject.entryScreenId)
         ?? editorProject.screens[0];
       if (entryScreen) loadScreenBlueprint(entryScreen);
@@ -449,6 +474,7 @@ export function App() {
     for (const screen of synced.screens) {
       files[screen.path] = `${JSON.stringify(screen.blueprint, null, 2)}\n`;
     }
+    if (extensionRegistry) files['aub.registry.json'] = extensionRegistry;
     await downloadProjectArchive(`${synced.id}.aub.project.zip`, files);
     setNotice(t(language, 'projectSaved'));
   }
@@ -457,6 +483,7 @@ export function App() {
     if (project) setProject(syncActiveScreen(project));
     setProject(null);
     setActiveScreenId(null);
+    setExtensionRegistry(null);
     setNotice(t(language, 'projectClosed'));
   }
 
@@ -799,7 +826,8 @@ export function App() {
       genericPrompt,
       codexPrompt,
       reportTemplate,
-      images
+      images,
+      extensionRegistry
     );
     setNotice(t(language, 'packageReady'));
   }
@@ -815,6 +843,7 @@ export function App() {
         onImport={handleImport}
         onAngularFiles={handleAngularFiles}
         onPersonalTemplateFile={handlePersonalTemplateFile}
+        onRegistryFile={(file) => void handleRegistryFile(file)}
         onDownloadAuthoringKit={() => void downloadAuthoringKit()}
         onOpenProject={(files) => void handleOpenProjectFiles(files)}
         onNewProject={handleNewProject}

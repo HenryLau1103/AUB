@@ -84,7 +84,9 @@ function appendExtensionRegistryNote(agentGuide) {
     'This handoff includes `aub.registry.json`, which declares namespaced extension',
     'component types (`team:component`) used by this blueprint. Treat every node `type`',
     'that contains a colon as a project-defined component: resolve its meaning and',
-    'container/leaf behavior from `aub.registry.json` — never guess. Validate with',
+    'container/leaf behavior from `aub.registry.json` — never guess. When an entry',
+    'declares `implementations`, reuse the matching production component, import path,',
+    'and prop mappings instead of recreating it. Validate with',
     '`aub validate <file> --registry ./aub.registry.json`.',
     '',
   ].join('\n');

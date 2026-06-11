@@ -8,7 +8,8 @@ guess") depend on every type having an agreed, resolvable meaning.
 Real products still need components the core registry does not model — a branded
 `insight_card`, a bespoke `metric_sparkline`, a domain widget. **Extension component
 types** let a project declare those without forking core and without weakening the
-"never guess" guarantee.
+"never guess" guarantee. They can also point coding agents at the production component
+that already implements the design-system behavior.
 
 ## How it works
 
@@ -22,6 +23,8 @@ types** let a project declare those without forking core and without weakening t
    from the blueprint's directory upward, or passed explicitly with `--registry`.
 5. When a handoff package is produced with extensions, `aub.registry.json` is bundled
    into the `.aub.zip` so the receiving agent can **resolve** every custom type.
+6. Optional `implementations` map the type to framework modules, exports, source files,
+   Storybook stories, documentation, and Blueprint-to-prop paths.
 
 Extension types are **additive** and MINOR-compatible (see
 [schema versioning](./schema-versioning.md)). They never change core semantics.
@@ -42,7 +45,25 @@ Extension types are **additive** and MINOR-compatible (see
     {
       "name": "acme:insight_card",
       "isContainer": true,
-      "description": "Branded card framing an analytics insight. Container."
+      "description": "Branded card framing an analytics insight. Container.",
+      "implementations": [
+        {
+          "id": "react",
+          "framework": "react",
+          "module": "@acme/analytics-ui",
+          "export": "InsightCard",
+          "importStyle": "named",
+          "sourcePath": "packages/analytics-ui/src/InsightCard.tsx",
+          "storybookUrl": "https://storybook.example.com/?path=/story/insight-card--default",
+          "props": {
+            "title": {
+              "from": "content.title",
+              "required": true
+            }
+          },
+          "notes": "Preserve the built-in focus treatment."
+        }
+      ]
     }
   ]
 }
@@ -55,6 +76,36 @@ Each entry requires:
 | `name` | Must match `^[a-z][a-z0-9]*:[a-z][a-z0-9_]*$` (`team:component`). Must not collide with a core type. Must be unique within the file. |
 | `isContainer` | Boolean. `true` if the component may declare `children`; `false` for a leaf. |
 | `description` | Optional but strongly recommended — this is what the agent reads to understand the component. |
+| `implementations` | Optional production mappings. Each mapping requires a stable `id`, `framework`, and package/module specifier. |
+
+## Production implementation mapping
+
+An implementation mapping is a reuse instruction, not generated code:
+
+| Field | Meaning |
+|---|---|
+| `id` | Stable selector such as `react`, `angular`, or `web-component`. |
+| `framework` | Runtime family: React, Vue, Angular, Svelte, Web Component, HTML, or other. |
+| `module` | Import specifier or package name used by the target repository. |
+| `export` | Exported symbol when the module uses named or default exports. |
+| `importStyle` | `named`, `default`, `namespace`, `side-effect`, or `custom-element`. |
+| `sourcePath` | Optional repository-relative path for code navigation. |
+| `storybookUrl` / `docsUrl` | Optional authoritative usage references. |
+| `props` | Maps production prop names to Blueprint paths such as `content.title`. |
+| `notes` | Constraints the agent must preserve. |
+
+Use the MCP server to resolve a mapping:
+
+```text
+resolve_component {
+  "type": "acme:insight_card",
+  "registry": "aub.registry.json",
+  "implementation": "react"
+}
+```
+
+If a matching production implementation is declared, agents should reuse it instead of
+creating a visually similar replacement.
 
 A working example lives in
 [`examples/extensions/`](../examples/extensions/): an `aub.registry.json` plus
@@ -95,13 +146,14 @@ When you generate a `.aub.zip` and provide the project registry, the package inc
 `aub.registry.json` and the manifest records `extension_registry: "aub.registry.json"`.
 `AGENT-README.md` gains a "Custom component types" note instructing the agent to treat
 any colon-bearing `node.type` as a project component and to resolve it from the bundled
-registry — never to guess.
+registry — never to guess. The note also requires matching production implementations and
+prop mappings to be reused.
 
 ## Limitations
 
 - Extension types are **project-scoped**, not global. A blueprint that uses them is
   only fully resolvable alongside its `aub.registry.json`.
-- The visual editor authors **core** types only. Extension types are a
+- The visual editor authors **core** types only. Extension types and production mappings are a
   validation/handoff concern; hand-edit them in `.ui.json`/`.ui.yaml`.
 - Extensions cannot redefine or shadow core types — names are checked for collision.
 - "Registered" now means **core OR a declared project extension** — it never means a

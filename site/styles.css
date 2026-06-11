@@ -8,7 +8,7 @@
   --brand: #14b8a6;
   --brand-deep: #0f766e;
   --radius: 14px;
-  --maxw: 1080px;
+  --maxw: 1160px;
 }
 
 * {
@@ -88,6 +88,43 @@ main {
 .site-nav a:hover {
   color: var(--text);
   text-decoration: none;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+}
+
+.language-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: rgba(17, 26, 46, 0.72);
+}
+
+.language-nav a {
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.language-nav a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.language-nav a[aria-current="page"] {
+  color: #04201d;
+  background: var(--brand);
+  font-weight: 700;
 }
 
 /* Hero */
@@ -189,6 +226,46 @@ section h2 {
   letter-spacing: -0.01em;
 }
 
+.section-kicker {
+  margin: 0 0 8px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Proof */
+.proof {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--border);
+}
+
+.proof div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 18px 20px;
+  background: rgba(17, 26, 46, 0.92);
+}
+
+.proof strong {
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.proof span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 /* Steps */
 .step-grid {
   list-style: none;
@@ -197,6 +274,10 @@ section h2 {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
+}
+
+.step-grid-five {
+  grid-template-columns: repeat(5, 1fr);
 }
 
 .step-grid li {
@@ -278,6 +359,74 @@ section h2 {
   color: var(--text);
 }
 
+/* Integrations */
+.integration-grid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 28px;
+  align-items: center;
+}
+
+.integration-grid p {
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.integration-grid pre {
+  margin: 0;
+  padding: 22px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #07101f;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.integration-grid code {
+  color: #c9d8ef;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.feature-list {
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feature-list li {
+  position: relative;
+  margin: 8px 0;
+  padding-left: 22px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.feature-list li::before {
+  position: absolute;
+  left: 0;
+  color: var(--brand);
+  content: "✓";
+}
+
+.command-card {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.command-card span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .link-row {
   display: flex;
   flex-wrap: wrap;
@@ -301,23 +450,59 @@ section h2 {
 }
 
 @media (max-width: 860px) {
+  .site-header {
+    align-items: flex-start;
+  }
+  .header-actions {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+  }
   .hero {
     grid-template-columns: 1fr;
     padding-top: 28px;
   }
   .step-grid,
-  .why-grid {
+  .why-grid,
+  .proof {
     grid-template-columns: 1fr 1fr;
+  }
+  .step-grid-five {
+    grid-template-columns: 1fr 1fr;
+  }
+  .integration-grid {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 520px) {
+  .site-header {
+    flex-direction: column;
+  }
+  .header-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+  .site-nav {
+    justify-content: space-between;
+  }
+  .language-nav {
+    align-self: flex-start;
+    max-width: 100%;
+    overflow-x: auto;
+  }
   .site-nav {
     gap: 14px;
     font-size: 14px;
   }
   .step-grid,
-  .why-grid {
+  .why-grid,
+  .proof,
+  .step-grid-five {
     grid-template-columns: 1fr;
+  }
+  .site-nav a:nth-child(2),
+  .site-nav a:nth-child(3) {
+    display: none;
   }
 }

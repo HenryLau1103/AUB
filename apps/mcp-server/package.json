@@ -2,15 +2,17 @@
   "name": "@aub/mcp-server",
   "private": true,
   "version": "0.3.0",
-  "description": "AUB Model Context Protocol server — exposes UI Blueprint tools to coding agents over stdio",
+  "description": "AUB Model Context Protocol server — exposes UI Blueprint tools to coding agents over stdio and Streamable HTTP",
   "type": "module",
   "bin": {
-    "aub-mcp": "dist/index.js"
+    "aub-mcp": "dist/index.js",
+    "aub-mcp-http": "dist/http.js"
   },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
+    "start:http": "node dist/http.js",
     "pretest": "tsc",
     "test": "node --test test/*.test.mjs"
   },
@@ -18,10 +20,13 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
+    "express": "^5.1.0",
+    "jszip": "^3.10.1",
     "js-yaml": "^4.1.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/express": "^5.0.3",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.0",
     "typescript": "^5.7.2"

@@ -8,6 +8,7 @@ import {
   FolderOpen,
   FolderPlus,
   LibraryBig,
+  Braces,
   Redo2,
   Save,
   Undo2,
@@ -26,6 +27,7 @@ interface Props {
   onImport: (blueprint: Blueprint) => void;
   onAngularFiles: (files: FileList) => void;
   onPersonalTemplateFile: (file: File) => void;
+  onRegistryFile: (file: File) => void;
   onDownloadAuthoringKit: () => void;
   onOpenProject: (files: FileList) => void;
   onNewProject: () => void;
@@ -52,6 +54,7 @@ export function TopBar({
   onImport,
   onAngularFiles,
   onPersonalTemplateFile,
+  onRegistryFile,
   onDownloadAuthoringKit,
   onOpenProject,
   onNewProject,
@@ -75,11 +78,18 @@ export function TopBar({
   const angularInputRef = useRef<HTMLInputElement>(null);
   const personalTemplateInputRef = useRef<HTMLInputElement>(null);
   const projectInputRef = useRef<HTMLInputElement>(null);
+  const registryInputRef = useRef<HTMLInputElement>(null);
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      onImport(JSON.parse(await readFileAsText(file)) as Blueprint);
+      const parsed = JSON.parse(await readFileAsText(file)) as Blueprint | { format?: string };
+      if ('format' in parsed && parsed.format === 'aub-design-bridge') {
+        const { importDesignBridge } = await import('../../../../scripts/design-bridge.lib.mjs');
+        onImport(importDesignBridge(parsed as any).blueprint);
+      } else {
+        onImport(parsed as Blueprint);
+      }
     } catch (error) {
       window.alert(t(language, 'parseJsonFailed', { message: (error as Error).message }));
     }
@@ -104,6 +114,17 @@ export function TopBar({
           multiple
           onChange={(event) => {
             if (event.target.files?.length) onAngularFiles(event.target.files);
+            event.target.value = '';
+          }}
+          hidden
+        />
+        <input
+          ref={registryInputRef}
+          type="file"
+          accept=".json,application/json"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onRegistryFile(file);
             event.target.value = '';
           }}
           hidden
@@ -157,6 +178,7 @@ export function TopBar({
           <ToolButton icon={<Upload />} label={t(language, 'importJson')} onClick={() => fileInputRef.current?.click()} />
           <ToolButton icon={<FileCode2 />} label={t(language, 'importAngular')} onClick={() => angularInputRef.current?.click()} />
           <ToolButton icon={<LibraryBig />} label={t(language, 'importPersonalTemplate')} onClick={() => personalTemplateInputRef.current?.click()} />
+          <ToolButton icon={<Braces />} label={t(language, 'importRegistry')} onClick={() => registryInputRef.current?.click()} />
           <ToolButton icon={<BookOpenCheck />} label={t(language, 'downloadAuthoringKit')} onClick={onDownloadAuthoringKit} />
           <ToolButton icon={<FolderOpen />} label={t(language, 'openProject')} onClick={() => projectInputRef.current?.click()} />
           <ToolButton icon={<FolderPlus />} label={t(language, 'newProject')} disabled={!blueprint} onClick={onNewProject} />

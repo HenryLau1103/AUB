@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://henrylau1103.github.io/AUB/schema/aub.registry.schema.json",
   "title": "AUB Extension Component Registry",
-  "description": "Project-level registry of namespaced (team:component) custom component types resolved by AUB validation and bundled into agent handoffs.",
+  "description": "Project-level registry of namespaced (team:component) custom component types and their production implementation mappings. Resolved by AUB validation and bundled into agent handoffs.",
   "type": "object",
   "additionalProperties": false,
   "required": ["components"],
@@ -37,7 +37,81 @@
         "description": {
           "type": "string",
           "description": "What the component is — agents read this to resolve the type without guessing."
+        },
+        "implementations": {
+          "type": "array",
+          "description": "Production component mappings. Agents should reuse these implementations instead of recreating the component.",
+          "items": { "$ref": "#/$defs/componentImplementation" },
+          "minItems": 1
         }
+      }
+    },
+    "componentImplementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "framework", "module"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*$",
+          "description": "Stable mapping id, for example react or angular."
+        },
+        "framework": {
+          "enum": ["react", "vue", "angular", "svelte", "web-component", "html", "other"]
+        },
+        "module": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Package or module specifier used by the target repository."
+        },
+        "export": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exported component symbol. Omit for a default export or custom element."
+        },
+        "importStyle": {
+          "enum": ["named", "default", "namespace", "side-effect", "custom-element"],
+          "default": "named"
+        },
+        "sourcePath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional repository-relative source file for code navigation."
+        },
+        "storybookUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "docsUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "props": {
+          "type": "object",
+          "description": "Map production prop names to Blueprint data paths.",
+          "propertyNames": {
+            "pattern": "^[A-Za-z_$][A-Za-z0-9_$.-]*$"
+          },
+          "additionalProperties": { "$ref": "#/$defs/propMapping" }
+        },
+        "notes": {
+          "type": "string",
+          "description": "Implementation constraints that the coding agent must preserve."
+        }
+      }
+    },
+    "propMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from"],
+      "properties": {
+        "from": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Blueprint data path such as content.title, bindings.value, states.loading, or literal:compact."
+        },
+        "required": { "type": "boolean" },
+        "description": { "type": "string" }
       }
     }
   }

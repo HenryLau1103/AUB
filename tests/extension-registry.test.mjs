@@ -120,21 +120,88 @@ test('discoverExtensionRegistry finds aub.registry.json by walking up', async ()
 });
 
 test('buildKnownTypes auto-discovers from a start directory', async () => {
-  const { knownTypes, extensionPath } = await buildKnownTypes({
+  const { knownTypes, extensionPath, extensions } = await buildKnownTypes({
     startDir: new URL('../examples/extensions', import.meta.url).pathname,
   });
   assert.equal(extensionPath, EXAMPLE_REGISTRY);
   assert.equal(knownTypes.get('acme:insight_card')?.isContainer, true);
   assert.equal(knownTypes.get('acme:metric_sparkline')?.isContainer, false);
   assert.equal(knownTypes.get('page')?.source, 'core');
+  assert.equal(extensions[0].implementations[0].module, '@acme/analytics-ui');
+  assert.equal(knownTypes.get('acme:insight_card')?.implementations[0].export, 'InsightCard');
+  assert.equal(
+    knownTypes.get('acme:insight_card')?.implementations[0].props.title.from,
+    'content.title'
+  );
+});
+
+test('parseExtensionRegistry validates production implementation mappings', () => {
+  const valid = parseExtensionRegistry(
+    {
+      components: [
+        {
+          name: 'acme:card',
+          isContainer: true,
+          implementations: [
+            {
+              id: 'react',
+              framework: 'react',
+              module: '@acme/ui',
+              export: 'Card',
+              props: { title: { from: 'content.title', required: true } },
+            },
+          ],
+        },
+      ],
+    },
+    new Set()
+  );
+  assert.equal(valid.components[0].implementations[0].importStyle, 'named');
+  assert.throws(
+    () =>
+      parseExtensionRegistry(
+        {
+          components: [
+            {
+              name: 'acme:card',
+              isContainer: true,
+              implementations: [{ id: 'react', framework: 'react' }],
+            },
+          ],
+        },
+        new Set()
+      ),
+    /must declare module/
+  );
+  assert.throws(
+    () =>
+      parseExtensionRegistry(
+        {
+          components: [
+            {
+              name: 'acme:card',
+              isContainer: true,
+              implementations: [
+                { id: 'react', framework: 'react', module: '@acme/ui' },
+                { id: 'react', framework: 'react', module: '@acme/ui-next' },
+              ],
+            },
+          ],
+        },
+        new Set()
+      ),
+    /duplicate implementation id/
+  );
 });
 
 test('aub.registry.schema.json validates the example registry and enforces the namespace pattern', async () => {
   const Ajv2020 = (await import('ajv/dist/2020.js')).default;
+  const addFormats = (await import('ajv-formats')).default;
   const schema = JSON.parse(
     await readFile(new URL('../schema/aub.registry.schema.json', import.meta.url).pathname, 'utf8')
   );
   const ajv = new Ajv2020({ allErrors: true, strict: true });
+  addFormats(ajv);
   const validate = ajv.compile(schema);
 
   const example = JSON.parse(await readFile(EXAMPLE_REGISTRY, 'utf8'));
@@ -142,6 +209,31 @@ test('aub.registry.schema.json validates the example registry and enforces the n
 
   assert.equal(validate({ components: [{ name: 'Acme:Card', isContainer: true }] }), false);
   assert.equal(validate({ components: [{ name: 'acme:card' }] }), false);
+  assert.equal(
+    validate({
+      components: [
+        {
+          name: 'acme:card',
+          isContainer: true,
+          implementations: [{ id: 'react', framework: 'react', module: '@acme/ui' }],
+        },
+      ],
+    }),
+    true,
+    JSON.stringify(validate.errors)
+  );
+  assert.equal(
+    validate({
+      components: [
+        {
+          name: 'acme:card',
+          isContainer: true,
+          implementations: [{ id: 'react', framework: 'react' }],
+        },
+      ],
+    }),
+    false
+  );
   assert.equal(validate({}), false);
 
   // The published schema pattern must match the validator's runtime pattern.

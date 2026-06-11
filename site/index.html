@@ -3,17 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AUB — UI Blueprint Agent</title>
-    <meta
-      name="description"
-      content="Draw the interface, export a UI contract, and let coding agents build and verify it. AUB is a visual UI specification tool for Codex, Claude Code, GitHub Copilot, and other coding agents."
-    />
-    <meta property="og:title" content="AUB — UI Blueprint Agent" />
-    <meta
-      property="og:description"
-      content="Draw the interface. Export a UI contract. Let coding agents build and verify it."
-    />
+    <title>AUB — UI Contracts for Coding Agents</title>
+    <meta name="description" content="Define a versioned UI implementation contract, map it to production components, hand it to any coding agent, and gate the pull request on acceptance evidence." />
+    <link rel="canonical" href="https://henrylau1103.github.io/AUB/" />
+    <link rel="alternate" hreflang="en" href="https://henrylau1103.github.io/AUB/" />
+    <link rel="alternate" hreflang="zh-Hant" href="https://henrylau1103.github.io/AUB/zh-hant/" />
+    <link rel="alternate" hreflang="zh-Hans" href="https://henrylau1103.github.io/AUB/zh-hans/" />
+    <link rel="alternate" hreflang="ja" href="https://henrylau1103.github.io/AUB/ja/" />
+    <link rel="alternate" hreflang="ko" href="https://henrylau1103.github.io/AUB/ko/" />
+    <link rel="alternate" hreflang="x-default" href="https://henrylau1103.github.io/AUB/" />
+    <meta property="og:title" content="AUB — UI Contracts for Coding Agents" />
+    <meta property="og:description" content="From design intent to verified implementation: semantic Blueprints, production components, MCP, and PR acceptance gates." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://henrylau1103.github.io/AUB/" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="zh_TW" />
+    <meta property="og:locale:alternate" content="zh_CN" />
+    <meta property="og:locale:alternate" content="ja_JP" />
+    <meta property="og:locale:alternate" content="ko_KR" />
     <meta property="og:image" content="./assets/aub-editor-en.jpg" />
     <meta name="theme-color" content="#0B1220" />
     <link rel="icon" href="./assets/brand/favicon.svg" type="image/svg+xml" />
@@ -30,107 +37,153 @@
         <img class="brand-mark" src="./assets/brand/aub-logo-mark.svg" alt="" />
         <span class="brand-name">AUB</span>
       </a>
-      <nav class="site-nav">
-        <a href="./editor/">Editor</a>
-        <a href="https://github.com/HenryLau1103/AUB">GitHub</a>
-        <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/agent-handoff.md">Agent handoff</a>
-      </nav>
+      <div class="header-actions">
+        <nav class="site-nav">
+          <a href="./editor/">Editor</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#integrations">Integrations</a>
+          <a href="https://github.com/HenryLau1103/AUB">GitHub</a>
+        </nav>
+        <nav class="language-nav" aria-label="Language">
+          <a href="./" hreflang="en" lang="en" aria-current="page">EN</a>
+          <a href="./zh-hant/" hreflang="zh-Hant" lang="zh-Hant">繁中</a>
+          <a href="./zh-hans/" hreflang="zh-Hans" lang="zh-Hans">简中</a>
+          <a href="./ja/" hreflang="ja" lang="ja">日本語</a>
+          <a href="./ko/" hreflang="ko" lang="ko">한국어</a>
+        </nav>
+      </div>
     </header>
 
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">UI Blueprint Agent</p>
-          <h1>Draw the interface.<br />Export a UI contract.<br />Let coding agents build it.</h1>
-          <p class="lede">
-            AUB is a visual UI specification tool for people who need to communicate a screen
-            precisely to Codex, Claude Code, GitHub Copilot, or another coding agent. Compose the
-            screen, declare behavior and acceptance criteria, then export a structured package the
-            agent can implement without guessing from prose or screenshots.
-          </p>
+          <p class="eyebrow">UI implementation contracts</p>
+          <h1>Define the intent.<br />Reuse real components.<br />Gate the PR on evidence.</h1>
+          <p class="lede">AUB is the open contract layer between product intent and coding agents. Compose a semantic Blueprint, map it to production components, hand the same source of truth to Codex, Claude Code, Copilot, or another agent, then verify every acceptance id in CI.</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="./editor/">Open the live editor</a>
             <a class="btn btn-ghost" href="https://github.com/HenryLau1103/AUB">View on GitHub</a>
           </div>
-          <p class="note">The editor runs entirely in your browser. Nothing is uploaded.</p>
+          <p class="note">Apache-2.0 · local-first · agent-neutral · the editor uploads nothing</p>
         </div>
         <a class="hero-shot" href="./editor/" aria-label="Open the AUB editor">
           <img src="./assets/aub-editor-en.jpg" alt="AUB visual editor composing a responsive screen" loading="lazy" />
         </a>
       </section>
 
-      <section class="steps">
-        <h2>How it works</h2>
-        <ol class="step-grid">
+      <section class="proof" aria-label="Product capabilities">
+        <div><strong>62</strong><span>semantic component types</span></div>
+        <div><strong>18</strong><span>responsive starting templates</span></div>
+        <div><strong>16</strong><span>MCP tools for agents</span></div>
+        <div><strong>4</strong><span>acceptance categories</span></div>
+      </section>
+
+      <section class="steps" id="workflow">
+        <p class="section-kicker">Golden path</p>
+        <h2>One contract from intent to pull request</h2>
+        <ol class="step-grid step-grid-five">
           <li>
             <span class="step-num">1</span>
-            <h3>Compose visually</h3>
-            <p>Start from a common template or arrange registered semantic components on the canvas.</p>
+            <h3>Compose or import</h3>
+            <p>Build one screen, import a Figma/Penpot bridge, or compose a navigable multi-screen project.</p>
           </li>
           <li>
             <span class="step-num">2</span>
-            <h3>Export a contract</h3>
-            <p>Capture hierarchy, layout, interactions, design tokens, responsive rules, and acceptance criteria.</p>
+            <h3>Bind real components</h3>
+            <p>Resolve custom types to production modules, exports, source files, Storybook, and props.</p>
           </li>
           <li>
             <span class="step-num">3</span>
-            <h3>Hand off to an agent</h3>
-            <p>Give the package to a coding agent — over files or directly through the MCP server.</p>
+            <h3>Hand off once</h3>
+            <p>Use a portable package or MCP. The core contract stays identical across agents.</p>
           </li>
           <li>
             <span class="step-num">4</span>
-            <h3>Implement &amp; verify</h3>
-            <p>The agent builds it, runs checks, and reports evidence for every acceptance id.</p>
+            <h3>Return evidence</h3>
+            <p>The agent maps every node and reports pass, fail, or needs-review for every acceptance id.</p>
+          </li>
+          <li>
+            <span class="step-num">5</span>
+            <h3>Gate the PR</h3>
+            <p>The AUB GitHub Action rejects drift, missing mappings, failed criteria, and unresolved work.</p>
           </li>
         </ol>
       </section>
 
       <section class="why">
-        <h2>Why a contract beats a prompt</h2>
-        <p class="why-lede">
-          “Build a dashboard like Stripe” leaves critical decisions unstated. A screenshot shows
-          appearance but not component intent, interaction outcomes, breakpoints, accessibility, or
-          the acceptance bar. AUB turns those decisions into an explicit, testable contract.
-        </p>
+        <p class="section-kicker">Designed for implementation</p>
+        <h2>Not another design canvas or one-shot code generator</h2>
+        <p class="why-lede">Design tools optimize creation. Code generators optimize speed. AUB protects intent across tools, agents, revisions, and reviews with a format that Git and CI can understand.</p>
         <div class="why-grid">
           <div class="card">
-            <h3>Semantic components</h3>
-            <p>Registered component types instead of anonymous rectangles.</p>
+            <h3>Versioned source of truth</h3>
+            <p>JSON Schema, semantic validation, migration, diff, and lock snapshots.</p>
           </div>
           <div class="card">
-            <h3>Layout as a contract</h3>
-            <p>Flex/grid and per-viewport geometry instead of inferred grouping.</p>
+            <h3>Production reuse</h3>
+            <p>Map semantic types to existing framework components instead of recreating them.</p>
           </div>
           <div class="card">
-            <h3>Declared behavior</h3>
-            <p>Explicit interactions, states, and responsive rules instead of guesses.</p>
+            <h3>Agent-neutral execution</h3>
+            <p>Codex, Claude Code, Copilot, and generic agents receive the same contract.</p>
           </div>
           <div class="card">
-            <h3>Enforceable acceptance</h3>
-            <p>Testable acceptance ids spanning layout, interaction, responsive, and accessibility.</p>
+            <h3>Evidence, not confidence</h3>
+            <p>Implementation reports and PR checks make incomplete work visible.</p>
           </div>
         </div>
       </section>
 
+      <section class="integrations" id="integrations">
+        <p class="section-kicker">Integration contract</p>
+        <h2>Point agents at the component you already ship</h2>
+        <div class="integration-grid">
+          <div>
+            <p>Custom registry entries can identify a production package, exported symbol, source file, Storybook story, documentation, and the exact Blueprint-to-prop mapping.</p>
+            <ul class="feature-list">
+              <li>Prevent bespoke lookalike components</li>
+              <li>Keep repository-native tokens and behavior</li>
+              <li>Support multiple framework implementations</li>
+            </ul>
+          </div>
+          <pre><code>{
+  "name": "acme:insight_card",
+  "isContainer": true,
+  "implementations": [{
+    "id": "react",
+    "framework": "react",
+    "module": "@acme/analytics-ui",
+    "export": "InsightCard",
+    "props": {
+      "title": { "from": "content.title" }
+    }
+  }]
+}</code></pre>
+        </div>
+      </section>
+
       <section class="handoff">
-        <h2>Connect your agent</h2>
-        <p>
-          Export an <code>.aub.zip</code> handoff package, or let MCP-capable agents call AUB tools
-          directly over stdio: <code>list_blueprints</code>, <code>get_blueprint</code>,
-          <code>validate_blueprint</code>, <code>export_prompt</code>, and <code>submit_report</code>.
-        </p>
+        <p class="section-kicker">Connect and verify</p>
+        <h2>Files when you need portability. MCP when agents need live access.</h2>
+        <p>Export an <code>.aub.zip</code>, or let MCP-capable agents over stdio or HTTP import, write, package, resolve, validate, scaffold, diff, migrate, lock, and report against Blueprints and multi-screen projects. Add the bundled GitHub Action to turn those contracts into a pull-request gate.</p>
+        <div class="command-card">
+          <code>uses: HenryLau1103/AUB@main</code>
+          <span>Validates contracts and implementation evidence</span>
+        </div>
         <div class="link-row">
           <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/agent-handoff.md">Agent handoff guide</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/apps/mcp-server/README.md">MCP server</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-ci.md">GitHub CI gate</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/custom-components.md">Production mappings</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/design-tool-bridge.md">Figma/Penpot bridge</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/schema/ui-blueprint.schema.json">Blueprint schema</a>
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/examples/dashboard.ui.json">Canonical example</a>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
       <p>
-        AUB · UI Blueprint Agent ·
+        AUB · UI contracts for coding agents ·
         <a href="https://github.com/HenryLau1103/AUB">github.com/HenryLau1103/AUB</a> ·
         Apache-2.0
       </p>

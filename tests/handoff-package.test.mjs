@@ -17,7 +17,7 @@ const REPORT_SCHEMA_URL = new URL('../schema/implementation-report.schema.json',
 const GUIDE_URL = new URL('../docs/agent-handoff.md', import.meta.url);
 const GUIDE_ZH_URL = new URL('../docs/agent-handoff.zh-Hant.md', import.meta.url);
 
-test('HP1: handoff 1.1 package contains agent entrypoints and preserves legacy files', async () => {
+test('HP1: current handoff package contains agent entrypoints and preserves legacy files', async () => {
   const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
   const reportSchema = JSON.parse(await readFile(REPORT_SCHEMA_URL, 'utf8'));
   const agentGuide = await readFile(GUIDE_URL, 'utf8');
@@ -93,7 +93,23 @@ test('HP3: handoff bundles aub.registry.json and references it when extensions a
   const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
   const reportSchema = JSON.parse(await readFile(REPORT_SCHEMA_URL, 'utf8'));
   const extensionRegistry = JSON.stringify(
-    { version: '0.1.0', components: [{ name: 'acme:data_card', isContainer: true }] },
+    {
+      version: '0.1.0',
+      components: [
+        {
+          name: 'acme:data_card',
+          isContainer: true,
+          implementations: [
+            {
+              id: 'react',
+              framework: 'react',
+              module: '@acme/ui',
+              export: 'DataCard',
+            },
+          ],
+        },
+      ],
+    },
     null,
     2
   );
@@ -118,6 +134,8 @@ test('HP3: handoff bundles aub.registry.json and references it when extensions a
   const guide = await zip.file('AGENT-README.md').async('string');
   assert.ok(guide.includes('Custom component types'));
   assert.ok(guide.includes('aub.registry.json'));
+  assert.ok(guide.includes('production component'));
+  assert.ok(guide.includes('prop mappings'));
 });
 
 test('HP4: handoff omits the registry and sets null when no extensions are provided', async () => {

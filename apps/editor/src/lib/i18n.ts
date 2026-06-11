@@ -13,6 +13,9 @@ type MessageKey =
   | 'importJson'
   | 'importAngular'
   | 'importPersonalTemplate'
+  | 'importRegistry'
+  | 'registryImported'
+  | 'registryInvalid'
   | 'downloadAuthoringKit'
   | 'exportJson'
   | 'exportMarkdown'
@@ -223,9 +226,12 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
   en: {
     appTitle: 'AUB Editor',
     noBlueprintLoaded: 'no blueprint loaded',
-    importJson: 'Import JSON',
+    importJson: 'Import Blueprint or Design Bridge',
     importAngular: 'Import Angular component files',
     importPersonalTemplate: 'Import personal template',
+    importRegistry: 'Import component registry',
+    registryImported: 'Component registry imported with {count} custom type(s).',
+    registryInvalid: 'Invalid component registry: {message}',
     downloadAuthoringKit: 'Download AI authoring kit',
     exportJson: 'Export JSON',
     exportMarkdown: 'Export Markdown',
@@ -435,9 +441,12 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
   'zh-Hant': {
     appTitle: 'AUB 編輯器',
     noBlueprintLoaded: '尚未載入藍圖',
-    importJson: '匯入 JSON',
+    importJson: '匯入 Blueprint 或 Design Bridge',
     importAngular: '匯入 Angular 元件檔案',
     importPersonalTemplate: '匯入個人範本',
+    importRegistry: '匯入元件 registry',
+    registryImported: '已匯入元件 registry，共 {count} 個自訂類型。',
+    registryInvalid: '元件 registry 無效：{message}',
     downloadAuthoringKit: '下載 AI 建圖規格包',
     exportJson: '匯出 JSON',
     exportMarkdown: '匯出 Markdown',

@@ -37,7 +37,8 @@ export async function downloadHandoffPackage(
   genericPrompt: string,
   codexPrompt: string,
   reportTemplate: Record<string, unknown>,
-  viewportImages: Record<string, string>
+  viewportImages: Record<string, string>,
+  extensionRegistry?: string | null
 ): Promise<void> {
   const { createHandoffArchive } = await import('../../../../scripts/handoff-package.lib.mjs');
   const { bytes } = await createHandoffArchive({
@@ -50,6 +51,7 @@ export async function downloadHandoffPackage(
     reportTemplate,
     reportSchema: implementationReportSchema,
     viewportImages,
+    extensionRegistry: extensionRegistry ?? undefined,
   });
   const archiveBuffer = new Uint8Array(bytes.byteLength);
   archiveBuffer.set(bytes);

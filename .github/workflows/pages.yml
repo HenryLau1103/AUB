@@ -43,6 +43,9 @@ jobs:
         working-directory: apps/editor
         run: pnpm install --frozen-lockfile
 
+      - name: Verify localized landing pages
+        run: pnpm site:locales:check
+
       - name: Build editor
         working-directory: apps/editor
         env:
@@ -55,7 +58,7 @@ jobs:
           mkdir -p _site
           cp -r site/. _site/
           mkdir -p _site/schema
-          cp schema/ui-blueprint.schema.json schema/aub.registry.schema.json _site/schema/
+          cp schema/ui-blueprint.schema.json schema/ui-blueprint-lock.schema.json schema/aub.registry.schema.json schema/aub-ci.schema.json schema/design-bridge.schema.json _site/schema/
           mkdir -p _site/editor
           cp -r apps/editor/dist/. _site/editor/
           touch _site/.nojekyll

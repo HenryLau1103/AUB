@@ -1,6 +1,8 @@
 export interface KnownTypeMeta {
   isContainer: boolean;
   source?: string;
+  description?: string;
+  implementations?: ComponentImplementation[];
 }
 
 export type KnownTypes = Map<string, KnownTypeMeta>;
@@ -9,6 +11,20 @@ export interface ExtensionComponent {
   name: string;
   isContainer: boolean;
   description: string;
+  implementations: ComponentImplementation[];
+}
+
+export interface ComponentImplementation {
+  id: string;
+  framework: 'react' | 'vue' | 'angular' | 'svelte' | 'web-component' | 'html' | 'other';
+  module: string;
+  export?: string;
+  importStyle: 'named' | 'default' | 'namespace' | 'side-effect' | 'custom-element';
+  sourcePath?: string;
+  storybookUrl?: string;
+  docsUrl?: string;
+  props?: Record<string, { from: string; required?: boolean; description?: string }>;
+  notes?: string;
 }
 
 export interface BuildKnownTypesResult {
