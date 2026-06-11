@@ -225,6 +225,34 @@ pnpm scaffold path/to/screen.ui.json --sections acceptance,responsive --language
 **從佈局建議**按鈕，執行的是相同邏輯。透過 MCP 的 Agent 可呼叫 `scaffold_blueprint`
 工具，在交付實作前先取得規格完整的 blueprint。
 
+### 多畫面專案
+
+單一 `.ui.json` 是一個畫面。若要把多個畫面組成可導覽的產品，AUB 採用參照式的
+**專案**文件（`*.aub.project.json`），以路徑列出成員 Blueprint 檔案、宣告導覽圖、
+指定起始畫面，並可選擇性攜帶共用 design system。成員畫面仍是完全有效的獨立
+Blueprint，且 Blueprint schema 維持不變。
+
+```bash
+# 驗證專案（schema + 專案語意 + 每個成員畫面）
+pnpm project validate examples/project/app.aub.project.json
+
+# 將既有的單一畫面包裝成新專案（entry = 第一個）
+pnpm project init app.aub.project.json dashboard.ui.json settings.ui.json
+
+# 產生專案總覽 .md 與各畫面的 agent context
+pnpm project export-md examples/project/app.aub.project.json ./out
+```
+
+編輯器可開啟專案、切換畫面、新增／移除／重新命名畫面、設定起始畫面、編輯導覽圖，
+並將整個專案另存為 `.zip`。透過 MCP 的 Agent 可使用 `list_projects`／`get_project`／
+`validate_project`。詳見[多畫面專案](./docs/multi-screen.md)。
+
+### 畫布解析度
+
+每個 viewport 的解析度都可在編輯器中設定：可選擇常用預設值（1440×900、1920×1080、
+iPad、iPhone、Android…）或自由輸入任意寬×高（夾擠在 schema 的 320–7680 × 320–4320
+範圍內）。解析度存放在 Blueprint 的 `viewports`，會隨檔案一起保存。
+
 AUB 內建確定性的 Agent 可讀性評分，以及以瀏覽器執行的實作驗證。現有本機參考檢查涵蓋階層、幾何、layout mode、響應式 overflow、互動、無障礙狀態、截圖與報告完整性。
 
 請參考 [Agent 可讀性測試](./benchmarks/agent-readability/README.md)與[實作基準測試](./benchmarks/agent-implementation/README.md)。
@@ -256,8 +284,10 @@ Blueprint 檔案以 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.sc
 - Codex、Claude Code 與 GitHub Copilot adapter：已實作。
 - Angular 匯入、個人範本與 AI 生成工具包：已實作。
 - Blueprint diff 與 implementation report 驗證：已實作。
-- MCP server（stdio），提供 list／get／validate／scaffold／export-prompt／submit-report 工具：已實作。
-- 多畫面專案、UI 內 YAML 編輯與 editor 內 lock 產生：待辦。
+- MCP server（stdio），提供 list／get／validate／scaffold／export-prompt／submit-report 工具（以及專案工具）：已實作。
+- 多畫面專案（參照式 `.aub.project.json`、CLI、MCP 工具、編輯器畫面切換器與導覽）：已實作。
+- 可設定的畫布解析度（預設值 + 自訂寬高）：已實作。
+- UI 內 YAML 編輯與 editor 內 lock 產生：待辦。
 
 目前格式版本為 `0.3.0`。請看 [schema 版本管理](./docs/schema-versioning.md)與[能力矩陣](./docs/capability-matrix.md)。
 

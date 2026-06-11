@@ -5,10 +5,14 @@ import {
   FileCode2,
   FileJson,
   FileText,
+  FolderOpen,
+  FolderPlus,
   LibraryBig,
   Redo2,
+  Save,
   Undo2,
   Upload,
+  X,
 } from 'lucide-react';
 import { useRef } from 'react';
 import { readFileAsText } from '../lib/io';
@@ -23,6 +27,11 @@ interface Props {
   onAngularFiles: (files: FileList) => void;
   onPersonalTemplateFile: (file: File) => void;
   onDownloadAuthoringKit: () => void;
+  onOpenProject: (files: FileList) => void;
+  onNewProject: () => void;
+  onSaveProject: () => void;
+  onCloseProject: () => void;
+  projectActive: boolean;
   onExportJson: () => void;
   onExportMarkdown: () => void;
   onExportPackage: () => void;
@@ -44,6 +53,11 @@ export function TopBar({
   onAngularFiles,
   onPersonalTemplateFile,
   onDownloadAuthoringKit,
+  onOpenProject,
+  onNewProject,
+  onSaveProject,
+  onCloseProject,
+  projectActive,
   onExportJson,
   onExportMarkdown,
   onExportPackage,
@@ -60,6 +74,7 @@ export function TopBar({
 }: Props) {
   const angularInputRef = useRef<HTMLInputElement>(null);
   const personalTemplateInputRef = useRef<HTMLInputElement>(null);
+  const projectInputRef = useRef<HTMLInputElement>(null);
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -101,6 +116,17 @@ export function TopBar({
           }}
           hidden
         />
+        <input
+          ref={projectInputRef}
+          type="file"
+          accept=".json,application/json"
+          multiple
+          onChange={(event) => {
+            if (event.target.files?.length) onOpenProject(event.target.files);
+            event.target.value = '';
+          }}
+          hidden
+        />
         <label className="language-select">
           <span>{t(language, 'language')}</span>
           <select value={language} onChange={(event) => onLanguageChange(event.target.value as Language)}>
@@ -129,6 +155,12 @@ export function TopBar({
           <ToolButton icon={<FileCode2 />} label={t(language, 'importAngular')} onClick={() => angularInputRef.current?.click()} />
           <ToolButton icon={<LibraryBig />} label={t(language, 'importPersonalTemplate')} onClick={() => personalTemplateInputRef.current?.click()} />
           <ToolButton icon={<BookOpenCheck />} label={t(language, 'downloadAuthoringKit')} onClick={onDownloadAuthoringKit} />
+          <ToolButton icon={<FolderOpen />} label={t(language, 'openProject')} onClick={() => projectInputRef.current?.click()} />
+          <ToolButton icon={<FolderPlus />} label={t(language, 'newProject')} disabled={!blueprint} onClick={onNewProject} />
+          <ToolButton icon={<Save />} label={t(language, 'saveProject')} disabled={!projectActive} onClick={onSaveProject} />
+          {projectActive && (
+            <ToolButton icon={<X />} label={t(language, 'closeProject')} onClick={onCloseProject} />
+          )}
         </div>
         <div className="export-menu">
           <Download />

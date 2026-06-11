@@ -1,0 +1,30 @@
+{
+  "$schema": "../../schema/ui-project.schema.json",
+  "version": "0.1.0",
+  "id": "acme-app",
+  "name": "Acme App",
+  "description": "A small reference project showing how two single-screen Blueprints compose into a navigable multi-screen flow.",
+  "screens": [
+    { "id": "acme.dashboard", "name": "Dashboard", "path": "dashboard.ui.json" },
+    { "id": "acme.settings", "name": "Settings", "path": "settings.ui.json" }
+  ],
+  "entry_screen": "acme.dashboard",
+  "navigation": [
+    {
+      "from": "acme.dashboard",
+      "to": "acme.settings",
+      "trigger": "click",
+      "label": "Open settings"
+    },
+    {
+      "from": "acme.settings",
+      "to": "acme.dashboard",
+      "trigger": "click",
+      "label": "Back to dashboard"
+    }
+  ],
+  "design_system": {
+    "name": "Acme Tokens",
+    "colors": { "primary": "#2563eb", "surface": "#ffffff", "text": "#0f172a" }
+  }
+}

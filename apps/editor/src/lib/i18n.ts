@@ -127,6 +127,12 @@ type MessageKey =
   | 'fitArtboard'
   | 'zoomOut'
   | 'zoomIn'
+  | 'resolution'
+  | 'resolutionPreset'
+  | 'customResolution'
+  | 'viewportWidth'
+  | 'viewportHeight'
+  | 'applyResolution'
   | 'undo'
   | 'redo'
   | 'duplicate'
@@ -180,7 +186,38 @@ type MessageKey =
   | 'actionIntent'
   | 'supportedStates'
   | 'declaredInteractions'
-  | 'noDeclaredInteractions';
+  | 'noDeclaredInteractions'
+  | 'openProject'
+  | 'newProject'
+  | 'saveProject'
+  | 'closeProject'
+  | 'addScreen'
+  | 'removeScreen'
+  | 'renameScreen'
+  | 'setEntryScreen'
+  | 'entryScreen'
+  | 'navigation'
+  | 'navFrom'
+  | 'navTo'
+  | 'navTrigger'
+  | 'navLabel'
+  | 'addNavEdge'
+  | 'noNavEdges'
+  | 'projectName'
+  | 'projectDescription'
+  | 'projectScreens'
+  | 'showNavigation'
+  | 'hideNavigation'
+  | 'navTriggerNone'
+  | 'projectOpened'
+  | 'projectSaved'
+  | 'projectCreated'
+  | 'projectClosed'
+  | 'projectMissingScreens'
+  | 'projectNoDocument'
+  | 'screenAdded'
+  | 'screenRemoved'
+  | 'cannotRemoveLastScreen';
 
 const MESSAGES: Record<Language, Record<MessageKey, string>> = {
   en: {
@@ -303,6 +340,12 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     fitArtboard: 'Fit artboard',
     zoomOut: 'Zoom out',
     zoomIn: 'Zoom in',
+    resolution: 'Resolution',
+    resolutionPreset: 'Resolution preset',
+    customResolution: 'Custom…',
+    viewportWidth: 'Width',
+    viewportHeight: 'Height',
+    applyResolution: 'Apply resolution',
     undo: 'Undo',
     redo: 'Redo',
     duplicate: 'Duplicate',
@@ -357,6 +400,37 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     supportedStates: 'Supported states',
     declaredInteractions: 'Declared interactions',
     noDeclaredInteractions: 'No interaction record uses this component as its source.',
+    openProject: 'Open project',
+    newProject: 'New project from current screen',
+    saveProject: 'Save project (.zip)',
+    closeProject: 'Close project',
+    addScreen: 'Add screen',
+    removeScreen: 'Remove screen',
+    renameScreen: 'Rename screen',
+    setEntryScreen: 'Set as entry screen',
+    entryScreen: 'Entry screen',
+    navigation: 'Navigation',
+    navFrom: 'From',
+    navTo: 'To',
+    navTrigger: 'Trigger',
+    navLabel: 'Label',
+    addNavEdge: 'Add edge',
+    noNavEdges: 'No navigation edges yet.',
+    projectName: 'Project name',
+    projectDescription: 'Description',
+    projectScreens: 'Screens',
+    showNavigation: 'Show navigation',
+    hideNavigation: 'Hide navigation',
+    navTriggerNone: '(none)',
+    projectOpened: 'Opened project "{name}".',
+    projectSaved: 'Saved project archive.',
+    projectCreated: 'Created project "{name}".',
+    projectClosed: 'Closed project.',
+    projectMissingScreens: 'Project opened, but some screens could not be resolved: {paths}',
+    projectNoDocument: 'No .aub.project.json document was found in the selected files.',
+    screenAdded: 'Added screen "{name}".',
+    screenRemoved: 'Removed screen "{name}".',
+    cannotRemoveLastScreen: 'A project must keep at least one screen.',
   },
   'zh-Hant': {
     appTitle: 'AUB 編輯器',
@@ -478,6 +552,12 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     fitArtboard: '適應畫板',
     zoomOut: '縮小',
     zoomIn: '放大',
+    resolution: '解析度',
+    resolutionPreset: '解析度預設',
+    customResolution: '自訂…',
+    viewportWidth: '寬度',
+    viewportHeight: '高度',
+    applyResolution: '套用解析度',
     undo: '復原',
     redo: '重做',
     duplicate: '複製',
@@ -532,6 +612,37 @@ const MESSAGES: Record<Language, Record<MessageKey, string>> = {
     supportedStates: '支援狀態',
     declaredInteractions: '已宣告互動',
     noDeclaredInteractions: '目前沒有互動紀錄以這個元件作為來源。',
+    openProject: '開啟專案',
+    newProject: '以目前畫面建立專案',
+    saveProject: '儲存專案（.zip）',
+    closeProject: '關閉專案',
+    addScreen: '新增畫面',
+    removeScreen: '移除畫面',
+    renameScreen: '重新命名畫面',
+    setEntryScreen: '設為起始畫面',
+    entryScreen: '起始畫面',
+    navigation: '導覽',
+    navFrom: '來源',
+    navTo: '目標',
+    navTrigger: '觸發',
+    navLabel: '標籤',
+    addNavEdge: '新增連線',
+    noNavEdges: '尚無導覽連線。',
+    projectName: '專案名稱',
+    projectDescription: '描述',
+    projectScreens: '畫面',
+    showNavigation: '顯示導覽',
+    hideNavigation: '隱藏導覽',
+    navTriggerNone: '（無）',
+    projectOpened: '已開啟專案「{name}」。',
+    projectSaved: '已儲存專案壓縮檔。',
+    projectCreated: '已建立專案「{name}」。',
+    projectClosed: '已關閉專案。',
+    projectMissingScreens: '已開啟專案，但部分畫面無法解析：{paths}',
+    projectNoDocument: '所選檔案中找不到 .aub.project.json 文件。',
+    screenAdded: '已新增畫面「{name}」。',
+    screenRemoved: '已移除畫面「{name}」。',
+    cannotRemoveLastScreen: '專案至少需保留一個畫面。',
   },
 };
 

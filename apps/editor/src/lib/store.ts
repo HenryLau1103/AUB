@@ -8,9 +8,50 @@ import type {
   ComponentType,
   Layout,
   Placement,
+  Viewport,
   ViewportId,
 } from '../types';
 import { isContainerType } from './registry';
+
+// Viewport dimension bounds mirror schema/ui-blueprint.schema.json ($defs.viewport).
+export const VIEWPORT_MIN_WIDTH = 320;
+export const VIEWPORT_MAX_WIDTH = 7680;
+export const VIEWPORT_MIN_HEIGHT = 320;
+export const VIEWPORT_MAX_HEIGHT = 4320;
+
+export interface ResolutionPreset {
+  id: string;
+  group: 'desktop' | 'tablet' | 'mobile';
+  width: number;
+  height: number;
+}
+
+// Common device resolutions offered as one-click presets. Free numeric input
+// remains available for anything not listed here.
+export const RESOLUTION_PRESETS: ResolutionPreset[] = [
+  { id: 'desktop-1440', group: 'desktop', width: 1440, height: 900 },
+  { id: 'desktop-fhd', group: 'desktop', width: 1920, height: 1080 },
+  { id: 'desktop-1366', group: 'desktop', width: 1366, height: 768 },
+  { id: 'desktop-1280', group: 'desktop', width: 1280, height: 800 },
+  { id: 'desktop-macbook', group: 'desktop', width: 1512, height: 982 },
+  { id: 'tablet-ipad', group: 'tablet', width: 1024, height: 768 },
+  { id: 'tablet-ipad-portrait', group: 'tablet', width: 834, height: 1112 },
+  { id: 'tablet-surface', group: 'tablet', width: 1368, height: 912 },
+  { id: 'mobile-iphone', group: 'mobile', width: 390, height: 844 },
+  { id: 'mobile-iphone-max', group: 'mobile', width: 430, height: 932 },
+  { id: 'mobile-android', group: 'mobile', width: 360, height: 800 },
+  { id: 'mobile-pixel', group: 'mobile', width: 412, height: 915 },
+];
+
+export function clampViewportWidth(value: number): number {
+  if (!Number.isFinite(value)) return VIEWPORT_MIN_WIDTH;
+  return Math.round(Math.max(VIEWPORT_MIN_WIDTH, Math.min(VIEWPORT_MAX_WIDTH, value)));
+}
+
+export function clampViewportHeight(value: number): number {
+  if (!Number.isFinite(value)) return VIEWPORT_MIN_HEIGHT;
+  return Math.round(Math.max(VIEWPORT_MIN_HEIGHT, Math.min(VIEWPORT_MAX_HEIGHT, value)));
+}
 
 let idCounter = 0;
 function genId(prefix: string): string {
@@ -278,6 +319,47 @@ export function updateManyPlacements(
     (current, update) => updateNodePlacement(current, update.id, update.viewportId, update.patch),
     blueprint
   );
+}
+
+// Resize a viewport (canvas resolution). Width/height are clamped to the schema
+// bounds. Any placement that would overflow the new width is pulled back in so
+// the blueprint stays valid.
+export function setViewportSize(
+  blueprint: Blueprint,
+  viewportId: ViewportId,
+  size: { width?: number; height?: number }
+): Blueprint {
+  const existing = blueprint.viewports.find((candidate) => candidate.id === viewportId);
+  if (!existing) return blueprint;
+
+  const width = size.width != null ? clampViewportWidth(size.width) : existing.width;
+  const height = size.height != null ? clampViewportHeight(size.height) : existing.height;
+  if (width === existing.width && height === existing.height) return blueprint;
+
+  const viewports = blueprint.viewports.map((candidate) =>
+    candidate.id === viewportId ? { ...candidate, width, height } : candidate
+  );
+
+  const nodes = blueprint.nodes.map((node) => {
+    const placement = node.placements?.[viewportId];
+    if (!placement) return node;
+    const clampedWidth = Math.max(1, Math.min(placement.width, width));
+    const clampedX = Math.max(0, Math.min(placement.x, Math.max(0, width - clampedWidth)));
+    if (clampedWidth === placement.width && clampedX === placement.x) return node;
+    return {
+      ...node,
+      placements: {
+        ...node.placements,
+        [viewportId]: { ...placement, width: clampedWidth, x: clampedX },
+      },
+    };
+  });
+
+  return { ...blueprint, viewports, nodes };
+}
+
+export function findViewport(blueprint: Blueprint, viewportId: ViewportId): Viewport | undefined {
+  return blueprint.viewports.find((candidate) => candidate.id === viewportId);
 }
 
 export function reparentNode(

@@ -33,7 +33,7 @@ import { componentLabel, t, viewportLabel, type Language } from '../lib/i18n';
 import { directDragMode } from '../lib/drag-intent.mjs';
 import { alignPlacements, distributePlacements, placementFor } from '../lib/geometry';
 import { getTypeMeta, isContainerType } from '../lib/registry';
-import { defaultPlacementForType } from '../lib/store';
+import { defaultPlacementForType, RESOLUTION_PRESETS, clampViewportWidth, clampViewportHeight } from '../lib/store';
 import { TEMPLATE_IDS, templateLabel, type TemplateId } from '../lib/templates';
 import type { ViewportQualityIssue, ViewportQualityReport } from '../lib/viewport-quality';
 import { Tooltip } from './Tooltip';
@@ -86,6 +86,7 @@ interface Props {
   ) => void;
   onDuplicateNodes: (ids: string[]) => void;
   onSetZIndex: (ids: string[], viewportId: ViewportId, direction: 'front' | 'back') => void;
+  onSetViewportSize: (viewportId: ViewportId, size: { width?: number; height?: number }) => void;
   onCreateStarter: (kind: 'page' | 'app') => void;
   onTemplateSelect: (id: TemplateId) => void;
   draggingType: ComponentType | null;
@@ -106,6 +107,89 @@ const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 1.5;
 const ZOOM_STEP = 0.1;
 
+interface ResolutionControlProps {
+  language: Language;
+  viewport: Viewport;
+  onSetViewportSize: (viewportId: ViewportId, size: { width?: number; height?: number }) => void;
+}
+
+function ResolutionControl({ language, viewport, onSetViewportSize }: ResolutionControlProps) {
+  const [draftWidth, setDraftWidth] = useState(String(viewport.width));
+  const [draftHeight, setDraftHeight] = useState(String(viewport.height));
+
+  useEffect(() => {
+    setDraftWidth(String(viewport.width));
+    setDraftHeight(String(viewport.height));
+  }, [viewport.id, viewport.width, viewport.height]);
+
+  const activePresetId = useMemo(() => {
+    const match = RESOLUTION_PRESETS.find(
+      (preset) => preset.width === viewport.width && preset.height === viewport.height
+    );
+    return match?.id ?? 'custom';
+  }, [viewport.width, viewport.height]);
+
+  const commitWidth = () => {
+    const next = clampViewportWidth(Number(draftWidth));
+    setDraftWidth(String(next));
+    if (next !== viewport.width) onSetViewportSize(viewport.id, { width: next });
+  };
+  const commitHeight = () => {
+    const next = clampViewportHeight(Number(draftHeight));
+    setDraftHeight(String(next));
+    if (next !== viewport.height) onSetViewportSize(viewport.id, { height: next });
+  };
+
+  return (
+    <div className="resolution-control" title={t(language, 'resolution')}>
+      <select
+        aria-label={t(language, 'resolutionPreset')}
+        value={activePresetId}
+        onChange={(event) => {
+          const preset = RESOLUTION_PRESETS.find((item) => item.id === event.target.value);
+          if (preset) onSetViewportSize(viewport.id, { width: preset.width, height: preset.height });
+        }}
+      >
+        {RESOLUTION_PRESETS.map((preset) => (
+          <option key={preset.id} value={preset.id}>
+            {preset.width} × {preset.height}
+          </option>
+        ))}
+        {activePresetId === 'custom' && (
+          <option value="custom">{t(language, 'customResolution')}</option>
+        )}
+      </select>
+      <input
+        type="number"
+        className="resolution-input"
+        aria-label={t(language, 'viewportWidth')}
+        value={draftWidth}
+        min={320}
+        max={7680}
+        onChange={(event) => setDraftWidth(event.target.value)}
+        onBlur={commitWidth}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
+        }}
+      />
+      <span className="resolution-times">×</span>
+      <input
+        type="number"
+        className="resolution-input"
+        aria-label={t(language, 'viewportHeight')}
+        value={draftHeight}
+        min={320}
+        max={4320}
+        onChange={(event) => setDraftHeight(event.target.value)}
+        onBlur={commitHeight}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
+        }}
+      />
+    </div>
+  );
+}
+
 export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas({
   blueprint,
   selectedIds,
@@ -118,6 +202,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas({
   onMoveNode,
   onDuplicateNodes,
   onSetZIndex,
+  onSetViewportSize,
   onCreateStarter,
   onTemplateSelect,
   draggingType,
@@ -723,6 +808,11 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas({
             </button>
           ))}
         </div>
+        <ResolutionControl
+          language={language}
+          viewport={activeViewport}
+          onSetViewportSize={onSetViewportSize}
+        />
         <div className="canvas-tool-group selection-tools">
           <IconButton icon={<Copy />} label={t(language, 'duplicate')} disabled={!canDuplicate} onClick={() => onDuplicateNodes(selectedIds)} />
           <IconButton icon={<BringToFront />} label={t(language, 'bringFront')} disabled={!targets.length} onClick={() => onSetZIndex(selectedIds, viewportId, 'front')} />

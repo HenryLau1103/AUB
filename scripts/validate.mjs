@@ -11,6 +11,7 @@ import addFormats from 'ajv-formats';
 import yaml from 'js-yaml';
 import { validateBlueprintSemantics } from './validate-blueprint.lib.mjs';
 import { buildKnownTypes } from './registry.lib.mjs';
+import { validateProjectFile } from './project.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -54,6 +55,36 @@ async function main() {
     document = yaml.load(fileRaw);
   } else {
     document = JSON.parse(fileRaw);
+  }
+
+  const looksLikeProject =
+    /\.aub\.project\.json$/i.test(filePath) ||
+    (document &&
+      typeof document === 'object' &&
+      Array.isArray(document.screens) &&
+      document.entry_screen != null &&
+      !('nodes' in document));
+  if (looksLikeProject) {
+    console.log('→ detected project document; validating as project');
+    const result = await validateProjectFile(filePath);
+    if (result.perScreen) {
+      for (const screen of result.perScreen) {
+        if (screen.ok) {
+          console.log(`  ✓ screen ${screen.id}`);
+        } else {
+          console.error(`  ✗ screen ${screen.id}`);
+        }
+      }
+    }
+    if (result.ok) {
+      console.log(`✓ valid project: ${arg}`);
+      process.exit(0);
+    }
+    console.error(`✗ invalid project: ${arg}`);
+    for (const error of result.errors) {
+      console.error(`  ${error}`);
+    }
+    process.exit(1);
   }
 
   let knownTypes;

@@ -16,6 +16,7 @@ WYSIWYG editor for UI Blueprints v0.3.
 - **Place directly** by drag or palette click; dropping into an auto-layout container preserves its current child geometry and switches that container to freeform
 - **Switch layout mode** per container between freeform geometry and flex/grid auto layout
 - **Preview** the screen as a desktop/tablet/mobile UI mockup instead of a graph-only structure view
+- **Set the canvas resolution** per viewport from common device presets or a custom width × height, clamped to the schema range and tracked in undo history
 - **Fit the full artboard** automatically when loading a template or switching viewport, with a manual fit control
 - **Audit rendered viewports** for overflow, undersized components, and freeform overlaps before AI handoff
 - **Inspect** the hierarchy by selecting elements directly on the artboard
@@ -23,6 +24,8 @@ WYSIWYG editor for UI Blueprints v0.3.
 - **Export** to `.ui.json` (download)
 - **Export** to `.ui.md` with exact viewport geometry and design tokens
 - **Edit** screen goals, declared interactions, responsive rules, and acceptance criteria
+- **Compose a multi-screen project** — open or create an `.aub.project.json`, switch between member screens, add/remove/rename screens, set the entry screen, and edit the cross-screen navigation graph
+- **Save a project** as a `.zip` bundling the project document and every member `.ui.json`
 - **Export** a Codex-ready implementation task
 - **Export** an `.aub.zip` AI handoff package with portable English/Traditional Chinese agent guides, generic and Codex tasks, JSON, Markdown, implementation report template/schema, viewport screenshots, and a SHA-256 manifest
 - **Download** an AI authoring kit containing the current schema, registry, canonical example, validation guide, and author-task prompt
@@ -58,10 +61,12 @@ src/
 │   ├── viewport-quality.ts       # rendered viewport quality report types
 │   ├── angular-import.ts         # Angular bundle reader, importer, Ollama review
 │   ├── personal-templates.ts     # browser-local template persistence/packages
+│   ├── project.ts                # browser-safe multi-screen project model + navigation
 │   ├── io.ts                     # import/export and AI handoff package
 │   └── registry.ts               # read schema/registry/components.json
 └── components/
     ├── TopBar.tsx                # import/export buttons + validation status
+    ├── ProjectBar.tsx           # multi-screen switcher + navigation editor
     ├── Palette.tsx               # components, templates, and layers
     ├── Canvas.tsx                # freeform/auto viewport artboard
     ├── AngularImportDialog.tsx   # import preview, diagnostics, optional AI review
@@ -74,7 +79,6 @@ The editor shares the project root's `schema/` and registry — it does not dupl
 
 ## Remaining backlog
 
-- Multi-screen projects
 - YAML editor
 - `.ui.lock.json` generation from the UI (the script does it from CLI)
 - Tab/arrow focus traversal across nested layers

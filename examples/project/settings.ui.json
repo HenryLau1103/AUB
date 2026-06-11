@@ -1,0 +1,372 @@
+{
+  "$schema": "../../schema/ui-blueprint.schema.json",
+  "version": "0.3.0",
+  "screen": {
+    "id": "acme.settings",
+    "name": "Settings",
+    "type": "settings",
+    "platform": "web",
+    "primary_user_goal": "Let the user update account preferences and save changes."
+  },
+  "viewports": [
+    {
+      "id": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "id": "tablet",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "id": "mobile",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "design_system": {
+    "name": "Acme Tokens",
+    "colors": {
+      "primary": "#2563eb",
+      "surface": "#ffffff",
+      "text": "#0f172a"
+    },
+    "typography": {
+      "base_font": "Inter",
+      "scale": "1.25"
+    },
+    "spacing": {
+      "space.1": "4px",
+      "space.2": "8px",
+      "space.3": "16px"
+    },
+    "radii": {
+      "radius.control": "6px",
+      "radius.panel": "8px"
+    },
+    "shadows": {
+      "shadow.card": "0 1px 2px rgba(0,0,0,0.06)"
+    }
+  },
+  "nodes": [
+    {
+      "id": "shell",
+      "type": "app_shell",
+      "name": "App Shell",
+      "role": "Top-level layout container for the settings screen.",
+      "parent_id": null,
+      "children": [
+        "top_bar",
+        "form_section"
+      ],
+      "layout": {
+        "mode": "auto",
+        "display": "flex",
+        "direction": "column"
+      }
+    },
+    {
+      "id": "top_bar",
+      "type": "top_bar",
+      "name": "Top Bar",
+      "role": "Holds the back navigation control.",
+      "parent_id": "shell",
+      "children": [
+        "back_btn"
+      ],
+      "layout": {
+        "mode": "auto",
+        "display": "flex",
+        "direction": "row"
+      },
+      "placements": {
+        "desktop": {
+          "x": 0,
+          "y": 0,
+          "width": 1440,
+          "height": 64,
+          "z_index": 2
+        },
+        "tablet": {
+          "x": 0,
+          "y": 0,
+          "width": 1024,
+          "height": 64,
+          "z_index": 2
+        },
+        "mobile": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 64,
+          "z_index": 2
+        }
+      }
+    },
+    {
+      "id": "back_btn",
+      "type": "icon_button",
+      "name": "Back",
+      "role": "Returns the user to the dashboard.",
+      "parent_id": "top_bar",
+      "children": [],
+      "content": {
+        "action": "navigate:acme.dashboard",
+        "icon": "arrow-left"
+      },
+      "placements": {
+        "desktop": {
+          "x": 16,
+          "y": 10,
+          "width": 44,
+          "height": 44,
+          "z_index": 3
+        },
+        "tablet": {
+          "x": 16,
+          "y": 10,
+          "width": 44,
+          "height": 44,
+          "z_index": 3
+        },
+        "mobile": {
+          "x": 16,
+          "y": 10,
+          "width": 44,
+          "height": 44,
+          "z_index": 3
+        }
+      }
+    },
+    {
+      "id": "form_section",
+      "type": "section",
+      "name": "Preferences",
+      "role": "Groups the preference form.",
+      "parent_id": "shell",
+      "children": [
+        "prefs_form"
+      ],
+      "layout": {
+        "mode": "auto",
+        "display": "flex",
+        "direction": "column"
+      },
+      "placements": {
+        "desktop": {
+          "x": 0,
+          "y": 64,
+          "width": 1440,
+          "height": 700,
+          "z_index": 1
+        },
+        "tablet": {
+          "x": 0,
+          "y": 64,
+          "width": 1024,
+          "height": 700,
+          "z_index": 1
+        },
+        "mobile": {
+          "x": 0,
+          "y": 64,
+          "width": 390,
+          "height": 700,
+          "z_index": 1
+        }
+      }
+    },
+    {
+      "id": "prefs_form",
+      "type": "form",
+      "name": "Preferences Form",
+      "role": "Captures and saves account preferences.",
+      "parent_id": "form_section",
+      "children": [
+        "name_input",
+        "save_btn"
+      ],
+      "layout": {
+        "mode": "auto",
+        "display": "flex",
+        "direction": "column"
+      },
+      "placements": {
+        "desktop": {
+          "x": 40,
+          "y": 40,
+          "width": 520,
+          "height": 400,
+          "z_index": 1
+        },
+        "tablet": {
+          "x": 40,
+          "y": 40,
+          "width": 520,
+          "height": 400,
+          "z_index": 1
+        },
+        "mobile": {
+          "x": 40,
+          "y": 40,
+          "width": 390,
+          "height": 400,
+          "z_index": 1
+        }
+      }
+    },
+    {
+      "id": "name_input",
+      "type": "text_input",
+      "name": "Display Name",
+      "role": "Edits the display name.",
+      "parent_id": "prefs_form",
+      "children": [],
+      "placements": {
+        "desktop": {
+          "x": 40,
+          "y": 60,
+          "width": 440,
+          "height": 64,
+          "z_index": 2
+        },
+        "tablet": {
+          "x": 40,
+          "y": 60,
+          "width": 440,
+          "height": 64,
+          "z_index": 2
+        },
+        "mobile": {
+          "x": 40,
+          "y": 60,
+          "width": 390,
+          "height": 64,
+          "z_index": 2
+        }
+      }
+    },
+    {
+      "id": "save_btn",
+      "type": "button",
+      "name": "Save",
+      "role": "Submits the preferences form.",
+      "parent_id": "prefs_form",
+      "children": [],
+      "content": {
+        "action": "submit:acme.settings",
+        "label": "Save changes"
+      },
+      "placements": {
+        "desktop": {
+          "x": 40,
+          "y": 160,
+          "width": 160,
+          "height": 44,
+          "z_index": 2
+        },
+        "tablet": {
+          "x": 40,
+          "y": 160,
+          "width": 160,
+          "height": 44,
+          "z_index": 2
+        },
+        "mobile": {
+          "x": 40,
+          "y": 160,
+          "width": 160,
+          "height": 44,
+          "z_index": 2
+        }
+      }
+    }
+  ],
+  "interactions": [
+    {
+      "id": "interaction_1",
+      "trigger": "click",
+      "source_node_id": "back_btn",
+      "action": "navigate:acme.dashboard",
+      "result_state": "The result of Back is visibly presented to the user."
+    },
+    {
+      "id": "interaction_2",
+      "trigger": "submit",
+      "source_node_id": "prefs_form",
+      "action": "submit:prefs_form",
+      "result_state": "The result of Preferences Form is visibly presented to the user."
+    },
+    {
+      "id": "interaction_3",
+      "trigger": "change",
+      "source_node_id": "name_input",
+      "action": "change:name_input",
+      "result_state": "The result of Display Name is visibly presented to the user."
+    },
+    {
+      "id": "interaction_4",
+      "trigger": "click",
+      "source_node_id": "save_btn",
+      "action": "submit:acme.settings",
+      "result_state": "The result of Save is visibly presented to the user."
+    }
+  ],
+  "responsive": [
+    {
+      "viewport": "tablet",
+      "rule": "icon_only",
+      "target_node_id": "top_bar",
+      "changes": {}
+    },
+    {
+      "viewport": "mobile",
+      "rule": "bottom_nav",
+      "target_node_id": "top_bar",
+      "changes": {}
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "acc_1",
+      "type": "layout",
+      "statement": "All major regions match their declared placements on desktop.",
+      "target": "desktop",
+      "priority": "blocker",
+      "verification_method": "screenshot_diff"
+    },
+    {
+      "id": "acc_2",
+      "type": "interaction",
+      "statement": "Primary buttons and navigation controls declare and perform their actions.",
+      "target": "*",
+      "priority": "must",
+      "verification_method": "interaction_replay"
+    },
+    {
+      "id": "acc_3",
+      "type": "responsive",
+      "statement": "The tablet layout adapts without horizontal overflow.",
+      "target": "tablet",
+      "priority": "must",
+      "verification_method": "screenshot_diff"
+    },
+    {
+      "id": "acc_4",
+      "type": "a11y",
+      "statement": "Interactive controls have understandable labels and visible focus states.",
+      "target": "*",
+      "priority": "must",
+      "verification_method": "axe_audit"
+    },
+    {
+      "id": "acc_5",
+      "type": "content",
+      "statement": "Names and content explain the purpose of each major region starting at App Shell.",
+      "target": "*",
+      "priority": "should",
+      "verification_method": "manual_ia_review"
+    }
+  ]
+}

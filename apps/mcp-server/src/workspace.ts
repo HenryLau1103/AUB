@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import yaml from 'js-yaml';
 import type { Blueprint } from './aub.js';
+import { parseProjectText } from './aub.js';
 
 export interface BlueprintEntry {
   path: string;
@@ -17,8 +18,17 @@ export interface ResolvedBlueprint {
   entry: BlueprintEntry;
 }
 
+export interface ProjectEntry {
+  path: string;
+  absPath: string;
+  id: string;
+  name: string;
+  screenCount: number;
+}
+
 const IGNORED_DIRS = new Set(['node_modules', 'dist', '.git', '.aub', '.pnpm-store']);
 const BLUEPRINT_PATTERN = /\.ui\.(json|ya?ml)$/i;
+export const PROJECT_PATTERN = /\.aub\.project\.(json|ya?ml)$/i;
 
 function isYaml(filePath: string): boolean {
   const ext = extname(filePath).toLowerCase();
@@ -48,7 +58,7 @@ function toEntry(root: string, absPath: string, blueprint: Blueprint): Blueprint
   };
 }
 
-async function walk(dir: string, out: string[]): Promise<void> {
+async function walk(dir: string, out: string[], pattern: RegExp): Promise<void> {
   let dirents;
   try {
     dirents = await readdir(dir, { withFileTypes: true });
@@ -59,8 +69,8 @@ async function walk(dir: string, out: string[]): Promise<void> {
     const full = join(dir, dirent.name);
     if (dirent.isDirectory()) {
       if (IGNORED_DIRS.has(dirent.name) || dirent.name.startsWith('.')) continue;
-      await walk(full, out);
-    } else if (dirent.isFile() && BLUEPRINT_PATTERN.test(dirent.name)) {
+      await walk(full, out, pattern);
+    } else if (dirent.isFile() && pattern.test(dirent.name)) {
       out.push(full);
     }
   }
@@ -68,7 +78,7 @@ async function walk(dir: string, out: string[]): Promise<void> {
 
 export async function listBlueprints(root: string): Promise<BlueprintEntry[]> {
   const files: string[] = [];
-  await walk(root, files);
+  await walk(root, files, BLUEPRINT_PATTERN);
   const entries: BlueprintEntry[] = [];
   for (const absPath of files.sort()) {
     try {
@@ -102,4 +112,47 @@ export async function resolveBlueprint(root: string, ref: string): Promise<Resol
   }
   const blueprint = await readBlueprintFile(match.absPath);
   return { blueprint, entry: match };
+}
+
+export async function listProjects(root: string): Promise<ProjectEntry[]> {
+  const files: string[] = [];
+  await walk(root, files, PROJECT_PATTERN);
+  const entries: ProjectEntry[] = [];
+  for (const absPath of files.sort()) {
+    try {
+      const text = await readFile(absPath, 'utf8');
+      const project = parseProjectText(text, absPath) as Record<string, any>;
+      entries.push({
+        path: relative(root, absPath).split(sep).join('/'),
+        absPath,
+        id: project?.id ?? '',
+        name: project?.name ?? '',
+        screenCount: Array.isArray(project?.screens) ? project.screens.length : 0,
+      });
+    } catch {
+      // Skip files that fail to parse; validate_project surfaces details on demand.
+    }
+  }
+  return entries;
+}
+
+// Resolve a ref that is either a project file path (absolute or relative to root) or a project id.
+export async function resolveProjectRef(root: string, ref: string): Promise<{ projectPath: string }> {
+  const trimmed = ref.trim();
+  if (!trimmed) throw new Error('A project ref (file path or project id) is required.');
+
+  const candidate = isAbsolute(trimmed) ? trimmed : resolve(root, trimmed);
+  if (PROJECT_PATTERN.test(trimmed) || existsSync(candidate)) {
+    if (!existsSync(candidate)) {
+      throw new Error(`Project file not found: ${trimmed}`);
+    }
+    return { projectPath: candidate };
+  }
+
+  const entries = await listProjects(root);
+  const match = entries.find((entry) => entry.id === trimmed);
+  if (!match) {
+    throw new Error(`No project found for ref "${ref}" (not a file path and no matching project id).`);
+  }
+  return { projectPath: match.absPath };
 }
