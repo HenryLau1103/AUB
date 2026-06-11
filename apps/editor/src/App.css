@@ -3934,7 +3934,7 @@ button.primary {
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(240px, 1fr) minmax(260px, 1.2fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
 }
 
@@ -3967,7 +3967,7 @@ button.primary {
 .workspace-candidates {
   display: grid;
   gap: 8px;
-  max-height: 220px;
+  max-height: 320px;
   overflow: auto;
 }
 
@@ -4003,12 +4003,60 @@ button.primary {
   gap: 5px;
 }
 
-.workspace-candidate-actions {
+.workspace-candidate-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workspace-candidate-batch {
+  display: flex;
   flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workspace-candidate-batch button {
+  font-size: 11px;
+}
+
+.workspace-candidate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .workspace-candidate-actions select {
   max-width: 150px;
+}
+
+.workspace-source-list {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.workspace-source-list > div {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.workspace-source-list h4 {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #475569;
+}
+
+.workspace-report-summary {
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #eff6ff;
+  padding: 8px;
+  display: grid;
+  gap: 5px;
 }
 
 .workspace-template-section .template-preview-empty {

@@ -36,6 +36,7 @@ Run this from your existing project root:
 
 ```bash
 cd /your-path/your-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -51,6 +52,10 @@ Stop:      Ctrl+C
 
 The browser opens AUB Editor automatically, already connected to your workspace.
 
+`init` creates AUB config, GitHub issue templates, Copilot instructions, and a pull-request
+workflow. It does not edit your app source files. If a generated file already exists, it refuses
+to overwrite it unless you rerun with `--force`.
+
 ---
 
 ## 3. Files AUB May Create
@@ -61,6 +66,8 @@ The browser opens AUB Editor automatically, already connected to your workspace.
 .aub/session.json
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
+.aub/ci.json
+.github/workflows/aub-contracts.yml
 aub.registry.json
 screens/*.ui.json
 ```
@@ -321,6 +328,16 @@ The agent should:
 
 The agent should not guess from screenshots or prose. The `.ui.json` is the source of truth.
 
+After implementation, capture local evidence against the real route:
+
+```bash
+pnpm report:capture -- --workspace /your-path/your-app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
+pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+```
+
+This adds viewport screenshots, DOM checks, overflow checks, and acceptance evidence to the
+implementation report so the PR gate is not relying only on agent-written text.
+
 ---
 
 ## 11. Preview the Real App Route
@@ -375,6 +392,7 @@ Most days, use this flow:
 
 ```bash
 cd /your-path/your-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -421,6 +439,7 @@ No, not for normal use.
 Run this inside your existing project:
 
 ```bash
+npx aub-workspace init
 npx aub-workspace
 ```
 

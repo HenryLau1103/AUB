@@ -6,10 +6,11 @@
 
 ```bash
 cd /path/to/your-existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
-這個指令會啟動本機 AUB MCP HTTP server、提供 bundled AUB editor、把 editor 連到 MCP endpoint，並開啟瀏覽器。
+`init` 會建立 AUB 設定、GitHub issue templates、Copilot instructions 與 PR workflow。`aub-workspace` 會啟動本機 AUB MCP HTTP server、提供 bundled AUB editor、把 editor 連到 MCP endpoint，並開啟瀏覽器。
 
 成功時會看到類似輸出：
 
@@ -35,6 +36,8 @@ AUB 可能會在既有專案建立：
 .aub/session.json
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
+.aub/ci.json
+.github/workflows/aub-contracts.yml
 aub.registry.json
 screens/*.ui.json
 ```
@@ -42,6 +45,10 @@ screens/*.ui.json
 Options:
 
 ```bash
+npx aub-workspace init
+npx aub-workspace init --force
+npx aub-workspace init --no-github
+npx aub-workspace init --ci-only
 npx aub-workspace --workspace /path/to/app
 npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open

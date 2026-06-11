@@ -13,7 +13,7 @@
 
 **English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
 
-[Workspace loop guide](./docs/workspace-loop-user-manual.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Canonical example](./examples/dashboard.ui.json)
+[Workspace loop guide](./docs/workspace-loop-user-manual.md) · [10-minute demo](./docs/workspace-loop-10-minute-demo.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Canonical example](./examples/dashboard.ui.json)
 
 ![AUB visual editor showing a responsive onboarding screen](./docs/assets/aub-editor-en.jpg)
 
@@ -25,13 +25,13 @@ AUB is the local-first workbench for coding agents working on real apps. Scan an
 
 ```mermaid
 flowchart LR
-  A["1. Run npx aub-workspace<br/>inside an existing app"] --> B["2. Scan a route and generate<br/>a candidate template"]
+  A["1. Run npx aub-workspace init<br/>inside an existing app"] --> B["2. Scan a route and generate<br/>a candidate template"]
   B --> C["3. Review mappings,<br/>edit, and save the Blueprint"]
   C --> D["4. Hand the instruction to<br/>Copilot, Codex, or another agent"]
   D --> E["5. Gate the PR<br/>on implementation evidence"]
 ```
 
-1. **Start in your app** — run `npx aub-workspace` from the existing project root; no AUB clone is required.
+1. **Start in your app** — run `npx aub-workspace init`, then `npx aub-workspace` from the existing project root; no AUB clone is required.
 2. **Scan and template** — detect routes, components, layout hints, and custom component candidates.
 3. **Review the contract** — open the candidate template, approve mappings, and adjust the Blueprint.
 4. **Hand off to an agent** — copy one instruction with the active Blueprint, route, preview URL, and MCP tools.
@@ -51,12 +51,13 @@ If you already have an app and want AUB to scan, template, edit, and preview it 
 
 ```bash
 cd /path/to/your-existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
 This starts the local AUB MCP server, opens the bundled editor, and connects the editor to your workspace automatically. You do not need to clone the AUB repo for this path.
 
-In the editor, follow the workspace loop: **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction**. Paste that instruction into Copilot, Codex, or another coding agent so it can implement the real app change and report evidence.
+`init` installs the AUB CI config, GitHub issue templates, Copilot instructions, and PR workflow. In the editor, follow the workspace loop: **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction**. Paste that instruction into Copilot, Codex, or another coding agent so it can implement the real app change and report evidence.
 
 ## The problem AUB solves
 
@@ -159,12 +160,14 @@ For most users, start inside the existing app you want AUB to work on:
 
 ```bash
 cd /path/to/existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
 This starts the local MCP HTTP server, serves the bundled AUB editor, connects
 the editor to the workspace, and opens the browser. No AUB clone is required for
-this path once `aub-workspace` is published to npm.
+this path. `init` creates AUB config, GitHub issue templates, Copilot
+instructions, and a pull-request workflow without editing app source files.
 
 For AUB repo development, run from the AUB repo root:
 
@@ -192,6 +195,7 @@ For an existing app, the one-command path is:
 
 ```bash
 cd /path/to/existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -313,6 +317,10 @@ pnpm diff before.ui.json after.ui.json
 # Create and verify an implementation report
 pnpm report:init examples/dashboard.ui.json implementation-report.json
 pnpm report:verify examples/dashboard.ui.json implementation-report.json
+
+# Capture preview screenshots, overflow checks, and report evidence
+pnpm report:capture -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
+pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
 ```
 
 ### Scaffold spec sections
@@ -424,6 +432,7 @@ The `$schema` key is optional and ignored by AUB tooling — it only drives edit
 - Blueprint diff and implementation report verification: implemented.
 - MCP server (stdio + Streamable HTTP) exposing 23 tools including Design Bridge import, validated writes, handoff packaging, discovery, validation, component resolution, scaffolding, diff, migration, locks, workspace sessions, app scanning, template generation, candidate review, and reports: implemented.
 - Workspace-connected editor loop for local MCP HTTP, session state, scanner-generated templates, component candidate review, direct Blueprint save, and implementation preview: implemented.
+- One-command workspace initialization (`aub-workspace init`) and evidence capture (`pnpm report:capture`): implemented.
 - Production component mappings in `aub.registry.json`: implemented.
 - GitHub Action and local CI verifier for contracts plus implementation evidence: implemented.
 - Multi-screen projects (reference-based `.aub.project.json`, CLI, MCP tools, editor screen switcher + navigation): implemented.

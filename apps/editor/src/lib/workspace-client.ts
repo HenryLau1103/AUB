@@ -11,6 +11,21 @@ export interface WorkspaceTemplate {
   source: { kind?: string; path?: string; route?: string };
   blueprint: Blueprint;
   registryRefs?: string[];
+  missingMappings?: Array<{
+    candidateId?: string;
+    componentName?: string;
+    suggestedType?: string;
+    suggestedCoreType?: string;
+    sourcePath?: string;
+    confidence?: number;
+    reason?: string;
+  }>;
+  sourceReferences?: Array<{
+    nodeId?: string;
+    file: string;
+    line?: number;
+    selector?: string;
+  }>;
   confidence?: number;
   status: 'candidate' | 'approved';
   createdAt?: string;
@@ -28,9 +43,14 @@ export interface ComponentCandidate {
   isContainer?: boolean;
   props?: string[];
   usageCount?: number;
+  sourceUsage?: Array<{ file: string; line?: number }>;
   confidence?: number;
+  confidenceReason?: string;
+  mappingReason?: string;
   reason?: string;
   approvedAs?: string;
+  reviewedAt?: string;
+  reviewHistory?: Array<{ action: string; approvedAs?: string; reviewedAt?: string }>;
 }
 
 export interface AubSession {
@@ -54,6 +74,16 @@ export interface WorkspaceStatus {
   componentCandidateCount: number;
   templateCount: number;
   session: AubSession;
+  implementationReport?: {
+    path: string;
+    screenId?: string | null;
+    route?: string | null;
+    pass?: number;
+    fail?: number;
+    needsReview?: number;
+    evidence?: number;
+    error?: string;
+  } | null;
   blueprints?: Array<{ path: string; screenId: string; screenName: string; version: string }>;
   projects?: Array<{ path: string; id: string; name: string; screenCount: number }>;
   routes: Array<{ id: string; path: string; route: string; kind: string }>;

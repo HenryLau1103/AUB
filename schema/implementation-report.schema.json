@@ -85,8 +85,42 @@
       "additionalProperties": false,
       "required": ["type", "reference"],
       "properties": {
-        "type": { "enum": ["screenshot", "file", "dom", "command", "interaction", "note"] },
-        "reference": { "type": "string", "minLength": 1 }
+        "type": {
+          "enum": [
+            "screenshot",
+            "file",
+            "dom",
+            "dom_query",
+            "computed_style",
+            "overflow",
+            "component_reuse",
+            "command",
+            "interaction",
+            "code_diff",
+            "note"
+          ]
+        },
+        "reference": { "type": "string", "minLength": 1 },
+        "viewport": { "type": "string" },
+        "selector": { "type": "string" },
+        "expected": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "null" }
+          ]
+        },
+        "actual": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "null" }
+          ]
+        },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "pass": { "type": "boolean" }
       }
     }
   }

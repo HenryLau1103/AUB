@@ -16,6 +16,7 @@ export async function verifyWorkspace({
   workspace = process.cwd(),
   configPath = '.aub/ci.json',
   requireReports = false,
+  requireEvidence = false,
 } = {}) {
   const root = resolve(workspace);
   const absoluteConfig = resolve(root, configPath);
@@ -42,13 +43,16 @@ export async function verifyWorkspace({
     };
   }
 
-  const blueprintRefs = config.blueprints ?? [];
-  const projectRefs = config.projects ?? [];
+  const discovered = config.discover ? await discoverAubFiles(root) : { blueprints: [], projects: [] };
+  const blueprintRefs = uniqueRefs([...(config.blueprints ?? []), ...discovered.blueprints]);
+  const projectRefs = uniqueRefs([...(config.projects ?? []), ...discovered.projects]);
   const reportRefs = config.reports ?? [];
   const reportTargets = new Set(reportRefs.map((entry) => normalizeRef(entry.blueprint)));
 
   if (blueprintRefs.length === 0 && projectRefs.length === 0) {
-    failures.push({ path: configPath, message: 'No Blueprint or project files were configured or discovered.' });
+    if (!config.discover) {
+      failures.push({ path: configPath, message: 'No Blueprint or project files were configured or discovered.' });
+    }
   }
 
   for (const ref of blueprintRefs) {
@@ -67,7 +71,7 @@ export async function verifyWorkspace({
   }
 
   for (const entry of reportRefs) {
-    const result = await verifyReportFile(root, entry, validators);
+    const result = await verifyReportFile(root, entry, validators, { requireEvidence });
     checks.push(result);
     failures.push(...result.failures);
   }
@@ -156,7 +160,7 @@ async function verifyProjectFile(root, ref, validators) {
   return { kind: 'project', path: ref, passed: failures.length === 0, failures };
 }
 
-async function verifyReportFile(root, entry, validators) {
+async function verifyReportFile(root, entry, validators, options = {}) {
   const failures = [];
   try {
     const [blueprint, report] = await Promise.all([
@@ -168,7 +172,7 @@ async function verifyReportFile(root, entry, validators) {
         failures.push({ path: entry.report, message: `Report schema: ${error}` });
       }
     } else {
-      const result = verifyImplementationReport(blueprint, report);
+      const result = verifyImplementationReport(blueprint, report, options);
       for (const error of result.errors) {
         failures.push({ path: entry.report, message: `Implementation report: ${error}` });
       }
@@ -232,6 +236,10 @@ function resolveRef(root, ref) {
 
 function normalizeRef(ref) {
   return ref.replaceAll('\\', '/').replace(/^\.\//, '');
+}
+
+function uniqueRefs(refs) {
+  return [...new Set(refs.map(normalizeRef))].sort();
 }
 
 function relativePath(root, path) {

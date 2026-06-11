@@ -19,6 +19,7 @@
     "diff": "node scripts/diff-blueprint.mjs",
     "prompt": "node scripts/export-agent-prompt.mjs",
     "report:init": "node scripts/create-implementation-report.mjs",
+    "report:capture": "node scripts/capture-implementation-report.mjs",
     "report:verify": "node scripts/verify-implementation-report.mjs",
     "ci:verify": "node scripts/ci-verify.mjs",
     "score:agent": "node scripts/score-agent-readability.mjs",

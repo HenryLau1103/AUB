@@ -36,6 +36,7 @@
 
 ```bash
 cd /your-path/your-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -51,6 +52,8 @@ Stop:      Ctrl+C
 
 浏览器会自动打开 AUB Editor，并且已经连到你的 workspace。
 
+`init` 会创建 AUB 配置、GitHub issue templates、Copilot instructions 和 PR workflow。它不会修改你的 app source。若目标文件已存在，默认不会覆盖，除非加上 `--force`。
+
 ---
 
 ## 3. AUB 会在项目里建立哪些文件
@@ -61,6 +64,8 @@ Stop:      Ctrl+C
 .aub/session.json
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
+.aub/ci.json
+.github/workflows/aub-contracts.yml
 aub.registry.json
 screens/*.ui.json
 ```
@@ -311,6 +316,15 @@ Agent 应该做：
 
 Agent 不应该只看截图或口头描述猜画面。它应该以 `.ui.json` 为 source of truth。
 
+实作完成后，可针对真实 route 捕捉本地验证证据：
+
+```bash
+pnpm report:capture -- --workspace /your-path/your-app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
+pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+```
+
+这会把 viewport 截图、DOM 检查、overflow 检查与 acceptance evidence 写入 implementation report，避免 PR gate 只依赖 Agent 自述。
+
 ---
 
 ## 11. 在 AUB Editor 预览真实 app route
@@ -359,6 +373,7 @@ Route: /settings
 
 ```bash
 cd /your-path/your-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -397,6 +412,7 @@ pnpm workspace:start -- --workspace /your-path/your-app
 一般用户不需要。请在既有项目根目录执行：
 
 ```bash
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -406,7 +422,7 @@ npx aub-workspace
 
 可以用于 demo、import、export。
 
-完整 workspace loop 需要读写本机项目文件，因此需要本机 editor 与本机 MCP server。一般用户可以用 `npx aub-workspace` 一次启动这两者。
+完整 workspace loop 需要读写本机项目文件，因此需要本机 editor 与本机 MCP server。一般用户可以先执行 `npx aub-workspace init` 建立配置，再用 `npx aub-workspace` 启动这两者。
 
 ### Q3. AUB 会自动修改我的真实项目代码吗？
 

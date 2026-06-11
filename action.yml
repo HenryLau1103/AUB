@@ -15,6 +15,10 @@ inputs:
     description: Fail when a configured Blueprint has no implementation report.
     required: false
     default: "true"
+  require-evidence:
+    description: Fail implementation reports that do not include machine-checkable evidence.
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -36,9 +40,13 @@ runs:
       shell: bash
       env:
         AUB_REQUIRE_REPORTS: ${{ inputs.require-reports }}
+        AUB_REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
       run: |
         args=(--workspace "$GITHUB_WORKSPACE" --config "${{ inputs.config }}")
         if [[ "$AUB_REQUIRE_REPORTS" == "true" ]]; then
           args+=(--require-reports)
+        fi
+        if [[ "$AUB_REQUIRE_EVIDENCE" == "true" ]]; then
+          args+=(--require-evidence)
         fi
         node "$GITHUB_ACTION_PATH/scripts/ci-verify.mjs" "${args[@]}"
