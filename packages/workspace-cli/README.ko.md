@@ -11,6 +11,34 @@ npx aub-workspace
 
 이 command 는 local AUB MCP HTTP server 를 시작하고, bundled AUB editor 를 serve 하며, editor 를 MCP endpoint 에 연결하고 browser 를 엽니다.
 
+성공하면 다음과 같은 output 이 표시됩니다.
+
+```text
+AUB Workspace is running
+Workspace: /path/to/your-existing-app
+Editor:    http://127.0.0.1:3110/?mcp=...
+MCP:       http://127.0.0.1:3100/mcp
+Stop:      Ctrl+C
+```
+
+Editor 에서는 workspace loop 순서로 진행합니다.
+
+1. 기존 app 을 scan 합니다.
+2. route 에서 candidate template 을 생성합니다.
+3. component candidates 를 검토합니다.
+4. Blueprint/session 을 저장합니다.
+5. Copilot, Codex 또는 다른 coding agent 용 지시를 복사합니다.
+
+AUB 는 기존 project 에 다음 files 를 만들 수 있습니다.
+
+```text
+.aub/session.json
+.aub/component-candidates.json
+.aub/templates/*.aub.template.json
+aub.registry.json
+screens/*.ui.json
+```
+
 Options:
 
 ```bash

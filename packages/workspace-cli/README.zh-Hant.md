@@ -11,6 +11,34 @@ npx aub-workspace
 
 這個指令會啟動本機 AUB MCP HTTP server、提供 bundled AUB editor、把 editor 連到 MCP endpoint，並開啟瀏覽器。
 
+成功時會看到類似輸出：
+
+```text
+AUB Workspace is running
+Workspace: /path/to/your-existing-app
+Editor:    http://127.0.0.1:3110/?mcp=...
+MCP:       http://127.0.0.1:3100/mcp
+Stop:      Ctrl+C
+```
+
+進入 editor 後照 workspace loop：
+
+1. 掃描既有 app。
+2. 從 route 產生 candidate template。
+3. 審核自訂元件候選。
+4. 儲存 Blueprint/session。
+5. 複製給 Copilot、Codex 或其他 coding agent 的指令。
+
+AUB 可能會在既有專案建立：
+
+```text
+.aub/session.json
+.aub/component-candidates.json
+.aub/templates/*.aub.template.json
+aub.registry.json
+screens/*.ui.json
+```
+
 Options:
 
 ```bash

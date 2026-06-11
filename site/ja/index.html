@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AUB — コーディング Agent のための UI 実装契約</title>
-    <meta name="description" content="バージョン管理可能な UI 実装契約を定義し、本番コンポーネントへ紐付け、任意のコーディング Agent に渡して、受け入れ証拠で Pull Request を検証します。" />
+    <title>AUB — コーディング Agent に既存 UI を安全に変更させる</title>
+    <meta name="description" content="コーディング Agent が既存プロダクト UI を安全に変更し、本番コンポーネントを作り直さず、証拠で Pull Request を検証できるようにします。" />
     <link rel="canonical" href="https://henrylau1103.github.io/AUB/ja/" />
     <link rel="alternate" hreflang="en" href="https://henrylau1103.github.io/AUB/" />
     <link rel="alternate" hreflang="zh-Hant" href="https://henrylau1103.github.io/AUB/zh-hant/" />
@@ -12,8 +12,8 @@
     <link rel="alternate" hreflang="ja" href="https://henrylau1103.github.io/AUB/ja/" />
     <link rel="alternate" hreflang="ko" href="https://henrylau1103.github.io/AUB/ko/" />
     <link rel="alternate" hreflang="x-default" href="https://henrylau1103.github.io/AUB/" />
-    <meta property="og:title" content="AUB — コーディング Agent のための UI 実装契約" />
-    <meta property="og:description" content="デザイン意図から検証可能な実装へ。セマンティック Blueprint、本番コンポーネント、MCP、PR 受け入れゲート。" />
+    <meta property="og:title" content="AUB — コーディング Agent に既存 UI を安全に変更させる" />
+    <meta property="og:description" content="既存 route をスキャンし、AUB 契約を編集し、本番コンポーネントを再利用し、証拠で PR を検証します。" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://henrylau1103.github.io/AUB/ja/" />
     <meta property="og:locale" content="ja_JP" />
@@ -57,12 +57,12 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">UI 実装契約</p>
-          <h1>意図を定義する。<br />本番コンポーネントを再利用する。<br />証拠で PR を検証する。</h1>
-          <p class="lede">AUB は、プロダクト意図とコーディング Agent をつなぐオープンな契約レイヤーです。セマンティック Blueprint を作成し、本番コンポーネントに紐付け、同じ信頼できる情報源を Codex、Claude Code、Copilot などへ渡し、CI で各 acceptance id を検証します。</p>
+          <p class="eyebrow">既存プロダクト UI の変更</p>
+          <h1>Agent に UI を変更させる。<br />本番コンポーネントを守る。<br />証拠で PR を検証する。</h1>
+          <p class="lede">AUB は、コーディング Agent が実際の app を変更するための local-first ワークベンチです。既存 route をスキャンし、編集可能な Blueprint に変換し、カスタムコンポーネント候補を確認して、実装可能で検証可能な契約を Codex、Claude Code、Copilot などに渡します。</p>
           <div class="cta-row">
-            <a class="btn btn-primary" href="../editor/">オンラインエディターを開く</a>
-            <a class="btn btn-ghost" href="https://github.com/HenryLau1103/AUB">GitHub を見る</a>
+            <a class="btn btn-primary" href="https://github.com/HenryLau1103/AUB#fastest-path-for-an-existing-project">既存プロジェクトで使う</a>
+            <a class="btn btn-ghost" href="../editor/">ブラウザー demo を試す</a>
           </div>
           <p class="note">Apache-2.0 · local-first · agent-neutral · エディターはデータを送信しません</p>
         </div>
@@ -80,27 +80,27 @@
 
       <section class="steps" id="workflow">
         <p class="section-kicker">ゴールデンパス</p>
-        <h2>意図から Pull Request まで、一つの契約でつなぐ</h2>
+        <h2>既存 route から Agent-ready PR まで 5 分で進める</h2>
         <ol class="step-grid step-grid-five">
           <li>
             <span class="step-num">1</span>
-            <h3>作成またはインポート</h3>
-            <p>単一画面、Figma／Penpot bridge、または遷移可能な複数画面プロジェクトを作成します。</p>
+            <h3>自分の app から開始</h3>
+            <p>既存プロジェクトの root で npx aub-workspace を実行します。AUB の clone は不要です。</p>
           </li>
           <li>
             <span class="step-num">2</span>
-            <h3>本番コンポーネントを紐付け</h3>
-            <p>カスタム型を本番 module、export、source、Storybook、props に解決します。</p>
+            <h3>スキャンしてテンプレート化</h3>
+            <p>routes、components、layout の手がかり、カスタムコンポーネント候補を検出します。</p>
           </li>
           <li>
             <span class="step-num">3</span>
-            <h3>一度だけ引き渡す</h3>
-            <p>ポータブルパッケージまたは MCP を使用し、どの Agent にも同じ契約を渡します。</p>
+            <h3>契約をレビュー</h3>
+            <p>candidate template を開き、mapping を確認し、Blueprint を調整します。</p>
           </li>
           <li>
             <span class="step-num">4</span>
-            <h3>証拠を返す</h3>
-            <p>Agent は全ノードを対応付け、各 acceptance id を pass、fail、needs-review で報告します。</p>
+            <h3>Agent に渡す</h3>
+            <p>active Blueprint、route、preview URL、MCP tools を含む指示をコピーします。</p>
           </li>
           <li>
             <span class="step-num">5</span>
@@ -112,8 +112,8 @@
 
       <section class="why">
         <p class="section-kicker">実装のための設計</p>
-        <h2>新しいデザインキャンバスでも、一回限りのコード生成器でもありません</h2>
-        <p class="why-lede">デザインツールは制作を、コード生成器は速度を最適化します。AUB は Git と CI が理解できる形式で、ツール、Agent、リビジョン、レビューをまたいで意図を守ります。</p>
+        <h2>別の app builder ではなく、実コードベースの制御レイヤーです</h2>
+        <p class="why-lede">AI app builder は速度を最適化します。AUB は既存プロダクト UI を守り、Agent が実 repo、本番コンポーネント、既存 route、レビュー可能な受け入れ証拠の中で作業できるようにします。</p>
         <div class="why-grid">
           <div class="card">
             <h3>バージョン管理できる信頼できる情報源</h3>
@@ -136,7 +136,7 @@
 
       <section class="integrations" id="integrations">
         <p class="section-kicker">連携契約</p>
-        <h2>すでに提供中の本番コンポーネントを Agent に使わせる</h2>
+        <h2>Agent に design system を発明させない</h2>
         <div class="integration-grid">
           <div>
             <p>カスタム registry で、本番 package、export symbol、source file、Storybook、ドキュメント、正確な Blueprint-to-prop mapping を指定できます。</p>
@@ -164,18 +164,18 @@
 
       <section class="handoff">
         <p class="section-kicker">接続して検証</p>
-        <h2>持ち運びにはファイルを、Agent のライブアクセスには MCP を。</h2>
-        <p><code>.aub.zip</code> を書き出すか、MCP 対応 Agent に stdio／HTTP 経由で Blueprint と複数画面プロジェクトの import、write、package、resolve、validate、scaffold、diff、migrate、lock、report を実行させます。付属の GitHub Action で契約を Pull Request ゲートにできます。</p>
+        <h2>GitHub issue を Agent-ready な UI 作業票にする</h2>
+        <p>AUB issue template で route、Blueprint、コンポーネント再利用ルール、preview URL、acceptance criteria を定義します。Copilot、Codex、その他の Agent は同じ契約に沿って実装し、PR で証拠を返せます。</p>
         <div class="command-card">
           <code>uses: HenryLau1103/AUB@main</code>
           <span>契約と実装証拠を検証</span>
         </div>
         <div class="link-row">
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/agent-handoff.md">Agent 引き渡しガイド</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/workspace-loop-user-manual.md">Workspace loop ガイド</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-agent-workflow.md">GitHub agent workflow</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/apps/mcp-server/README.md">MCP server</a>
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-ci.md">GitHub CI ゲート</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/custom-components.md">本番 mapping</a>
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/design-tool-bridge.md">Figma／Penpot bridge</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-ci.md">GitHub CI ゲート</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/schema/ui-blueprint.schema.json">Blueprint schema</a>
         </div>
       </section>
@@ -183,7 +183,7 @@
 
     <footer class="site-footer">
       <p>
-        AUB · コーディング Agent のための UI 実装契約 ·
+        AUB · コーディング Agent に既存 UI を安全に変更させる ·
         <a href="https://github.com/HenryLau1103/AUB">github.com/HenryLau1103/AUB</a> ·
         Apache-2.0
       </p>

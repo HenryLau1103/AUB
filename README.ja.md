@@ -2,9 +2,9 @@
   <img src="./brand/aub-logo-mark.svg" width="96" height="96" alt="AUB ロゴ" />
 </p>
 
-# AUB — UI Blueprint Agent
+# AUB — コーディング Agent に既存 UI を安全に変更させる
 
-**UI 契約を定義し、本番コンポーネントを再利用し、証拠で実装を検証します。**
+**コーディング Agent が既存プロダクト UI を安全に変更し、本番コンポーネントを作り直さず、証拠で PR を検証できるようにします。**
 
 [![CI](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml/badge.svg)](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
@@ -13,11 +13,11 @@
 
 [English](./README.md) · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · **日本語** · [한국어](./README.ko.md)
 
-[Agent 引き渡しガイド](./docs/agent-handoff.md) · [標準サンプル](./examples/dashboard.ui.json)
+[Workspace loop ガイド](./docs/workspace-loop-user-manual.ja.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準サンプル](./examples/dashboard.ui.json)
 
 ![レスポンシブ画面を編集する AUB ビジュアルエディター](./docs/assets/aub-editor-en.jpg)
 
-AUB は、プロダクト意図とコーディング Agent の間に置くオープンで agent-neutral な契約レイヤーです。セマンティックな単一画面または複数画面プロジェクトを作成し、カスタム型を本番コンポーネントへ紐付け、同じバージョン管理可能な契約を Codex、Claude Code、GitHub Copilot などへ渡し、CI で各 acceptance id を検証します。
+AUB は、コーディング Agent が実際の app を変更するための local-first ワークベンチです。既存 route をスキャンし、編集可能な Blueprint に変換し、カスタムコンポーネント候補を確認して、実装可能で検証可能な契約を Codex、Claude Code、GitHub Copilot などに渡します。
 
 > **ライブ Demo：** [henrylau1103.github.io/AUB/ja](https://henrylau1103.github.io/AUB/ja/) — エディターはブラウザー内だけで動作します。
 
@@ -25,15 +25,17 @@ AUB は、プロダクト意図とコーディング Agent の間に置くオー
 
 ```mermaid
 flowchart LR
-  A["1. ビジュアルアートボードで<br/>UI を構成"] --> B["2. 構造、動作、レスポンシブ規則、<br/>受け入れ条件を書き出す"]
-  B --> C["3. パッケージを<br/>コーディング Agent へ渡す"]
-  C --> D["4. Agent が実装、テストし、<br/>証拠を報告する"]
+  A["1. 既存 app で<br/>npx aub-workspace を実行"] --> B["2. route をスキャンして<br/>candidate template を生成"]
+  B --> C["3. mapping を確認し<br/>Blueprint を保存"]
+  C --> D["4. 指示を Copilot、Codex、<br/>または他の Agent へ渡す"]
+  D --> E["5. 実装証拠で<br/>PR を検証"]
 ```
 
-1. **作成またはインポート**：18 種類のテンプレート、登録済みコンポーネント、Angular、Figma／Penpot Design Bridge から開始します。
-2. **本番コンポーネントを紐付け**：カスタム型を framework module、export、source、Storybook、ドキュメント、props へ対応付けます。
-3. **契約を一度だけ引き渡す**：`.aub.zip` または MCP を使い、Agent ごとに schema や受け入れ意味を変えません。
-4. **証拠で検証する**：すべての node mapping と acceptance id に証拠を要求し、GitHub Action で PR をゲートします。
+1. **自分の app から開始**：既存プロジェクトの root で `npx aub-workspace` を実行します。AUB の clone は不要です。
+2. **スキャンしてテンプレート化**：routes、components、layout の手がかり、カスタムコンポーネント候補を検出します。
+3. **契約をレビュー**：candidate template を開き、mapping を確認し、Blueprint を調整します。
+4. **Agent に渡す**：active Blueprint、route、preview URL、MCP tools を含む指示をコピーします。
+5. **証拠で検証する**：すべての node mapping と acceptance id に証拠を要求し、GitHub Action で PR をゲートします。
 
 ## 既存プロジェクトの最短開始
 
@@ -45,6 +47,8 @@ npx aub-workspace
 ```
 
 これにより local AUB MCP server が起動し、bundled editor が開き、editor が workspace に自動接続されます。この方法では AUB repo を clone する必要はありません。
+
+Editor では **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction** の順に進めます。その指示を Copilot、Codex、または他の coding agent に渡し、実 app の変更と証拠報告を依頼します。
 
 ## AUB が解決する問題
 

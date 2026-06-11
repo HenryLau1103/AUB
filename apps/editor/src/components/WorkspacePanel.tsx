@@ -117,17 +117,23 @@ export function WorkspacePanel({
         <>
           <section className="workspace-onboarding">
             <div>
-              <h3>{zh ? '第一次使用流程' : 'First workspace loop'}</h3>
+              <h3>{zh ? '4 步完成既有 UI 修改交付' : '4-step existing UI handoff'}</h3>
               <p>
                 {zh
-                  ? '照順序完成掃描、產範本、審核、儲存，再把指令交給 Agent。'
-                  : 'Scan, generate a template, review candidates, save, then hand the instruction to your agent.'}
+                  ? '從連線、掃描、審核到交付，讓 Agent 依同一份 Blueprint 修改真實 app。'
+                  : 'Connect, scan, review, and hand off one Blueprint-backed instruction for a real app change.'}
               </p>
             </div>
-            <OnboardingSteps language={language} status={status} />
+            <WorkspaceWizard language={language} status={status} />
+            <div className="workspace-status-pills">
+              <span>{zh ? 'Routes' : 'Routes'}: {status.routeCount || status.routes.length}</span>
+              <span>{zh ? 'Templates' : 'Templates'}: {status.templateCount || status.templates.length}</span>
+              <span>{zh ? '候選元件' : 'Candidates'}: {status.componentCandidateCount || status.componentCandidates.length}</span>
+              <span>{zh ? 'Frameworks' : 'Frameworks'}: {status.frameworks.join(', ') || (zh ? '未偵測' : 'not detected')}</span>
+            </div>
             <div className="workspace-onboarding-actions">
               <button type="button" onClick={onScanWorkspace} disabled={loading}>
-                {zh ? '掃描專案' : 'Scan project'}
+                {zh ? '掃描既有 app' : 'Scan existing app'}
               </button>
               <select
                 value={selectedTemplateSource}
@@ -146,7 +152,7 @@ export function WorkspacePanel({
                 disabled={!selectedTemplateSource || loading}
                 onClick={() => onGenerateTemplate(selectedTemplateSource)}
               >
-                {zh ? '產生範本' : 'Generate template'}
+                {zh ? '產生 candidate template' : 'Generate candidate template'}
               </button>
               <button type="button" disabled={!canCopyInstruction} onClick={() => void copyAgentInstruction()}>
                 {instructionCopied ? (zh ? '已複製' : 'Copied') : (zh ? '複製 Agent 指令' : 'Copy agent instruction')}
@@ -217,34 +223,38 @@ export function WorkspacePanel({
   );
 }
 
-function OnboardingSteps({ language, status }: { language: Language; status: WorkspaceStatus }) {
+function WorkspaceWizard({ language, status }: { language: Language; status: WorkspaceStatus }) {
   const zh = language === 'zh-Hant';
   const candidateCount = status.componentCandidates.length;
   const pendingCandidateCount = status.componentCandidates.filter((candidate) => candidate.status === 'candidate').length;
   const steps = [
     {
-      done: true,
-      label: zh ? '已連線 workspace' : 'Workspace connected',
+      done: Boolean(status.root),
+      label: zh ? 'Connect' : 'Connect',
+      detail: zh
+        ? `${status.packageName ?? 'workspace'} 已連線`
+        : `${status.packageName ?? 'workspace'} is connected`,
     },
     {
       done: status.routes.length > 0 || status.routeCount > 0,
-      label: zh ? '掃描 routes / components' : 'Scan routes / components',
+      label: zh ? 'Scan' : 'Scan',
+      detail: zh
+        ? `找到 ${status.routeCount || status.routes.length} 個 routes、${candidateCount} 個候選元件`
+        : `Found ${status.routeCount || status.routes.length} routes and ${candidateCount} candidates`,
     },
     {
       done: status.templates.length > 0 || status.templateCount > 0,
-      label: zh ? '產生 workspace 範本' : 'Generate workspace template',
-    },
-    {
-      done: candidateCount === 0 ? status.routes.length > 0 : pendingCandidateCount === 0,
-      label: zh ? '審核自訂元件候選' : 'Review component candidates',
-    },
-    {
-      done: Boolean(status.session.activeBlueprint),
-      label: zh ? '儲存 Blueprint / session' : 'Save Blueprint / session',
+      label: zh ? 'Review Template' : 'Review Template',
+      detail: zh
+        ? `${status.templateCount || status.templates.length} 個 workspace templates，${pendingCandidateCount} 個候選待審`
+        : `${status.templateCount || status.templates.length} workspace templates, ${pendingCandidateCount} candidates pending`,
     },
     {
       done: Boolean(status.session.activeBlueprint),
-      label: zh ? '交給 Agent 實作' : 'Hand off to agent',
+      label: zh ? 'Hand Off' : 'Hand Off',
+      detail: status.session.activeBlueprint
+        ? status.session.activeBlueprint
+        : zh ? '儲存 Blueprint/session 後複製 Agent 指令' : 'Save Blueprint/session, then copy the agent instruction',
     },
   ];
 
@@ -253,7 +263,8 @@ function OnboardingSteps({ language, status }: { language: Language; status: Wor
       {steps.map((step, index) => (
         <li key={step.label} className={step.done ? 'complete' : 'pending'}>
           <span>{step.done ? '✓' : index + 1}</span>
-          {step.label}
+          <strong>{step.label}</strong>
+          <small>{step.detail}</small>
         </li>
       ))}
     </ol>
@@ -268,29 +279,45 @@ function buildAgentInstruction(language: Language, status: WorkspaceStatus, save
   const preview = previewUrl(session) || '(preview URL not set)';
   if (zh) {
     return [
-      '我已經在 AUB Editor 調整好了。',
+      'AUB UI 實作請求',
       '',
-      '請透過 AUB MCP 讀取 get_aub_session，取得 activeBlueprint、targetRoute 與 preview 設定。',
+      '我已經在 AUB Editor 調整好了。請依照 AUB contract 修改真實 app，不要用自然語言自行重設計。',
+      '',
+      '請先透過 AUB MCP 讀取 get_aub_session，取得 activeBlueprint、targetRoute 與 preview 設定。',
       `目前 Blueprint：${activeBlueprint}`,
       `目標 route：${targetRoute}`,
       `預覽 URL：${preview}`,
+      `Workspace：${status.root}`,
       '',
-      '接著請讀 get_blueprint，依照這份 Blueprint 修改目前專案的真實畫面。',
-      '請優先使用 aub.registry.json 中已核准的元件 mapping，不要自行重做相似元件。',
-      '完成後請提交 implementation report，逐項回報 acceptance criteria 與驗證證據。',
+      '必要流程：',
+      '1. 呼叫 get_aub_session 確認目前 session。',
+      '2. 呼叫 get_blueprint 讀取 active Blueprint。',
+      '3. 對每個自訂或 registry type 呼叫 resolve_component。',
+      '4. 修改 target route 對應的真實程式碼。',
+      '5. 不要自行建立 lookalike component；優先使用 aub.registry.json 中已核准 mapping。',
+      '6. 不要自動 approve .aub/component-candidates.json；候選元件需使用者審核。',
+      '7. 完成後提交 implementation report，逐項回報 acceptance criteria 與驗證證據。',
     ].join('\n');
   }
   return [
-    'I finished adjusting the screen in AUB Editor.',
+    'AUB UI implementation request',
+    '',
+    'I finished adjusting the screen in AUB Editor. Implement the real app change from the AUB contract; do not redesign from prose.',
     '',
     'Use AUB MCP get_aub_session to read activeBlueprint, targetRoute, and preview settings.',
     `Current Blueprint: ${activeBlueprint}`,
     `Target route: ${targetRoute}`,
     `Preview URL: ${preview}`,
+    `Workspace: ${status.root}`,
     '',
-    'Then read get_blueprint and update the real app screen according to this Blueprint.',
-    'Prefer approved component mappings from aub.registry.json. Do not recreate lookalike components.',
-    'When done, submit an implementation report with evidence for every acceptance criterion.',
+    'Required workflow:',
+    '1. Call get_aub_session to confirm the active session.',
+    '2. Call get_blueprint for the active Blueprint.',
+    '3. Call resolve_component for each custom or registry-backed type.',
+    '4. Modify the real source code for the target route.',
+    '5. Do not create lookalike components; prefer approved mappings from aub.registry.json.',
+    '6. Do not auto-approve .aub/component-candidates.json; candidates require user review.',
+    '7. When done, submit an implementation report with evidence for every acceptance criterion.',
   ].join('\n');
 }
 
@@ -342,6 +369,13 @@ function CandidateItem({
     <article className={`workspace-candidate ${candidate.status}`}>
       <strong>{candidate.componentName}</strong>
       <small>{candidate.suggestedType} · {candidate.sourcePath}</small>
+      <div className="workspace-candidate-meta">
+        {candidate.framework && <span>{candidate.framework}</span>}
+        {typeof candidate.usageCount === 'number' && <span>{zh ? '使用' : 'uses'} {candidate.usageCount}</span>}
+        {typeof candidate.confidence === 'number' && <span>{zh ? '信心' : 'confidence'} {Math.round(candidate.confidence * 100)}%</span>}
+        {candidate.suggestedCoreType && <span>{zh ? '建議 core' : 'core'}: {candidate.suggestedCoreType}</span>}
+      </div>
+      {candidate.reason && <small>{candidate.reason}</small>}
       <span>{candidate.status}</span>
       <CandidateActions
         language={language}

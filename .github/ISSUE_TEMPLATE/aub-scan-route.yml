@@ -1,0 +1,63 @@
+name: AUB Scan Existing Route
+description: Ask an agent to scan an existing route and create an AUB workspace template.
+title: "[AUB Scan] "
+labels: ["aub", "scan", "agent-ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this before implementation when AUB should inspect an existing project route and create a candidate template.
+  - type: input
+    id: source_path
+    attributes:
+      label: Source route or component file
+      description: Workspace-relative file to scan into an AUB template.
+      placeholder: app/settings/page.tsx
+    validations:
+      required: true
+  - type: input
+    id: route
+    attributes:
+      label: App route
+      description: The URL route represented by the source file.
+      placeholder: /settings
+    validations:
+      required: true
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Framework
+      options:
+        - React / Next
+        - Vue / Nuxt
+        - Angular
+        - Other / unknown
+    validations:
+      required: true
+  - type: input
+    id: template_category
+    attributes:
+      label: Template category
+      description: Suggested AUB template category.
+      placeholder: workspace
+  - type: textarea
+    id: known_components
+    attributes:
+      label: Known custom components
+      description: List components that should become candidates or registry mappings.
+      placeholder: |
+        BillingCard
+        UserTable
+        PlanStatusBadge
+  - type: textarea
+    id: review_rules
+    attributes:
+      label: Candidate review rules
+      description: Rules the agent must follow for component candidates.
+      value: |
+        Do not write custom components directly into aub.registry.json.
+        Put scanned custom components in .aub/component-candidates.json.
+        Mark low-confidence mappings as candidate.
+        Include source references for every generated template.
+    validations:
+      required: true
