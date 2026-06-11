@@ -234,6 +234,37 @@ In the editor, each spec list (Interactions, Responsive, Acceptance) has a
 the `scaffold_blueprint` tool to get a fully specced blueprint before handing it
 off for implementation.
 
+### Multi-screen projects
+
+A single `.ui.json` is one screen. To compose several screens into a navigable
+product, AUB uses a reference-based **project** document (`*.aub.project.json`)
+that lists member Blueprint files by path, declares a navigation graph, names an
+entry screen, and optionally carries a shared design system. Member screens stay
+fully valid standalone Blueprints, and the Blueprint schema is unchanged.
+
+```bash
+# Validate a project (schema + project semantics + every member screen)
+pnpm project validate examples/project/app.aub.project.json
+
+# Wrap existing single screens into a new project (entry = first)
+pnpm project init app.aub.project.json dashboard.ui.json settings.ui.json
+
+# Emit a project overview .md plus per-screen agent context
+pnpm project export-md examples/project/app.aub.project.json ./out
+```
+
+The editor can open a project, switch between screens, add/remove/rename screens,
+set the entry screen, edit the navigation graph, and save the whole project as a
+`.zip`. Agents over MCP get `list_projects` / `get_project` / `validate_project`.
+See [multi-screen projects](./docs/multi-screen.md).
+
+### Canvas resolution
+
+Each viewport's resolution is configurable in the editor: pick a common preset
+(1440×900, 1920×1080, iPad, iPhone, Android, …) or type any custom width × height
+(clamped to the schema's 320–7680 × 320–4320 range). Resolutions are stored on the
+Blueprint's `viewports`, so they travel with the file.
+
 AUB includes deterministic agent-readability and browser-based implementation benchmarks. The current local reference checks cover hierarchy, geometry, layout mode, responsive overflow, interactions, accessibility states, screenshots, and report completeness.
 
 See [agent readability](./benchmarks/agent-readability/README.md) and [implementation benchmark](./benchmarks/agent-implementation/README.md).
@@ -265,8 +296,10 @@ The `$schema` key is optional and ignored by AUB tooling — it only drives edit
 - Codex, Claude Code, and GitHub Copilot adapters: implemented.
 - Angular import, personal templates, and AI authoring kit: implemented.
 - Blueprint diff and implementation report verification: implemented.
-- MCP server (stdio) exposing list/get/validate/scaffold/export-prompt/submit-report tools: implemented.
-- Multi-screen projects, YAML editing in the UI, and editor-side lock generation: backlog.
+- MCP server (stdio) exposing list/get/validate/scaffold/export-prompt/submit-report tools (plus project tools): implemented.
+- Multi-screen projects (reference-based `.aub.project.json`, CLI, MCP tools, editor screen switcher + navigation): implemented.
+- Configurable canvas resolution (presets + custom width/height): implemented.
+- YAML editing in the UI and editor-side lock generation: backlog.
 
 The current format version is `0.3.0`. See [schema versioning](./docs/schema-versioning.md) and [capability matrix](./docs/capability-matrix.md).
 

@@ -12,6 +12,18 @@ The version is exposed at three layers, in sync:
 2. **TypeScript package version** — `package.json#version`
 3. **Blueprint document** — every `.ui.json` MUST declare its `version` and it MUST match the schema version it was authored against
 
+## Project schema (separate track)
+
+Multi-screen **project** documents (`*.aub.project.json`) validate against
+`schema/ui-project.schema.json`, which has its **own** SemVer track starting at
+`0.1.0` — independent of the Blueprint schema version. The same MAJOR/MINOR/PATCH
+classification rules in this document apply to it. Its types live in
+`schema/project-types.ts` and MUST stay in sync with the schema in the same commit
+(covered by `tests/project.test.mjs`). The project document is a *reference-based
+sibling* of the Blueprint format: it never embeds screen bodies, so adding it did
+NOT change the Blueprint schema (`ui-blueprint.schema.json` stayed `0.3.0`).
+
+
 ## Change Classification
 
 ### MAJOR (breaking)

@@ -13,6 +13,14 @@ export {
   createImplementationReportTemplate,
   verifyImplementationReport,
 } from '../../../scripts/implementation-report.lib.mjs';
+export {
+  loadProject,
+  validateProjectSemantics,
+  parseProjectText,
+  mergeDesignSystem,
+  PROJECT_VERSION,
+} from '../../../scripts/project.lib.mjs';
 
 export type Blueprint = Record<string, any>;
 export type ImplementationReport = Record<string, any>;
+export type Project = Record<string, any>;

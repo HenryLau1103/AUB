@@ -56,6 +56,18 @@ export async function downloadHandoffPackage(
   downloadBlob(`${blueprint.screen.id}.aub.zip`, archiveBuffer.buffer, 'application/zip');
 }
 
+export async function downloadProjectArchive(
+  filename: string,
+  files: Record<string, string>
+): Promise<void> {
+  const { default: JSZip } = await import('jszip');
+  const zip = new JSZip();
+  for (const [path, content] of Object.entries(files)) {
+    zip.file(path, content);
+  }
+  downloadBlob(filename, await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }), 'application/zip');
+}
+
 export async function downloadAuthoringKit(): Promise<void> {
   const { default: JSZip } = await import('jszip');
   const zip = new JSZip();

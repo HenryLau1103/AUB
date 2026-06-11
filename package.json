@@ -10,6 +10,7 @@
   "scripts": {
     "validate": "node scripts/validate.mjs",
     "scaffold": "node scripts/scaffold-blueprint.mjs",
+    "project": "node scripts/project.mjs",
     "gen": "node scripts/generate-registry-artifacts.mjs",
     "gen:check": "node scripts/generate-registry-artifacts.mjs --check",
     "migrate": "node scripts/migrate-blueprint-cli.mjs",

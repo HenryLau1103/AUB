@@ -9,6 +9,9 @@ import { run as validateBlueprint } from '../dist/tools/validate-blueprint.js';
 import { run as scaffoldBlueprint } from '../dist/tools/scaffold-blueprint.js';
 import { run as exportPrompt } from '../dist/tools/export-prompt.js';
 import { run as submitReport } from '../dist/tools/submit-report.js';
+import { run as listProjects } from '../dist/tools/list-projects.js';
+import { run as getProject } from '../dist/tools/get-project.js';
+import { run as validateProject } from '../dist/tools/validate-project.js';
 
 const SCREEN_ID = 'dashboard.overview';
 const ctx = { root: findRepoRoot(), validators: await loadValidators() };
@@ -146,4 +149,47 @@ test('submit_report accepts a fully mapped, passing report', async () => {
   assert.equal(result.schemaErrors.length, 0);
   assert.equal(result.accepted, true, `errors: ${JSON.stringify(result.errors)}`);
   assert.equal(result.summary.acceptance_passed, result.summary.acceptance_total);
+});
+
+const PROJECT_REF = 'examples/project/app.aub.project.json';
+
+test('list_projects finds the acme-app example project', async () => {
+  const result = await listProjects(ctx);
+  assert.ok(result.count >= 1);
+  const ids = result.projects.map((entry) => entry.id);
+  assert.ok(ids.includes('acme-app'), `expected acme-app in ${ids.join(', ')}`);
+});
+
+test('validate_project passes on the canonical example project', async () => {
+  const result = await validateProject(ctx, { ref: PROJECT_REF });
+  assert.equal(result.valid, true, JSON.stringify(result));
+  assert.equal(result.schemaErrors.length, 0);
+  assert.equal(result.semanticErrors.length, 0);
+  assert.equal(result.screens.length, 2);
+  assert.ok(result.screens.every((screen) => screen.valid));
+});
+
+test('validate_project resolves by project id', async () => {
+  const result = await validateProject(ctx, { ref: 'acme-app' });
+  assert.equal(result.valid, true, JSON.stringify(result));
+});
+
+test('get_project with inlineScreens returns full member blueprints', async () => {
+  const result = await getProject(ctx, { ref: PROJECT_REF, inlineScreens: true });
+  assert.equal(result.screens.length, 2);
+  for (const screen of result.screens) {
+    assert.ok(screen.blueprint, `expected blueprint for ${screen.id}`);
+    assert.ok(screen.mergedDesignSystem);
+  }
+});
+
+test('get_project without inlineScreens returns refs only', async () => {
+  const result = await getProject(ctx, { ref: PROJECT_REF });
+  assert.equal(result.screens.length, 2);
+  assert.ok(result.screens.every((screen) => screen.blueprint === undefined));
+  assert.ok(result.screens.every((screen) => screen.loaded === true));
+});
+
+test('get_project requires a ref', async () => {
+  await assert.rejects(() => getProject(ctx, {}), /ref/i);
 });

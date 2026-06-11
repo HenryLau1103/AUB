@@ -17,6 +17,7 @@
 | Schema validation | via CLI | via CLI | via CLI | `validate_blueprint` |
 | Spec scaffolding (interactions / responsive / acceptance) | `pnpm scaffold` | `pnpm scaffold` | `pnpm scaffold` | `scaffold_blueprint` |
 | Implementation report submission | via CLI | via CLI | via CLI | `submit_report` |
+| Multi-screen projects (navigable screen sets) | `pnpm project` | `pnpm project` | `pnpm project` | `list_projects` / `get_project` / `validate_project` |
 
 All adapters import the same exporter and schema-compatible Blueprint. No adapter-specific schema exists. A `generic` adapter is also available as the default fallback for any other coding agent.
 

@@ -10,6 +10,9 @@ import * as validateBlueprint from './tools/validate-blueprint.js';
 import * as scaffoldBlueprint from './tools/scaffold-blueprint.js';
 import * as exportPrompt from './tools/export-prompt.js';
 import * as submitReport from './tools/submit-report.js';
+import * as listProjects from './tools/list-projects.js';
+import * as getProject from './tools/get-project.js';
+import * as validateProject from './tools/validate-project.js';
 
 function resolveWorkspaceRoot(): string {
   const fromArg = process.argv[2];
@@ -78,6 +81,30 @@ async function main(): Promise<void> {
   server.registerTool(submitReport.name, submitReport.config, async (args) => {
     try {
       return ok(await submitReport.run(ctx, args));
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  server.registerTool(listProjects.name, listProjects.config, async () => {
+    try {
+      return ok(await listProjects.run(ctx));
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  server.registerTool(getProject.name, getProject.config, async (args) => {
+    try {
+      return ok(await getProject.run(ctx, args));
+    } catch (error) {
+      return fail(error);
+    }
+  });
+
+  server.registerTool(validateProject.name, validateProject.config, async (args) => {
+    try {
+      return ok(await validateProject.run(ctx, args));
     } catch (error) {
       return fail(error);
     }

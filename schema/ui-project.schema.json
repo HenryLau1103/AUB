@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HenryLau1103/AUB/schema/0.1.0/ui-project.schema.json",
+  "title": "UI Blueprint Project",
+  "description": "A reference-based multi-screen project. Lists member single-screen Blueprint files by relative path, declares a navigation graph between them, names an entry screen, and optionally carries a project-level shared design system. Member .ui.json files remain fully valid standalone Blueprints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "id",
+    "name",
+    "screens",
+    "entry_screen"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional path or URL to this JSON Schema. Lets editors provide validation and autocomplete for standalone .aub.project.json files. Ignored by AUB tooling."
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version of the project schema this document conforms to.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "enum": ["0.1.0"],
+      "examples": ["0.1.0"]
+    },
+    "id": {
+      "type": "string",
+      "description": "Unique project identifier (kebab or dot notation, e.g. 'acme-app').",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable project name shown in editors and exports.",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional one-paragraph summary of the product or flow this project describes.",
+      "maxLength": 1024
+    },
+    "screens": {
+      "type": "array",
+      "description": "Member screens. Each references a single-screen Blueprint file by relative path. At least one required.",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/screenRef" }
+    },
+    "entry_screen": {
+      "type": "string",
+      "description": "Screen id (from screens[].id) where the flow starts. MUST match one of the declared screens.",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "navigation": {
+      "type": "array",
+      "description": "Directed navigation edges between screens. from/to MUST reference declared screen ids.",
+      "items": { "$ref": "#/$defs/navigationEdge" }
+    },
+    "design_system": {
+      "type": "object",
+      "description": "Optional project-level shared design tokens. Member screens may override these in their own design_system. Free-form object mirroring a Blueprint design_system; not validated field-for-field here.",
+      "additionalProperties": true
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Optional metadata about how this project document was produced.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "screenRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Screen identifier. MUST match the referenced Blueprint's screen.id.",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Optional display name. Defaults to the referenced Blueprint's screen.name.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "path": {
+          "type": "string",
+          "description": "Relative path (from the project file) to a single-screen .ui.json or .ui.yaml Blueprint.",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      }
+    },
+    "navigationEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "Source screen id (must be a declared screen).",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "to": {
+          "type": "string",
+          "description": "Destination screen id (must be a declared screen).",
+          "pattern": "^[a-z0-9][a-z0-9._-]*$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "trigger": {
+          "type": "string",
+          "description": "What causes the navigation.",
+          "enum": ["click", "submit", "change", "load", "system", "gesture"]
+        },
+        "interaction_id": {
+          "type": "string",
+          "description": "Optional id of the interaction on the source screen that triggers this navigation.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "label": {
+          "type": "string",
+          "description": "Optional human-readable label for the edge (e.g. 'Open settings').",
+          "maxLength": 280
+        }
+      }
+    }
+  }
+}

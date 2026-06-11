@@ -12,6 +12,7 @@ const addFormats = ((addFormatsModule as any).default ?? addFormatsModule) as ty
 export interface Validators {
   validateBlueprint: ValidateFunction;
   validateReport: ValidateFunction;
+  validateProject: ValidateFunction;
   reportSchema: Record<string, unknown>;
 }
 
@@ -20,12 +21,14 @@ let cached: Validators | null = null;
 export async function loadValidators(): Promise<Validators> {
   if (cached) return cached;
   const root = findRepoRoot();
-  const [blueprintRaw, reportRaw] = await Promise.all([
+  const [blueprintRaw, reportRaw, projectRaw] = await Promise.all([
     readFile(join(root, 'schema', 'ui-blueprint.schema.json'), 'utf8'),
     readFile(join(root, 'schema', 'implementation-report.schema.json'), 'utf8'),
+    readFile(join(root, 'schema', 'ui-project.schema.json'), 'utf8'),
   ]);
   const blueprintSchema = JSON.parse(blueprintRaw);
   const reportSchema = JSON.parse(reportRaw);
+  const projectSchema = JSON.parse(projectRaw);
 
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   addFormats(ajv);
@@ -33,6 +36,7 @@ export async function loadValidators(): Promise<Validators> {
   cached = {
     validateBlueprint: ajv.compile(blueprintSchema),
     validateReport: ajv.compile(reportSchema),
+    validateProject: ajv.compile(projectSchema),
     reportSchema,
   };
   return cached;

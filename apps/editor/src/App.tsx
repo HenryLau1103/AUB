@@ -6,12 +6,15 @@ import { Canvas, type CanvasHandle } from './components/Canvas';
 import { PropertiesPanel } from './components/PropertiesPanel';
 import { BlueprintPanel } from './components/BlueprintPanel';
 import { WorkflowBar, type WorkflowStage } from './components/WorkflowBar';
+import { ProjectBar } from './components/ProjectBar';
 import { AngularImportDialog } from './components/AngularImportDialog';
 import {
   downloadAuthoringKit,
   downloadBlob,
   downloadHandoffPackage,
   downloadPersonalTemplatePackage,
+  downloadProjectArchive,
+  readFileAsText,
 } from './lib/io';
 import { componentLabel, t, type Language } from './lib/i18n';
 import { loadDraft, saveDraft } from './lib/draft-storage';
@@ -25,6 +28,7 @@ import {
   duplicateNodes,
   reparentNode,
   setNodeZIndex,
+  setViewportSize,
   updateManyPlacements,
   updateNode,
   updateNodePlacement,
@@ -56,6 +60,14 @@ import {
   type PersonalTemplate,
 } from './lib/personal-templates';
 import type { ViewportQualityReport } from './lib/viewport-quality';
+import {
+  buildEditorProject,
+  createProjectFromBlueprint,
+  parseProjectDocument,
+  toProjectDocument,
+  type EditorProject,
+  type NavigationEdge,
+} from './lib/project';
 import type { Blueprint, ComponentType, Placement, UINode, ViewportId } from './types';
 import schemaJson from '../../../schema/ui-blueprint.schema.json';
 import { defaultDesignSystem, migrateBlueprint } from '../../../scripts/migrate-blueprint.mjs';
@@ -228,6 +240,8 @@ export function App() {
     error: null,
   });
   const [savedAt, setSavedAt] = useState<string | null>(initialDraft?.savedAt ?? null);
+  const [project, setProject] = useState<EditorProject | null>(null);
+  const [activeScreenId, setActiveScreenId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<CanvasHandle>(null);
   const blueprint = history.present;
@@ -346,6 +360,191 @@ export function App() {
     setSelectedIds([kind === 'app' ? 'starter_main_page' : 'root']);
     setWorkflowStage('brief');
     setNotice(t(language, kind === 'app' ? 'starterAppCreated' : 'starterPageCreated'));
+  }
+
+  function syncActiveScreen(current: EditorProject): EditorProject {
+    if (!activeScreenId || !blueprint) return current;
+    return {
+      ...current,
+      screens: current.screens.map((screen) =>
+        screen.id === activeScreenId ? { ...screen, blueprint } : screen
+      ),
+    };
+  }
+
+  function loadScreenBlueprint(target: { id: string; blueprint: Blueprint }) {
+    setHistory(createHistory(target.blueprint));
+    setActiveScreenId(target.id);
+    setCanvasResetKey((value) => value + 1);
+    setSelectedIds([target.blueprint.nodes.find((node) => node.parent_id === null)?.id].filter(Boolean) as string[]);
+  }
+
+  function handleSwitchScreen(id: string) {
+    if (!project) return;
+    const synced = syncActiveScreen(project);
+    const target = synced.screens.find((screen) => screen.id === id);
+    if (!target) return;
+    setProject(synced);
+    loadScreenBlueprint(target);
+  }
+
+  async function handleOpenProjectFiles(files: FileList) {
+    try {
+      const entries = await Promise.all(
+        Array.from(files).map(async (file) => ({ file, text: await readFileAsText(file) }))
+      );
+      const projectEntry = entries.find((entry) => /\.aub\.project\.json$/i.test(entry.file.name));
+      if (!projectEntry) {
+        setNotice(t(language, 'projectNoDocument'));
+        return;
+      }
+      const doc = parseProjectDocument(projectEntry.text);
+      const blueprintsByFilename = new Map<string, Blueprint>();
+      for (const entry of entries) {
+        if (entry === projectEntry) continue;
+        if (!/\.ui\.json$/i.test(entry.file.name) && !/\.json$/i.test(entry.file.name)) continue;
+        try {
+          const parsed = migrateBlueprint(JSON.parse(entry.text)) as Blueprint;
+          if (parsed?.screen?.id) blueprintsByFilename.set(entry.file.name, parsed);
+        } catch {
+          // Skip files that are not valid Blueprints.
+        }
+      }
+      const { project: editorProject, missing } = buildEditorProject(doc, blueprintsByFilename);
+      if (editorProject.screens.length === 0) {
+        setNotice(t(language, 'projectNoDocument'));
+        return;
+      }
+      setProject(editorProject);
+      const entryScreen = editorProject.screens.find((screen) => screen.id === editorProject.entryScreenId)
+        ?? editorProject.screens[0];
+      if (entryScreen) loadScreenBlueprint(entryScreen);
+      setWorkflowStage('layout');
+      if (missing.length > 0) {
+        setNotice(t(language, 'projectMissingScreens', { paths: missing.join(', ') }));
+      } else {
+        setNotice(t(language, 'projectOpened', { name: editorProject.name }));
+      }
+    } catch (error) {
+      setNotice((error as Error).message);
+    }
+  }
+
+  function handleNewProject() {
+    if (!blueprint) return;
+    const editorProject = createProjectFromBlueprint(blueprint);
+    setProject(editorProject);
+    setActiveScreenId(editorProject.screens[0]?.id ?? null);
+    setNotice(t(language, 'projectCreated', { name: editorProject.name }));
+  }
+
+  async function handleSaveProject() {
+    if (!project) return;
+    const synced = syncActiveScreen(project);
+    setProject(synced);
+    const doc = toProjectDocument(synced);
+    const files: Record<string, string> = {
+      [`${synced.id}.aub.project.json`]: `${JSON.stringify(doc, null, 2)}\n`,
+    };
+    for (const screen of synced.screens) {
+      files[screen.path] = `${JSON.stringify(screen.blueprint, null, 2)}\n`;
+    }
+    await downloadProjectArchive(`${synced.id}.aub.project.zip`, files);
+    setNotice(t(language, 'projectSaved'));
+  }
+
+  function handleCloseProject() {
+    if (project) setProject(syncActiveScreen(project));
+    setProject(null);
+    setActiveScreenId(null);
+    setNotice(t(language, 'projectClosed'));
+  }
+
+  function uniqueScreenId(base: string, taken: Set<string>): string {
+    let candidate = base;
+    let counter = 2;
+    while (taken.has(candidate)) {
+      candidate = `${base}-${counter}`;
+      counter += 1;
+    }
+    return candidate;
+  }
+
+  function handleAddScreen() {
+    if (!project) return;
+    const synced = syncActiveScreen(project);
+    const taken = new Set(synced.screens.map((screen) => screen.id));
+    const newBlueprint = createStarterBlueprint(language, 'page');
+    const screenId = uniqueScreenId(`${synced.id}.screen`, taken);
+    const placedBlueprint: Blueprint = {
+      ...newBlueprint,
+      screen: { ...newBlueprint.screen, id: screenId },
+    };
+    const name = placedBlueprint.screen.name;
+    const newScreen = {
+      id: screenId,
+      name,
+      path: `${screenId.replace(/[^a-z0-9._-]+/gi, '-')}.ui.json`,
+      blueprint: placedBlueprint,
+    };
+    const next: EditorProject = { ...synced, screens: [...synced.screens, newScreen] };
+    setProject(next);
+    loadScreenBlueprint(newScreen);
+    setNotice(t(language, 'screenAdded', { name }));
+  }
+
+  function handleRemoveScreen(id: string) {
+    if (!project) return;
+    if (project.screens.length <= 1) {
+      setNotice(t(language, 'cannotRemoveLastScreen'));
+      return;
+    }
+    const synced = syncActiveScreen(project);
+    const removed = synced.screens.find((screen) => screen.id === id);
+    const remaining = synced.screens.filter((screen) => screen.id !== id);
+    const fallback = remaining[0];
+    if (!fallback) {
+      setNotice(t(language, 'cannotRemoveLastScreen'));
+      return;
+    }
+    const nextEntry = synced.entryScreenId === id ? fallback.id : synced.entryScreenId;
+    const next: EditorProject = {
+      ...synced,
+      screens: remaining,
+      entryScreenId: nextEntry,
+      navigation: synced.navigation.filter((edge) => edge.from !== id && edge.to !== id),
+    };
+    setProject(next);
+    if (activeScreenId === id) {
+      loadScreenBlueprint(fallback);
+    }
+    setNotice(t(language, 'screenRemoved', { name: removed?.name ?? id }));
+  }
+
+  function handleRenameScreen(id: string, name: string) {
+    setProject((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        screens: current.screens.map((screen) =>
+          screen.id === id
+            ? { ...screen, name, blueprint: { ...screen.blueprint, screen: { ...screen.blueprint.screen, name } } }
+            : screen
+        ),
+      };
+    });
+  }
+
+  function handleSetEntryScreen(id: string) {
+    setProject((current) => (current ? { ...current, entryScreenId: id } : current));
+  }
+
+  function handleUpdateNavigation(edges: NavigationEdge[]) {
+    setProject((current) => (current ? { ...current, navigation: edges } : current));
+  }
+
+  function handleUpdateProjectMeta(patch: { name?: string; description?: string }) {
+    setProject((current) => (current ? { ...current, ...patch } : current));
   }
 
   useEffect(() => {
@@ -555,6 +754,10 @@ export function App() {
     commit((current) => current ? setNodeZIndex(current, ids, viewportId, direction) : current);
   }
 
+  function handleSetViewportSize(viewportId: ViewportId, size: { width?: number; height?: number }) {
+    commit((current) => current ? setViewportSize(current, viewportId, size) : current);
+  }
+
   async function handleExportMarkdown() {
     if (!blueprint) return;
     downloadBlob(`${blueprint.screen.id}.ui.md`, await exportMarkdown(blueprint), 'text/markdown');
@@ -613,6 +816,11 @@ export function App() {
         onAngularFiles={handleAngularFiles}
         onPersonalTemplateFile={handlePersonalTemplateFile}
         onDownloadAuthoringKit={() => void downloadAuthoringKit()}
+        onOpenProject={(files) => void handleOpenProjectFiles(files)}
+        onNewProject={handleNewProject}
+        onSaveProject={() => void handleSaveProject()}
+        onCloseProject={handleCloseProject}
+        projectActive={project !== null}
         onExportJson={handleExportJson}
         onExportMarkdown={handleExportMarkdown}
         onExportPackage={handleExportPackage}
@@ -636,6 +844,20 @@ export function App() {
         viewportQuality={viewportQuality}
         onChange={setWorkflowStage}
       />
+      {project && (
+        <ProjectBar
+          project={project}
+          activeScreenId={activeScreenId}
+          language={language}
+          onSwitchScreen={handleSwitchScreen}
+          onAddScreen={handleAddScreen}
+          onRemoveScreen={handleRemoveScreen}
+          onRenameScreen={handleRenameScreen}
+          onSetEntryScreen={handleSetEntryScreen}
+          onUpdateNavigation={handleUpdateNavigation}
+          onUpdateMeta={handleUpdateProjectMeta}
+        />
+      )}
       <div className={[
         'body',
         propertiesOpen ? '' : 'properties-collapsed',
@@ -674,6 +896,7 @@ export function App() {
           onMoveNode={handleMoveNode}
           onDuplicateNodes={handleDuplicate}
           onSetZIndex={handleZIndex}
+          onSetViewportSize={handleSetViewportSize}
           onCreateStarter={handleCreateStarter}
           onTemplateSelect={handleTemplateSelect}
           draggingType={draggingType}
