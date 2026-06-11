@@ -243,7 +243,15 @@ function measurementExpression(nodeIds) {
     return {
       nodes,
       root_children: root ? Array.from(root.children).map((child) => child.getAttribute('data-aub-node')).filter(Boolean) : [],
-      horizontal_overflow: document.documentElement.scrollWidth > window.innerWidth + 1
+      horizontal_overflow: document.documentElement.scrollWidth > window.innerWidth + 1,
+      document_styles: {
+        html: {
+          backgroundColor: getComputedStyle(document.documentElement).backgroundColor,
+        },
+        body: {
+          backgroundColor: getComputedStyle(document.body).backgroundColor,
+        },
+      },
     };
   })()`;
 }

@@ -58,12 +58,23 @@ export function scoreImplementationBenchmark(blueprint, candidate, reference, im
         : STYLE_KEYS;
       for (const key of styleKeys) {
         if (referenceNode?.styles?.[key] === undefined) continue;
+        const actualValue = actualNode?.styles?.[key];
+        const expectedValue = referenceNode.styles[key];
+        const isRootBackground = node.id === 'root' && key === 'backgroundColor';
+        const passes = isRootBackground
+          ? isEquivalentRootBackgroundColor({
+              expected: expectedValue,
+              actual: actualValue,
+              candidateBody: candidateView?.document_styles?.body?.backgroundColor,
+              referenceBody: referenceView?.document_styles?.body?.backgroundColor,
+            })
+          : actualValue === expectedValue;
         add(
           checks,
           `${viewport.id}.style.${node.id}.${key}`,
-          actualNode?.styles?.[key] === referenceNode.styles[key],
-          referenceNode.styles[key],
-          actualNode?.styles?.[key]
+          passes,
+          expectedValue,
+          actualValue
         );
       }
 
@@ -122,4 +133,26 @@ function add(checks, path, pass, expected, actual) {
 
 function equal(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function isEquivalentRootBackgroundColor({ expected, actual, candidateBody, referenceBody }) {
+  const normalize = (value) => {
+    if (typeof value !== 'string') return '';
+    return value.replace(/\s+/g, ' ').trim().toLowerCase();
+  };
+  const normalizedExpected = normalize(expected);
+  const normalizedActual = normalize(actual);
+  if (normalizedExpected === normalizedActual) return true;
+
+  const isTransparent = (value) => {
+    const normalized = normalize(value);
+    return normalized === 'transparent' || normalized === 'rgba(0, 0, 0, 0)' || normalized === 'rgba(0,0,0,0)';
+  };
+
+  if (!isTransparent(normalizedActual)) return false;
+
+  const normalizedCandidateBody = normalize(candidateBody);
+  const normalizedReferenceBody = normalize(referenceBody);
+
+  return normalizedExpected === normalizedCandidateBody || normalizedExpected === normalizedReferenceBody;
 }

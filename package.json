@@ -25,6 +25,7 @@
     "benchmark:agent": "node scripts/run-agent-readability.mjs",
     "benchmark:implementation": "node scripts/run-agent-implementation.mjs",
     "score:implementation": "node scripts/score-agent-implementation.mjs",
+    "usage:cost-benchmark": "node scripts/usage-cost-benchmark.mjs",
     "import:angular": "node scripts/import-angular-component.mjs",
     "import:design": "node scripts/import-design-bridge.mjs",
     "authoring:kit": "node scripts/create-authoring-kit.mjs",
