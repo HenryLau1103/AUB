@@ -440,6 +440,40 @@ export function App() {
     }
   }
 
+  async function handleScanWorkspaceUi() {
+    if (!workspaceConnection) return;
+    setWorkspaceLoading(true);
+    setWorkspaceError(null);
+    try {
+      await workspaceRpc(workspaceConnection, 'scan_project_ui');
+      setWorkspaceStatus(await loadWorkspaceStatus(workspaceConnection));
+      setNotice(language === 'zh-Hant'
+        ? '已掃描 workspace UI，並更新 routes 與自訂元件候選。'
+        : 'Scanned workspace UI and updated routes and component candidates.');
+    } catch (error) {
+      setWorkspaceError((error as Error).message);
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }
+
+  async function handleGenerateWorkspaceTemplate(sourcePath: string) {
+    if (!workspaceConnection || !sourcePath) return;
+    setWorkspaceLoading(true);
+    setWorkspaceError(null);
+    try {
+      await workspaceRpc(workspaceConnection, 'generate_template_from_source', { sourcePath });
+      setWorkspaceStatus(await loadWorkspaceStatus(workspaceConnection));
+      setNotice(language === 'zh-Hant'
+        ? `已從 ${sourcePath} 產生 workspace 範本。`
+        : `Generated workspace template from ${sourcePath}.`);
+    } catch (error) {
+      setWorkspaceError((error as Error).message);
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }
+
   async function handleLoadWorkspaceBlueprint(path: string) {
     if (!workspaceConnection) return;
     setWorkspaceLoading(true);
@@ -1064,6 +1098,8 @@ export function App() {
           setWorkspaceError(null);
         }}
         onRefresh={() => void handleRefreshWorkspace()}
+        onScanWorkspace={() => void handleScanWorkspaceUi()}
+        onGenerateTemplate={(sourcePath) => void handleGenerateWorkspaceTemplate(sourcePath)}
         onLoadBlueprint={(path) => void handleLoadWorkspaceBlueprint(path)}
         onSaveBlueprint={() => void handleSaveWorkspaceBlueprint()}
         onSavePathChange={setWorkspaceSavePath}

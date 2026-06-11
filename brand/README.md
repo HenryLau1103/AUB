@@ -1,5 +1,7 @@
 # AUB brand assets
 
+Languages: **English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
+
 The master mark is `aub-logo-mark.svg`. Its four modules represent visual UI
 composition, while the central node represents the structured handoff to a
 coding agent.

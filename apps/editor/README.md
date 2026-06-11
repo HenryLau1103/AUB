@@ -1,5 +1,7 @@
 # AUB Editor
 
+Languages: **English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
+
 WYSIWYG editor for UI Blueprints v0.3.
 
 ## What it does

@@ -198,6 +198,8 @@ editor uses the same server process to load and save Blueprints, update
 agents continue to use MCP tools such as `get_aub_session`, `get_blueprint`,
 `resolve_component`, and `write_blueprint`.
 
+Read the full [Workspace Loop user manual](./docs/workspace-loop-user-manual.md).
+
 Agents can bootstrap the loop from existing code:
 
 ```text

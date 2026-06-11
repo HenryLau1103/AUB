@@ -1,5 +1,7 @@
 # AUB Workspace Loop 操作步驟手冊
 
+語言： [English](./workspace-loop-user-manual.md) · **繁體中文** · [简体中文](./workspace-loop-user-manual.zh-Hans.md) · [日本語](./workspace-loop-user-manual.ja.md) · [한국어](./workspace-loop-user-manual.ko.md)
+
 這份手冊說明如何把 AUB 用在「既有專案」上：
 
 - 讓 Agent 掃描既有專案頁面與元件。
@@ -16,81 +18,44 @@
 
 ## 1. 你需要準備什麼
 
-你會有兩個專案資料夾：
+一般使用者只需要一個既有產品專案資料夾：
 
 ```text
-/your-path/AUB          # AUB 工具本身
 /your-path/your-app     # 你既有的產品專案
 ```
 
-第一版 workspace mode 需要在本機執行 AUB，因為瀏覽器上的 GitHub Pages 不能直接安全地讀寫你本機專案檔案。
+你的電腦需要 Node.js 24 或更新版本，因為 `npx aub-workspace` 會在本機啟動 AUB Editor 和 MCP server。
+
+你不需要先 clone AUB repo。AUB repo 只在你要開發 AUB 本身、除錯或修改原始碼時才需要。
 
 ---
 
-## 2. 第一次安裝 AUB
+## 2. 一鍵啟動 AUB Workspace
 
-先把 AUB clone 或 pull 到本機：
-
-```bash
-git clone https://github.com/HenryLau1103/AUB.git
-cd AUB
-```
-
-安裝 root dependencies：
+在你的既有專案根目錄執行：
 
 ```bash
-pnpm install
+cd /your-path/your-app
+npx aub-workspace
 ```
 
-安裝 Editor dependencies：
+看到類似這段代表成功：
 
-```bash
-cd apps/editor
-pnpm install
-cd ../..
+```text
+AUB Workspace is running
+Workspace: /your-path/your-app
+Editor:    http://127.0.0.1:3110/?mcp=...
+MCP:       http://127.0.0.1:3100/mcp
+Stop:      Ctrl+C
 ```
 
-安裝並 build MCP server：
-
-```bash
-cd apps/mcp-server
-pnpm install
-pnpm build
-cd ../..
-```
-
-確認基本檢查可以跑：
-
-```bash
-pnpm test
-pnpm typecheck
-cd apps/editor && pnpm typecheck && pnpm build
-```
+瀏覽器會自動打開 AUB Editor，並且已經連到你的 workspace。
 
 ---
 
-## 3. 啟動既有專案的 MCP 連線
+## 3. AUB 會在你的專案裡建立哪些檔案
 
-假設你的既有專案在：
-
-```text
-/your-path/your-app
-```
-
-回到 AUB 專案根目錄，啟動 MCP HTTP server：
-
-```bash
-cd /your-path/AUB
-node apps/mcp-server/dist/http.js --workspace /your-path/your-app --port 3100
-```
-
-看到類似這行代表成功：
-
-```text
-aub-mcp-server HTTP ready at http://127.0.0.1:3100/mcp
-```
-
-這個 server 會讓 AUB Editor 和 Agent 可以讀寫你的既有專案內的 AUB 檔案，例如：
+`aub-workspace` 會讓 AUB Editor 和 Agent 可以讀寫你的既有專案內的 AUB 檔案，例如：
 
 ```text
 .aub/session.json
@@ -100,44 +65,34 @@ aub.registry.json
 screens/*.ui.json
 ```
 
+AUB 不會自動修改你的真實 app 程式碼。真正修改 app 的仍然是 Agent。
+
 ---
 
-## 4. 啟動 AUB Editor
+## 4. 在 Editor 裡照 onboarding checklist 操作
 
-開另一個 Terminal：
+Editor 連線成功後，你會看到 **第一次使用流程**。
 
-```bash
-cd /your-path/AUB/apps/editor
-pnpm dev
-```
+照順序完成：
 
-打開瀏覽器中的 Editor，例如：
-
-```text
-http://127.0.0.1:5173
-```
-
-在 Editor 右側或上方找到 **Workspace 連線**，輸入：
-
-```text
-http://127.0.0.1:3100/mcp
-```
-
-按 **連線**。
-
-連線成功後，你會看到 workspace 的 package name、framework、routes、templates、component candidates 等資訊。
+1. 掃描專案
+2. 選擇 route 產生範本
+3. 審核自訂元件候選
+4. 調整 UI Blueprint
+5. 存回 workspace
+6. 複製 Agent 指令
 
 ---
 
 ## 5. 請 Agent 掃描既有專案
 
-你可以對 Agent 說：
+你可以直接在 AUB Editor 按：
 
 ```text
-請透過 AUB MCP 掃描目前 workspace 的 UI，找出 routes、pages、components，並產生 workspace templates 與 component candidates。
+掃描專案
 ```
 
-Agent 會使用 MCP tool：
+Editor 會透過 MCP tool 執行：
 
 ```text
 scan_project_ui
@@ -162,22 +117,24 @@ scan_project_ui
 
 ## 6. 請 Agent 從既有頁面產生 AUB 範本
 
-你可以對 Agent 說：
+掃描完成後，Editor 會列出偵測到的 routes。
+
+你可以選一個 route，按：
 
 ```text
-請把 /settings 這個既有頁面轉成 AUB workspace template。
+產生範本
 ```
 
-或更明確地說：
-
-```text
-請針對 app/settings/page.tsx 產生 AUB candidate template。
-```
-
-Agent 會使用 MCP tool：
+Editor 會透過 MCP tool 執行：
 
 ```text
 generate_template_from_source
+```
+
+如果你想讓 Agent 協助，也可以對 Agent 說：
+
+```text
+請針對 app/settings/page.tsx 產生 AUB candidate template。自訂元件請放入 component candidates，不要自動 approve。
 ```
 
 產生的範本會放在：
@@ -331,6 +288,14 @@ session 會記錄：
 我調整好了，請依照 AUB session 實作到真實專案。
 ```
 
+或直接按 onboarding checklist 裡的：
+
+```text
+複製 Agent 指令
+```
+
+貼給 Codex、Claude Code、Copilot 或其他支援 MCP 的 Agent。
+
 Agent 就可以透過 MCP 讀：
 
 ```text
@@ -420,51 +385,45 @@ http://localhost:3000/settings
 
 ## 12. 每天使用時的最短流程
 
-如果你已經安裝過 AUB，每天通常只要做這些：
+每天通常只要做這些：
 
-### Terminal 1：啟動 MCP
-
-```bash
-cd /your-path/AUB
-node apps/mcp-server/dist/http.js --workspace /your-path/your-app --port 3100
-```
-
-### Terminal 2：啟動 AUB Editor
+### Terminal 1：啟動 AUB Workspace
 
 ```bash
-cd /your-path/AUB/apps/editor
-pnpm dev
+cd /your-path/your-app
+npx aub-workspace
 ```
 
-### Terminal 3：啟動你的真實 app
+### Terminal 2：啟動你的真實 app
 
 ```bash
 cd /your-path/your-app
 pnpm dev
 ```
 
-### Browser：打開 AUB Editor
+### Browser：使用 AUB Editor
 
 ```text
-http://127.0.0.1:5173
+瀏覽器會由 npx aub-workspace 自動打開。
 ```
 
-### AUB Editor：連 MCP
+### AUB Editor：完成第一次使用流程
 
 ```text
-http://127.0.0.1:3100/mcp
+掃描專案 -> 產生範本 -> 審核候選 -> 存回 workspace -> 複製 Agent 指令
 ```
 
-### Agent：掃描或實作
+### Agent：貼上指令
 
 ```text
-請掃描 workspace UI 並產生 AUB 範本。
+我已經在 AUB Editor 調整好了...
 ```
 
-或：
+如果你正在開發 AUB 本身，才需要使用舊的手動流程：
 
-```text
-我調整好了，請依照 AUB session 實作到真實專案。
+```bash
+cd /your-path/AUB
+pnpm workspace:start -- --workspace /your-path/your-app
 ```
 
 ---
@@ -473,9 +432,15 @@ http://127.0.0.1:3100/mcp
 
 ### Q1. 我一定要 pull AUB 專案嗎？
 
-第一版完整 workspace loop 需要。
+一般使用者不需要。
 
-因為本機 MCP server 要負責讀寫你的既有專案檔案，而 GitHub Pages 版不能直接安全地讀寫本機檔案。
+請在既有專案根目錄執行：
+
+```bash
+npx aub-workspace
+```
+
+只有在你要開發 AUB 本身、修改原始碼、除錯或跑 repo checks 時，才需要 clone AUB。
 
 ---
 
@@ -493,6 +458,8 @@ http://127.0.0.1:3100/mcp
 - 寫 `aub.registry.json`
 
 需要本機 AUB + 本機 MCP server。
+
+一般使用者可以用 `npx aub-workspace` 一次啟動這兩者，不需要手動 clone AUB。
 
 ---
 
