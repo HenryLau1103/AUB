@@ -43,6 +43,17 @@ flowchart LR
 - 希望 Agent 重用正式元件，而不是建立相似替代品的 design-system 團隊。
 - 希望把既有 Angular 畫面轉成可重用 UI Blueprint 的團隊。
 
+## 既有專案最快開始
+
+如果你已經有一個 app，想讓 AUB 透過 MCP 掃描、產生範本、編輯並預覽，請在那個 app 的根目錄執行：
+
+```bash
+cd /path/to/your-existing-app
+npx aub-workspace
+```
+
+這會啟動本機 AUB MCP server、開啟內建 editor，並自動把 editor 連到你的 workspace。這條路徑不需要先 clone AUB repo。
+
 ## AUB 解決什麼問題
 
 「做一個像 Stripe 的 dashboard」或「做成像 Notion 一樣響應式」這類提示，會遺漏許多關鍵決策。截圖能表達外觀，卻無法交代元件意圖、互動結果、breakpoint、無障礙需求或驗收標準。
@@ -59,7 +70,7 @@ AUB 把這些決策變成明確合約：
 
 ## 本機快速開始
 
-需求：Node.js 24+ 與 pnpm。
+這條路徑只適合開發 AUB 本身。需求：Node.js 24+ 與 pnpm。
 
 ```bash
 git clone https://github.com/HenryLau1103/AUB.git

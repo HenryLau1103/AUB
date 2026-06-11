@@ -35,6 +35,17 @@ flowchart LR
 3. **契約を一度だけ引き渡す**：`.aub.zip` または MCP を使い、Agent ごとに schema や受け入れ意味を変えません。
 4. **証拠で検証する**：すべての node mapping と acceptance id に証拠を要求し、GitHub Action で PR をゲートします。
 
+## 既存プロジェクトの最短開始
+
+既に app があり、AUB で MCP 経由の scan、template 生成、編集、preview を行いたい場合は、その app の root directory で実行します。
+
+```bash
+cd /path/to/your-existing-app
+npx aub-workspace
+```
+
+これにより local AUB MCP server が起動し、bundled editor が開き、editor が workspace に自動接続されます。この方法では AUB repo を clone する必要はありません。
+
 ## AUB が解決する問題
 
 「Stripe のような dashboard」や「Notion のように responsive」といった指示では、コンポーネント意図、操作結果、breakpoint、アクセシビリティ、受け入れ基準が不足します。AUB はそれらを明示的な契約にします。
@@ -47,7 +58,7 @@ flowchart LR
 
 ## ローカルで開始
 
-必要環境：Node.js 24+、pnpm。
+この手順は AUB 自体を開発する場合だけ使います。必要環境：Node.js 24+、pnpm。
 
 ```bash
 git clone https://github.com/HenryLau1103/AUB.git

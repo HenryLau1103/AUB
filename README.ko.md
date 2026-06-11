@@ -35,6 +35,17 @@ flowchart LR
 3. **계약을 한 번만 전달**: `.aub.zip` 또는 MCP를 사용하며 Agent마다 schema나 인수 의미를 바꾸지 않습니다.
 4. **증거로 검증**: 모든 node mapping과 acceptance id에 증거를 요구하고 GitHub Action으로 PR을 게이트합니다.
 
+## 기존 프로젝트에서 가장 빠르게 시작하기
+
+이미 app 이 있고 AUB 로 MCP 기반 scan, template 생성, 편집, preview 를 하려면 그 app 의 root directory 에서 실행합니다.
+
+```bash
+cd /path/to/your-existing-app
+npx aub-workspace
+```
+
+이 명령은 local AUB MCP server 를 시작하고 bundled editor 를 열며 editor 를 workspace 에 자동 연결합니다. 이 경로에서는 AUB repo 를 먼저 clone 할 필요가 없습니다.
+
 ## AUB가 해결하는 문제
 
 “Stripe 같은 dashboard” 또는 “Notion처럼 responsive하게”라는 요청에는 컴포넌트 의도, 상호작용 결과, breakpoint, 접근성 요구사항과 인수 기준이 빠져 있습니다. AUB는 이를 명시적인 계약으로 바꿉니다.
@@ -47,7 +58,7 @@ flowchart LR
 
 ## 로컬 빠른 시작
 
-요구사항: Node.js 24+, pnpm.
+이 절차는 AUB 자체를 개발할 때만 사용합니다. 요구사항: Node.js 24+, pnpm.
 
 ```bash
 git clone https://github.com/HenryLau1103/AUB.git
