@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./brand/aub-logo-mark.svg" width="96" height="96" alt="AUB logo" />
+</p>
+
 # AUB — UI Blueprint Agent
 
 **Draw the interface. Export a UI contract. Let coding agents build and verify it.**

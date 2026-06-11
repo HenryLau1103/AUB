@@ -89,7 +89,10 @@ export function TopBar({
   return (
     <header className="topbar">
       <div className="brand-block">
-        <strong>{t(language, 'appTitle')}</strong>
+        <div className="brand-title">
+          <img src={`${import.meta.env.BASE_URL}brand/aub-logo-mark.svg`} alt="" />
+          <strong>{t(language, 'appTitle')}</strong>
+        </div>
         <span>{blueprint?.screen.name ?? t(language, 'noBlueprintLoaded')}</span>
       </div>
       <div className="topbar-actions">

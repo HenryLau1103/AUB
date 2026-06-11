@@ -24,6 +24,7 @@
     "score:implementation": "node scripts/score-agent-implementation.mjs",
     "import:angular": "node scripts/import-angular-component.mjs",
     "authoring:kit": "node scripts/create-authoring-kit.mjs",
+    "brand:sync": "node scripts/sync-brand-assets.mjs",
     "test": "node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },

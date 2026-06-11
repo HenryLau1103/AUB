@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./brand/aub-logo-mark.svg" width="96" height="96" alt="AUB 標誌" />
+</p>
+
 # AUB — UI Blueprint Agent（UI 藍圖代理工具）
 
 **畫出介面，匯出 UI 合約，讓編碼 Agent 精準實作並驗收。**

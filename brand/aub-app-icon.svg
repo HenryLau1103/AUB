@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="AUB app icon">
+  <defs>
+    <linearGradient id="bg" x1="96" y1="64" x2="928" y2="960" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EEF3F8"/>
+    </linearGradient>
+    <linearGradient id="red" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FF675A"/>
+      <stop offset="1" stop-color="#FF493F"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#1976FF"/>
+      <stop offset="1" stop-color="#075EE8"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#48D4AD"/>
+      <stop offset="1" stop-color="#2FC498"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#2B3948"/>
+      <stop offset="1" stop-color="#182330"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="#F8FAFC"/>
+  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#bg)"/>
+  <g transform="translate(102.4 102.4) scale(1.6)">
+    <rect x="40" y="40" width="232" height="232" rx="52" fill="url(#red)"/>
+    <rect x="296" y="40" width="176" height="232" rx="52" fill="url(#blue)"/>
+    <rect x="40" y="296" width="232" height="176" rx="52" fill="url(#green)"/>
+    <rect x="296" y="296" width="176" height="176" rx="52" fill="url(#ink)"/>
+    <circle cx="284" cy="284" r="54" fill="#FFFFFF"/>
+    <circle cx="284" cy="284" r="29" fill="#1C2835"/>
+  </g>
+</svg>
