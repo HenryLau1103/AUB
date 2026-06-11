@@ -146,6 +146,8 @@ node apps/mcp-server/dist/http.js --workspace /path/to/your/repo --port 3100
 
 既有專案可啟動 `aub-mcp-http` 後，讓 AUB editor 連到 `http://127.0.0.1:3100/mcp`。Editor 可直接載入／儲存 workspace 裡的 Blueprint、更新 `.aub/session.json`、讀取 `.aub/templates/*.aub.template.json`、審核 `.aub/component-candidates.json`，並以 iframe 預覽真實 dev server route。Scanner 產生的自訂元件永遠先進候選檔，使用者核准後才會寫入正式 `aub.registry.json`。
 
+完整使用流程請看 [AUB Workspace Loop 操作步驟手冊](./docs/workspace-loop-user-manual.zh-Hant.md)。
+
 ## Blueprint 描述的內容
 
 - 由已註冊語意 UI 節點組成的樹狀結構。
