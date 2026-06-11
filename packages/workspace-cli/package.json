@@ -1,0 +1,33 @@
+{
+  "name": "aub-workspace",
+  "version": "0.3.0",
+  "description": "One-command local AUB workspace launcher for existing projects",
+  "type": "module",
+  "bin": {
+    "aub-workspace": "bin/aub-workspace.mjs"
+  },
+  "files": [
+    "bin",
+    "vendor",
+    "README.md"
+  ],
+  "scripts": {
+    "prepack": "node ../../scripts/package-workspace-cli.mjs",
+    "start": "node bin/aub-workspace.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "express": "^5.1.0",
+    "js-yaml": "^4.1.0",
+    "jszip": "^3.10.1",
+    "parse5": "^7.2.1",
+    "postcss": "^8.5.6",
+    "postcss-scss": "^4.0.9",
+    "zod": "^3.25.76"
+  }
+}
