@@ -9,6 +9,7 @@ export const AUB_DIR = '.aub';
 export const AUBIGNORE_PATH = '.aubignore';
 export const SESSION_PATH = '.aub/session.json';
 export const COMPONENT_CANDIDATES_PATH = '.aub/component-candidates.json';
+export const SCAN_REPORT_PATH = '.aub/scan-report.json';
 export const TEMPLATE_DIR = '.aub/templates';
 export const TEMPLATE_FORMAT = 'aub-workspace-template';
 export const TEMPLATE_FORMAT_VERSION = '0.1.0';
@@ -784,6 +785,102 @@ async function writeComponentCandidates(root, candidates) {
   return doc;
 }
 
+export async function readScanReport(root) {
+  return readJsonIfExists(join(root, SCAN_REPORT_PATH), null);
+}
+
+function buildScanReport({ packageJson, namespace, frameworks, routes, candidates, storybook, scanAudit }) {
+  const warnings = [];
+  if (frameworks.includes('unknown')) warnings.push('No supported UI framework was detected.');
+  if (routes.length === 0) warnings.push('No route entry files were detected.');
+  if (candidates.length === 0) warnings.push('No reusable project components were detected.');
+  if (scanAudit.limitReached) warnings.push('Scan file limit was reached; results may be incomplete.');
+
+  const confidenceInputs = {
+    frameworkDetected: !frameworks.includes('unknown'),
+    routeCount: routes.length,
+    componentCandidateCount: candidates.length,
+    storybookDetected: Boolean(storybook?.detected),
+    scanLimitReached: Boolean(scanAudit.limitReached),
+  };
+  const trustScore = clampScanScore(
+    30
+    + (confidenceInputs.frameworkDetected ? 20 : 0)
+    + Math.min(20, routes.length * 4)
+    + Math.min(20, candidates.length * 2)
+    + (confidenceInputs.storybookDetected ? 10 : 0)
+    - (confidenceInputs.scanLimitReached ? 20 : 0)
+  );
+
+  return {
+    format: 'aub-scan-report',
+    format_version: WORKSPACE_LOOP_VERSION,
+    updatedAt: new Date().toISOString(),
+    packageName: packageJson?.name ?? null,
+    namespace,
+    frameworks,
+    summary: {
+      routes: routes.length,
+      componentCandidates: candidates.length,
+      unresolvedCandidates: candidates.filter((candidate) => candidate.status === 'candidate').length,
+      filesScanned: scanAudit.filesScanned,
+      filesSkipped: scanAudit.filesSkipped,
+      directoriesSkipped: scanAudit.directoriesSkipped,
+      limitReached: scanAudit.limitReached,
+      trustScore,
+    },
+    trust: {
+      score: trustScore,
+      grade: trustScore >= 80 ? 'high' : trustScore >= 60 ? 'medium' : 'low',
+      reasons: [
+        confidenceInputs.frameworkDetected ? 'Supported framework detected.' : 'Framework fallback only.',
+        routes.length > 0 ? 'Route entries were found.' : 'No route entries were found.',
+        candidates.length > 0 ? 'Reusable project components were extracted as candidates.' : 'No component candidates were extracted.',
+        storybook?.detected ? 'Storybook stories can help component review.' : 'No Storybook metadata was detected.',
+      ],
+      warnings,
+      confidenceInputs,
+    },
+    storybook: {
+      detected: Boolean(storybook?.detected),
+      configPath: storybook?.configPath ?? null,
+      storyCount: storybook?.storyCount ?? 0,
+    },
+    routes: routes.map((route) => ({
+      id: route.id,
+      route: route.route,
+      path: route.path,
+      kind: route.kind,
+    })),
+    componentCandidates: candidates.map((candidate) => ({
+      id: candidate.id,
+      componentName: candidate.componentName,
+      sourcePath: candidate.sourcePath,
+      suggestedType: candidate.suggestedType,
+      suggestedCoreType: candidate.suggestedCoreType,
+      status: candidate.status,
+      confidence: candidate.confidence,
+      usageCount: candidate.usageCount,
+    })),
+    scanAudit: {
+      filesScanned: scanAudit.filesScanned,
+      filesSkipped: scanAudit.filesSkipped,
+      directoriesSkipped: scanAudit.directoriesSkipped,
+      ignoredPatterns: scanAudit.ignoredPatterns,
+      limitReached: scanAudit.limitReached,
+    },
+  };
+}
+
+function clampScanScore(value) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+async function writeScanReport(root, report) {
+  await writeJsonAtomic(join(root, SCAN_REPORT_PATH), report);
+  return report;
+}
+
 export async function listWorkspaceTemplates(root) {
   const dir = join(root, TEMPLATE_DIR);
   if (!(await exists(dir))) return [];
@@ -817,6 +914,7 @@ export async function getWorkspaceStatus(root) {
   const session = await readAubSession(root);
   const candidates = await readComponentCandidates(root);
   const templates = await listWorkspaceTemplates(root);
+  const scanReport = await readScanReport(root);
   const implementationReport = await readImplementationReportSummary(root, session);
   return {
     root,
@@ -825,6 +923,7 @@ export async function getWorkspaceStatus(root) {
     frameworks,
     storybook,
     scanAudit: walkState.audit,
+    scanReport: scanReport ? { path: SCAN_REPORT_PATH, ...scanReport } : null,
     routeCount: routes.length,
     componentCandidateCount: candidates.candidates.length,
     templateCount: templates.length,
@@ -886,6 +985,15 @@ export async function scanProjectUi(root, options = {}) {
   const storybook = await detectStorybook(files);
   const candidates = await detectComponents(root, files, namespace, frameworks, storybook);
   const doc = await writeComponentCandidates(root, candidates);
+  const scanReport = await writeScanReport(root, buildScanReport({
+    packageJson,
+    namespace,
+    frameworks,
+    routes,
+    candidates,
+    storybook,
+    scanAudit: walkState.audit,
+  }));
   return {
     root,
     packageName: packageJson?.name ?? null,
@@ -893,6 +1001,8 @@ export async function scanProjectUi(root, options = {}) {
     frameworks,
     storybook,
     scanAudit: walkState.audit,
+    scanReportPath: SCAN_REPORT_PATH,
+    scanReport,
     routes,
     components: candidates,
     componentCandidatesPath: COMPONENT_CANDIDATES_PATH,

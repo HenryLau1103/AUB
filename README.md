@@ -13,7 +13,7 @@
 
 **English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
 
-[Workspace loop guide](./docs/workspace-loop-user-manual.md) · [10-minute demo](./docs/workspace-loop-10-minute-demo.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Canonical example](./examples/dashboard.ui.json)
+[Workspace loop guide](./docs/workspace-loop-user-manual.md) · [10-minute demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Canonical example](./examples/dashboard.ui.json)
 
 ![AUB visual editor showing a responsive onboarding screen](./docs/assets/aub-editor-en.jpg)
 
@@ -64,6 +64,14 @@ For a terminal-only handoff prompt, run:
 ```bash
 pnpm agent:instructions -- --target codex
 ```
+
+To see the full safety loop without using a real project, run:
+
+```bash
+npx aub-workspace demo
+```
+
+This creates a synthetic workspace with `.aub/scan-report.json`, a generated candidate template, a Blueprint, one failing implementation report, and one passing report. It is the fastest way to see the PR gate reject low-evidence agent work.
 
 ## The problem AUB solves
 

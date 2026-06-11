@@ -3916,6 +3916,24 @@ button.primary {
   align-items: center;
 }
 
+.workspace-mode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workspace-mode-tabs button {
+  border-color: #bfdbfe;
+  background: #ffffff;
+  color: #1d4ed8;
+}
+
+.workspace-mode-tabs button.active {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
 .workspace-status-pills {
   display: flex;
   flex-wrap: wrap;
@@ -3930,6 +3948,42 @@ button.primary {
   padding: 3px 8px;
   font-size: 11px;
   line-height: 1.2;
+}
+
+.workspace-scan-trust,
+.workspace-evidence-focus {
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.workspace-scan-trust > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.workspace-scan-trust strong,
+.workspace-evidence-focus strong {
+  color: #0f172a;
+}
+
+.workspace-scan-trust.high {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.workspace-scan-trust.medium {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.workspace-scan-trust.low {
+  border-color: #fca5a5;
+  background: #fef2f2;
 }
 
 .workspace-grid {

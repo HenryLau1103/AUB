@@ -15,7 +15,7 @@
 
 > 本檔已與目前主版 README 的章節結構核對，僅保留正體中文譯文版本。
 
-[Workspace loop 指南](./docs/workspace-loop-user-manual.zh-Hant.md) · [10 分鐘 demo](./docs/workspace-loop-10-minute-demo.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [Agent 交付指南](./docs/agent-handoff.zh-Hant.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準範例](./examples/dashboard.ui.json)
+[Workspace loop 指南](./docs/workspace-loop-user-manual.zh-Hant.md) · [10 分鐘 demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [Agent 交付指南](./docs/agent-handoff.zh-Hant.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準範例](./examples/dashboard.ui.json)
 
 ![AUB 視覺編輯器正在編輯響應式註冊流程](./docs/assets/aub-editor-zh-hant.jpg)
 
@@ -60,6 +60,14 @@ npx aub-workspace
 這會啟動本機 AUB MCP server、開啟內建 editor，並自動把 editor 連到你的 workspace。這條路徑不需要先 clone AUB repo。
 
 `init` 會安裝 AUB CI 設定、`.aubignore`、`AGENTS.md`、GitHub issue templates、Copilot instructions 與 PR workflow。進入 editor 後照這條路徑走：**掃描專案 → 產生範本 → 審核自訂元件候選 → 儲存 Blueprint/session → 複製 Agent 指令**。把指令貼給 Copilot、Codex 或其他 coding agent，讓它修改真實 app 並回報證據。
+
+如果想先不用真實專案看完整安全流程，執行：
+
+```bash
+npx aub-workspace demo
+```
+
+這會建立一個合成 workspace，包含 `.aub/scan-report.json`、candidate template、Blueprint、一份會被 gate 擋下的低證據 report，以及一份可通過的 report。
 
 ## AUB 解決什麼問題
 

@@ -3,6 +3,16 @@
 This demo proves the AUB workflow against synthetic existing-app fixtures. It does
 not use private project code.
 
+The fastest proof path is the bundled synthetic workspace:
+
+```bash
+npx aub-workspace demo
+```
+
+It creates a demo app, `.aub/scan-report.json`, a candidate template, a generated
+Blueprint, a failing low-evidence report, and a passing evidence-shaped report.
+Use it before trying AUB against a private or large codebase.
+
 ## 1. Initialize AUB in an Existing App
 
 From a target app root:
@@ -33,6 +43,10 @@ Synthetic fixtures for local validation:
 pnpm workspace:start -- --workspace examples/workspace-fixtures/next-dashboard
 pnpm workspace:start -- --workspace examples/workspace-fixtures/angular-enterprise
 ```
+
+After `scan_project_ui`, AUB writes `.aub/scan-report.json`. That file records
+the scanner trust score, routes found, component candidates, Storybook metadata,
+ignored files, and warnings such as scan limits.
 
 ## 3. Review Custom Components
 

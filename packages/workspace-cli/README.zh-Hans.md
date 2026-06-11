@@ -34,6 +34,7 @@ AUB 可能会在既有项目创建：
 
 ```text
 .aub/session.json
+.aub/scan-report.json
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
 .aub/ci.json
@@ -51,10 +52,13 @@ npx aub-workspace init
 npx aub-workspace init --force
 npx aub-workspace init --no-github
 npx aub-workspace init --ci-only
+npx aub-workspace demo
 npx aub-workspace --workspace /path/to/app
 npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open
 ```
+
+`demo` 会创建一个合成 workspace，用来证明安全流程，不需要使用真实项目。它包含 scan report、generated template、Blueprint、会失败的 implementation report 和可通过的 implementation report。
 
 Requirements:
 

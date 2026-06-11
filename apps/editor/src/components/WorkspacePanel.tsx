@@ -55,6 +55,7 @@ export function WorkspacePanel({
   const [selectedTemplateSource, setSelectedTemplateSource] = useState('');
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
   const [instructionCopied, setInstructionCopied] = useState(false);
+  const [reviewMode, setReviewMode] = useState<'template' | 'evidence'>('template');
 
   useEffect(() => {
     setPreviewDraft({
@@ -161,6 +162,7 @@ export function WorkspacePanel({
               <span>{zh ? 'Templates' : 'Templates'}: {status.templateCount || status.templates.length}</span>
               <span>{zh ? '候選元件' : 'Candidates'}: {status.componentCandidateCount || status.componentCandidates.length}</span>
               <span>{zh ? 'Frameworks' : 'Frameworks'}: {status.frameworks.join(', ') || (zh ? '未偵測' : 'not detected')}</span>
+              {status.scanReport && <span>{zh ? '掃描可信度' : 'Scan trust'}: {status.scanReport.trust.score}</span>}
               {status.storybook?.detected && <span>Storybook: {status.storybook.storyCount}</span>}
               {status.scanAudit && <span>{zh ? '略過' : 'Skipped'}: {status.scanAudit.filesSkipped + status.scanAudit.directoriesSkipped}</span>}
             </div>
@@ -191,8 +193,29 @@ export function WorkspacePanel({
                 {instructionCopied ? (zh ? '已複製' : 'Copied') : (zh ? '複製 Agent 指令' : 'Copy agent instruction')}
               </button>
             </div>
+            <div className="workspace-mode-tabs" role="tablist" aria-label={zh ? 'Workspace 審核模式' : 'Workspace review mode'}>
+              <button
+                type="button"
+                className={reviewMode === 'template' ? 'active' : ''}
+                aria-selected={reviewMode === 'template'}
+                onClick={() => setReviewMode('template')}
+              >
+                {zh ? '範本審核' : 'Template Review'}
+              </button>
+              <button
+                type="button"
+                className={reviewMode === 'evidence' ? 'active' : ''}
+                aria-selected={reviewMode === 'evidence'}
+                onClick={() => setReviewMode('evidence')}
+              >
+                {zh ? 'PR 證據審核' : 'PR Evidence Review'}
+              </button>
+            </div>
+            {status.scanReport && <ScanTrustSummary language={language} status={status} />}
           </section>
           <div className="workspace-grid">
+            {reviewMode === 'template' && (
+              <>
             <section>
             <h3>{zh ? 'Blueprint 檔案' : 'Blueprint files'}</h3>
               <select defaultValue="" onChange={(event) => event.target.value && onLoadBlueprint(event.target.value)}>
@@ -215,6 +238,38 @@ export function WorkspacePanel({
                 : zh ? '儲存後 Agent 可透過 get_aub_session 讀到。' : 'After save, agents can read this through get_aub_session.'}
             </small>
           </section>
+          <section>
+            <h3>{zh ? '自訂元件候選' : 'Component candidates'}</h3>
+            <div className="workspace-candidate-batch">
+              <button type="button" onClick={approveHighConfidenceCore}>
+                {zh ? '核准高信心 core mapping' : 'Approve high-confidence core mappings'}
+              </button>
+              <button type="button" disabled={selectedCandidateIds.size === 0} onClick={() => reviewSelected('create_extension')}>
+                {zh ? '選取項目建立 extension' : 'Create extension for selected'}
+              </button>
+              <button type="button" disabled={selectedCandidateIds.size === 0} onClick={() => reviewSelected('ignore')}>
+                {zh ? '忽略選取項目' : 'Ignore selected'}
+              </button>
+              <button type="button" onClick={() => setSelectedCandidateIds(new Set())}>
+                {zh ? '保留未決為候選' : 'Keep unresolved as candidates'}
+              </button>
+            </div>
+            <CandidateList
+              language={language}
+              candidates={status.componentCandidates}
+              selectedIds={selectedCandidateIds}
+              onToggleCandidate={toggleCandidate}
+              onReviewCandidate={onReviewCandidate}
+            />
+          </section>
+          <section>
+            <h3>{zh ? '來源對照' : 'Source references'}</h3>
+            <SourceReferenceList language={language} templates={status.templates} />
+          </section>
+              </>
+            )}
+            {reviewMode === 'evidence' && (
+              <>
           <section>
             <h3>{zh ? '真實畫面預覽' : 'Implementation preview'}</h3>
             <input
@@ -275,37 +330,74 @@ export function WorkspacePanel({
             )}
           </section>
           <section>
-            <h3>{zh ? '自訂元件候選' : 'Component candidates'}</h3>
-            <div className="workspace-candidate-batch">
-              <button type="button" onClick={approveHighConfidenceCore}>
-                {zh ? '核准高信心 core mapping' : 'Approve high-confidence core mappings'}
-              </button>
-              <button type="button" disabled={selectedCandidateIds.size === 0} onClick={() => reviewSelected('create_extension')}>
-                {zh ? '選取項目建立 extension' : 'Create extension for selected'}
-              </button>
-              <button type="button" disabled={selectedCandidateIds.size === 0} onClick={() => reviewSelected('ignore')}>
-                {zh ? '忽略選取項目' : 'Ignore selected'}
-              </button>
-              <button type="button" onClick={() => setSelectedCandidateIds(new Set())}>
-                {zh ? '保留未決為候選' : 'Keep unresolved as candidates'}
-              </button>
-            </div>
-            <CandidateList
-              language={language}
-              candidates={status.componentCandidates}
-              selectedIds={selectedCandidateIds}
-              onToggleCandidate={toggleCandidate}
-              onReviewCandidate={onReviewCandidate}
-            />
+            <h3>{zh ? 'PR 驗證焦點' : 'PR verification focus'}</h3>
+            <EvidenceFocus language={language} status={status} />
           </section>
-          <section>
-            <h3>{zh ? '來源對照' : 'Source references'}</h3>
-            <SourceReferenceList language={language} templates={status.templates} />
-          </section>
+              </>
+            )}
           </div>
         </>
       )}
     </section>
+  );
+}
+
+function ScanTrustSummary({ language, status }: { language: Language; status: WorkspaceStatus }) {
+  const zh = language === 'zh-Hant';
+  const report = status.scanReport;
+  if (!report) return null;
+  return (
+    <div className={`workspace-scan-trust ${report.trust.grade}`}>
+      <div>
+        <strong>{zh ? '掃描可信度' : 'Scan trust'} {report.trust.score}</strong>
+        <small>{report.path} · {report.trust.grade}</small>
+      </div>
+      <div className="workspace-candidate-meta">
+        <span>{zh ? 'Routes' : 'Routes'} {report.summary.routes}</span>
+        <span>{zh ? '候選' : 'Candidates'} {report.summary.componentCandidates}</span>
+        <span>{zh ? '未決' : 'Unresolved'} {report.summary.unresolvedCandidates}</span>
+        <span>{zh ? '掃描檔案' : 'Files'} {report.summary.filesScanned}</span>
+      </div>
+      {report.trust.warnings.length > 0 && (
+        <small>{zh ? '警示' : 'Warnings'}: {report.trust.warnings.join(' ')}</small>
+      )}
+    </div>
+  );
+}
+
+function EvidenceFocus({ language, status }: { language: Language; status: WorkspaceStatus }) {
+  const zh = language === 'zh-Hant';
+  const report = status.implementationReport;
+  if (!report || ('error' in report && report.error)) {
+    return (
+      <p className="empty">
+        {zh
+          ? '尚未讀到 implementation report。Agent 完成後請把 report path 寫入 .aub/session.json。'
+          : 'No implementation report is available yet. After implementation, the agent should write the report path into .aub/session.json.'}
+      </p>
+    );
+  }
+  const score = report.safetyScore;
+  return (
+    <div className="workspace-evidence-focus">
+      <strong>{zh ? '這份 PR 是否可信？' : 'Is this PR trustworthy?'}</strong>
+      <p>
+        {zh
+          ? '先看分數、機器證據、overflow 與 component reuse。低於門檻時，PR 不該只靠 Agent 自述通過。'
+          : 'Start with score, machine evidence, overflow, and component reuse. Below threshold, the PR should not pass on agent narrative alone.'}
+      </p>
+      {score && (
+        <div className="workspace-candidate-meta">
+          <span>{zh ? '總分' : 'Overall'} {score.overall}</span>
+          <span>{zh ? '來源' : 'Source'} {score.sourceCoverageScore}</span>
+          <span>{zh ? '證據' : 'Evidence'} {score.acceptanceEvidenceScore}</span>
+          <span>{zh ? 'Viewport' : 'Viewport'} {score.viewportEvidenceScore}</span>
+          <span>{zh ? 'Overflow' : 'Overflow'} {score.overflowSafety}</span>
+          <span>{zh ? 'Reuse' : 'Reuse'} {score.componentReuseScore}</span>
+        </div>
+      )}
+      <small>{report.path}</small>
+    </div>
   );
 }
 

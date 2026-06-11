@@ -57,6 +57,12 @@ pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.impl
 pnpm report:score screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json
 ```
 
+To generate the same Markdown summary that the Action can post to a pull request:
+
+```bash
+pnpm report:comment -- --workspace /path/to/target/repo --config .aub/ci.json --require-reports --require-evidence --min-safety-score 70
+```
+
 ## Add the GitHub Action
 
 ```yaml
@@ -67,6 +73,9 @@ on:
 
 jobs:
   aub:
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -76,6 +85,8 @@ jobs:
           require-reports: "true"
           require-evidence: "false"
           min-safety-score: "70"
+          comment-pr: "true"
+          github-token: ${{ github.token }}
 ```
 
 Keep `require-evidence: "false"` while adopting the workflow if existing reports are still
@@ -88,4 +99,6 @@ coverage, overflow safety, component reuse, unresolved mappings, and lookalike p
 
 The Action writes a check table to the GitHub job summary and emits file-level error
 annotations for invalid schemas, semantic errors, missing reports, failed acceptance items,
-low safety scores, or unresolved implementation work.
+low safety scores, or unresolved implementation work. When `comment-pr: "true"` is enabled
+on a pull request, the Action also creates or updates one `AUB PR Safety Score` comment with
+the score table, blocking findings, and next actions.

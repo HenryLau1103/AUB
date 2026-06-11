@@ -33,6 +33,12 @@ test('WL1: Next scanner generates a source-driven candidate template', async () 
     assert.equal(scan.storybook.detected, true);
     assert.equal(scan.storybook.storyCount, 1);
     assert.ok(scan.scanAudit.filesScanned > 0);
+    assert.equal(scan.scanReportPath, '.aub/scan-report.json');
+    assert.equal(scan.scanReport.format, 'aub-scan-report');
+    assert.equal(scan.scanReport.summary.routes, scan.routes.length);
+    assert.ok(scan.scanReport.summary.trustScore >= 60);
+    const persistedScanReport = JSON.parse(await readFile(join(root, '.aub', 'scan-report.json'), 'utf8'));
+    assert.equal(persistedScanReport.summary.componentCandidates, scan.components.length);
     assert.ok(scan.scanAudit.directoriesSkipped > 0);
     assert.equal(scan.components.some((component) => component.componentName === 'HiddenWidget'), false);
     assert.ok(scan.routes.some((route) => route.route === '/risk'));
