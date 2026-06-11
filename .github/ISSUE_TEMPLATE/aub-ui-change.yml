@@ -1,0 +1,74 @@
+name: AUB UI Change
+description: Ask an agent to modify an existing product UI using AUB as the contract.
+title: "[AUB UI] "
+labels: ["aub", "ui-change", "agent-ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when an existing route or screen should be changed by Copilot, Codex, or another coding agent.
+  - type: input
+    id: target_route
+    attributes:
+      label: Target route
+      description: The app route the user should see after implementation.
+      placeholder: /settings/billing
+    validations:
+      required: true
+  - type: textarea
+    id: source_files
+    attributes:
+      label: Current source files
+      description: Workspace-relative files the agent should inspect first.
+      placeholder: |
+        app/settings/page.tsx
+        components/BillingCard.tsx
+    validations:
+      required: true
+  - type: textarea
+    id: desired_change
+    attributes:
+      label: Desired UI change
+      description: Describe the visual and behavioral change in plain language.
+      placeholder: Add a billing summary section above the invoice table and keep existing account settings behavior unchanged.
+    validations:
+      required: true
+  - type: input
+    id: aub_blueprint
+    attributes:
+      label: AUB Blueprint or workspace template
+      description: Path to the active Blueprint/template if available.
+      placeholder: screens/settings.ui.json or .aub/templates/settings.aub.template.json
+  - type: textarea
+    id: components_to_reuse
+    attributes:
+      label: Production components to reuse
+      description: List required components or registry mappings. Say "unknown" if AUB should resolve them.
+      placeholder: |
+        acme:billing_card -> components/BillingCard.tsx
+        data_table -> components/DataTable.tsx
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Binary checks the implementation must satisfy.
+      placeholder: |
+        - Billing summary appears above invoice table on desktop and mobile.
+        - Existing account form submission still works.
+        - No new lookalike Card/Table components are created.
+    validations:
+      required: true
+  - type: input
+    id: preview
+    attributes:
+      label: Preview URL
+      description: Local or deployed preview route if available.
+      placeholder: http://localhost:3000/settings/billing
+  - type: textarea
+    id: agent_instruction
+    attributes:
+      label: Agent instruction
+      description: Paste the instruction copied from AUB Editor when available.
+      placeholder: |
+        I finished adjusting the screen in AUB Editor.
+        Use AUB MCP get_aub_session...

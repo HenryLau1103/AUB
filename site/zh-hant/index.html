@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AUB — 編碼 Agent 的 UI 實作合約</title>
-    <meta name="description" content="定義可版本化的 UI 實作合約、對應正式元件、交付給任何編碼 Agent，並以驗收證據把關 Pull Request。" />
+    <title>AUB — 讓編碼 Agent 安全修改既有 UI</title>
+    <meta name="description" content="讓編碼 Agent 安全修改既有產品畫面，不重做正式元件，並用驗收證據把關 Pull Request。" />
     <link rel="canonical" href="https://henrylau1103.github.io/AUB/zh-hant/" />
     <link rel="alternate" hreflang="en" href="https://henrylau1103.github.io/AUB/" />
     <link rel="alternate" hreflang="zh-Hant" href="https://henrylau1103.github.io/AUB/zh-hant/" />
@@ -12,8 +12,8 @@
     <link rel="alternate" hreflang="ja" href="https://henrylau1103.github.io/AUB/ja/" />
     <link rel="alternate" hreflang="ko" href="https://henrylau1103.github.io/AUB/ko/" />
     <link rel="alternate" hreflang="x-default" href="https://henrylau1103.github.io/AUB/" />
-    <meta property="og:title" content="AUB — 編碼 Agent 的 UI 實作合約" />
-    <meta property="og:description" content="從設計意圖到可驗證實作：語意化 Blueprint、正式元件、MCP 與 PR 驗收閘門。" />
+    <meta property="og:title" content="AUB — 讓編碼 Agent 安全修改既有 UI" />
+    <meta property="og:description" content="掃描既有 route、編輯 AUB 合約、重用正式元件，並以證據驗收 PR。" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://henrylau1103.github.io/AUB/zh-hant/" />
     <meta property="og:locale" content="zh_TW" />
@@ -57,12 +57,12 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">UI 實作合約</p>
-          <h1>定義產品意圖。<br />重用正式元件。<br />以證據把關 PR。</h1>
-          <p class="lede">AUB 是產品意圖與編碼 Agent 之間的開放合約層。建立語意化 Blueprint、對應正式元件，將同一份唯一真實來源交給 Codex、Claude Code、Copilot 或其他 Agent，再於 CI 逐項驗證 acceptance id。</p>
+          <p class="eyebrow">既有產品 UI 修改</p>
+          <h1>讓 Agent 改 UI。<br />保留正式元件。<br />用證據驗收 PR。</h1>
+          <p class="lede">AUB 是給 coding agent 修改真實 app 的 local-first 工作台。掃描既有 route、轉成可編輯 Blueprint、審核自訂元件候選，再把可實作且可驗證的合約交給 Codex、Claude Code、Copilot 或其他 Agent。</p>
           <div class="cta-row">
-            <a class="btn btn-primary" href="../editor/">開啟線上編輯器</a>
-            <a class="btn btn-ghost" href="https://github.com/HenryLau1103/AUB">前往 GitHub</a>
+            <a class="btn btn-primary" href="https://github.com/HenryLau1103/AUB#fastest-path-for-an-existing-project">用在既有專案</a>
+            <a class="btn btn-ghost" href="../editor/">試用瀏覽器 demo</a>
           </div>
           <p class="note">Apache-2.0 · local-first · agent-neutral · 編輯器不會上傳資料</p>
         </div>
@@ -80,27 +80,27 @@
 
       <section class="steps" id="workflow">
         <p class="section-kicker">黃金流程</p>
-        <h2>從產品意圖到 Pull Request，只用一份合約</h2>
+        <h2>五分鐘從既有 route 到可交給 Agent 的 PR 工作</h2>
         <ol class="step-grid step-grid-five">
           <li>
             <span class="step-num">1</span>
-            <h3>組合或匯入</h3>
-            <p>建立單一畫面、匯入 Figma／Penpot bridge，或組成可導覽的多畫面專案。</p>
+            <h3>從你的 app 啟動</h3>
+            <p>在既有專案根目錄執行 npx aub-workspace，不需要 clone AUB。</p>
           </li>
           <li>
             <span class="step-num">2</span>
-            <h3>綁定正式元件</h3>
-            <p>將自訂類型對應到正式 module、export、source、Storybook 與 props。</p>
+            <h3>掃描並產範本</h3>
+            <p>偵測 routes、components、layout 線索與自訂元件候選。</p>
           </li>
           <li>
             <span class="step-num">3</span>
-            <h3>一次交付</h3>
-            <p>使用可攜式交付包或 MCP；不同 Agent 仍共享同一份核心合約。</p>
+            <h3>審核合約</h3>
+            <p>打開 candidate template，確認 mapping，調整 Blueprint。</p>
           </li>
           <li>
             <span class="step-num">4</span>
-            <h3>回報證據</h3>
-            <p>Agent 對應每個節點，並為每個 acceptance id 回報 pass、fail 或 needs-review。</p>
+            <h3>交給 Agent</h3>
+            <p>複製包含 active Blueprint、route、preview URL 與 MCP tools 的指令。</p>
           </li>
           <li>
             <span class="step-num">5</span>
@@ -112,8 +112,8 @@
 
       <section class="why">
         <p class="section-kicker">為實作而設計</p>
-        <h2>不是另一套設計畫布，也不是一次性程式碼生成器</h2>
-        <p class="why-lede">設計工具最佳化創作，程式碼生成器最佳化速度；AUB 用 Git 與 CI 能理解的格式，跨工具、Agent、版本與審查保護產品意圖。</p>
+        <h2>不是另一套 app builder，而是真實 codebase 的控制層</h2>
+        <p class="why-lede">AI app builder 最佳化速度；AUB 保護既有產品 UI，讓 Agent 在真實 repo、正式元件、既有 route 與可審查驗收證據之間工作。</p>
         <div class="why-grid">
           <div class="card">
             <h3>可版本化的唯一真實來源</h3>
@@ -136,7 +136,7 @@
 
       <section class="integrations" id="integrations">
         <p class="section-kicker">整合合約</p>
-        <h2>讓 Agent 使用你已經上線的正式元件</h2>
+        <h2>不要讓 Agent 發明你的 design system</h2>
         <div class="integration-grid">
           <div>
             <p>自訂 registry 可指定正式 package、export symbol、source file、Storybook、文件，以及精確的 Blueprint-to-prop mapping。</p>
@@ -164,18 +164,18 @@
 
       <section class="handoff">
         <p class="section-kicker">連接並驗證</p>
-        <h2>需要可攜性時用檔案；Agent 需要即時存取時用 MCP。</h2>
-        <p>匯出 <code>.aub.zip</code>，或讓支援 MCP 的 Agent 透過 stdio／HTTP 匯入、寫入、打包、解析、驗證、補全、diff、migrate、lock 與回報 Blueprint 和多畫面專案。再加入內建 GitHub Action，將合約變成 Pull Request 驗收閘門。</p>
+        <h2>GitHub issue 變成可交給 Agent 的 UI 工單</h2>
+        <p>使用 AUB issue template 定義 route、Blueprint、元件重用規則、preview URL 與 acceptance criteria。Copilot、Codex 或其他 Agent 可以依同一份合約實作，並在 PR 回報證據。</p>
         <div class="command-card">
           <code>uses: HenryLau1103/AUB@main</code>
           <span>驗證合約與實作證據</span>
         </div>
         <div class="link-row">
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/agent-handoff.md">Agent 交付指南</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/workspace-loop-user-manual.md">Workspace loop 指南</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-agent-workflow.md">GitHub agent workflow</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/apps/mcp-server/README.md">MCP server</a>
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-ci.md">GitHub CI 閘門</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/custom-components.md">正式元件對應</a>
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/design-tool-bridge.md">Figma／Penpot bridge</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-ci.md">GitHub CI 閘門</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/schema/ui-blueprint.schema.json">Blueprint schema</a>
         </div>
       </section>
@@ -183,7 +183,7 @@
 
     <footer class="site-footer">
       <p>
-        AUB · 編碼 Agent 的 UI 實作合約 ·
+        AUB · 讓編碼 Agent 安全修改既有 UI ·
         <a href="https://github.com/HenryLau1103/AUB">github.com/HenryLau1103/AUB</a> ·
         Apache-2.0
       </p>

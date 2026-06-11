@@ -3851,7 +3851,7 @@ button.primary {
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(6, minmax(110px, 1fr));
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
   gap: 8px;
   list-style: none;
 }
@@ -3863,10 +3863,25 @@ button.primary {
   background: rgba(255, 255, 255, 0.8);
   color: #475569;
   padding: 7px 8px;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
   gap: 6px;
-  align-items: center;
+  align-items: start;
   font-size: 12px;
+}
+
+.workspace-onboarding-steps li strong,
+.workspace-onboarding-steps li small {
+  grid-column: 2;
+}
+
+.workspace-onboarding-steps li strong {
+  color: #0f172a;
+}
+
+.workspace-onboarding-steps li small {
+  color: #64748b;
+  line-height: 1.35;
 }
 
 .workspace-onboarding-steps li.complete {
@@ -3876,6 +3891,7 @@ button.primary {
 }
 
 .workspace-onboarding-steps li span {
+  grid-row: 1 / span 2;
   width: 18px;
   height: 18px;
   border-radius: 999px;
@@ -3898,6 +3914,22 @@ button.primary {
   grid-template-columns: auto minmax(180px, 1fr) auto auto;
   gap: 8px;
   align-items: center;
+}
+
+.workspace-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.workspace-status-pills span,
+.workspace-candidate-meta span {
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 3px 8px;
+  font-size: 11px;
+  line-height: 1.2;
 }
 
 .workspace-grid {
@@ -3963,6 +3995,12 @@ button.primary {
   color: #0369a1;
   padding: 2px 8px;
   font-size: 11px;
+}
+
+.workspace-candidate-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
 }
 
 .workspace-candidate-actions {

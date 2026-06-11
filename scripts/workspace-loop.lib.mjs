@@ -307,21 +307,131 @@ function routeFromPath(path) {
   return route === '/index' || route === '/app' ? '/' : route;
 }
 
-function detectRoutes(files) {
-  return files
+async function detectRoutes(files) {
+  const webRoutes = files
     .filter((file) => {
       const path = file.path;
       return /^app\/(?:.+\/)?page\.[tj]sx?$/.test(path)
         || /^pages\/.+\.(tsx|jsx|ts|js|vue)$/.test(path)
-        || /^src\/pages\/.+\.(tsx|jsx|ts|js|vue)$/.test(path)
-        || /\.component\.html$/.test(path);
+        || /^src\/pages\/.+\.(tsx|jsx|ts|js|vue)$/.test(path);
     })
     .map((file) => ({
       id: slugify(routeFromPath(file.path), 'route'),
       path: file.path,
       route: routeFromPath(file.path),
-      kind: /\.vue$/.test(file.path) ? 'vue-route' : /\.component\.html$/.test(file.path) ? 'angular-template' : 'route',
+      kind: /\.vue$/.test(file.path) ? 'vue-route' : 'route',
     }));
+
+  const angularRoutes = await detectAngularRoutes(files);
+  const fallbackAngularTemplates = angularRoutes.length > 0
+    ? []
+    : files
+        .filter((file) => /\.component\.html$/.test(file.path))
+        .map((file) => ({
+          id: slugify(routeFromPath(file.path), 'route'),
+          path: file.path,
+          route: routeFromPath(file.path),
+          kind: 'angular-template',
+        }));
+
+  const byKey = new Map();
+  for (const route of [...webRoutes, ...angularRoutes, ...fallbackAngularTemplates]) {
+    byKey.set(`${route.route}:${route.path}`, route);
+  }
+  return [...byKey.values()];
+}
+
+async function detectAngularRoutes(files) {
+  const routingFiles = files.filter((file) => /\.routing\.ts$/.test(file.path) || /app\.routing\.ts$/.test(file.path));
+  if (routingFiles.length === 0) return [];
+  const fileByPath = new Map(files.map((file) => [file.path, file]));
+  const sourceTexts = await readSourceTexts(routingFiles.concat(files.filter((file) => /app-route-paths\.const\.ts$/.test(file.path))));
+  const constants = extractAngularRouteConstants(sourceTexts);
+  const routes = [];
+
+  for (const file of routingFiles) {
+    const content = sourceTexts.get(file.absPath) ?? '';
+    const imports = extractAngularImports(file.path, content);
+    const routePattern = /\{[^{}]*path\s*:\s*([^,\n}]+)[^{}]*component\s*:\s*([A-Za-z_$][A-Za-z0-9_$]*)[^{}]*}/g;
+    for (const match of content.matchAll(routePattern)) {
+      const route = resolveAngularRouteExpression(match[1], constants);
+      const componentName = match[2];
+      if (!route || componentName === 'undefined') continue;
+      const componentPath = imports.get(componentName);
+      const htmlPath = componentPath?.replace(/\.component\.ts$/, '.component.html');
+      const routePath = htmlPath && fileByPath.has(htmlPath)
+        ? htmlPath
+        : componentPath && fileByPath.has(componentPath)
+          ? componentPath
+          : file.path;
+      routes.push({
+        id: slugify(`${route}-${componentName}`, 'route'),
+        path: routePath,
+        route,
+        kind: 'angular-route',
+      });
+    }
+  }
+
+  const byRoute = new Map();
+  for (const route of routes) byRoute.set(`${route.route}:${route.path}`, route);
+  return [...byRoute.values()];
+}
+
+function extractAngularRouteConstants(sourceTexts) {
+  const constants = new Map();
+  for (const text of sourceTexts.values()) {
+    for (const match of text.matchAll(/([A-Za-z_$][A-Za-z0-9_$]*)\s*:\s*['"`]([^'"`]*)['"`]/g)) {
+      constants.set(`appRoutePaths.${match[1]}`, match[2]);
+    }
+  }
+  return constants;
+}
+
+function extractAngularImports(routingPath, content) {
+  const imports = new Map();
+  for (const match of content.matchAll(/import\s*{\s*([^}]+)\s*}\s*from\s*['"`]([^'"`]+)['"`]/g)) {
+    const spec = match[2];
+    const importedPath = resolveAngularImportPath(dirname(routingPath), spec);
+    if (!importedPath) continue;
+    for (const name of match[1].split(',').map((part) => part.trim()).filter(Boolean)) {
+      imports.set(name, importedPath);
+    }
+  }
+  return imports;
+}
+
+function resolveAngularImportPath(fromDir, spec) {
+  if (spec.startsWith('.')) {
+    const normalized = join(fromDir, spec).split(sep).join('/');
+    return normalized.endsWith('.ts') ? normalized : `${normalized}.ts`;
+  }
+  if (spec.startsWith('app/')) {
+    const normalized = `src/${spec}`;
+    return normalized.endsWith('.ts') ? normalized : `${normalized}.ts`;
+  }
+  return null;
+}
+
+function resolveAngularRouteExpression(expression, constants) {
+  const parts = String(expression)
+    .trim()
+    .split('+')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  let route = '';
+  for (const part of parts) {
+    const quoted = part.match(/^['"`]([^'"`]*)['"`]$/)?.[1];
+    if (quoted !== undefined) {
+      route += quoted;
+      continue;
+    }
+    if (constants.has(part)) {
+      route += constants.get(part);
+    }
+  }
+  if (!route && !parts.some((part) => constants.has(part))) return null;
+  return normalizeRoute(route || '/', '/');
 }
 
 function extractReactExports(content) {
@@ -371,7 +481,9 @@ async function detectComponents(root, files, namespace, frameworks) {
       ? [extractVueName(content, file.path)]
       : ext === '.ts' && /\.component\.ts$/.test(file.path)
         ? [title(basename(file.path).replace(/\.component\.ts$/, ''), 'AngularComponent').replace(/\s+/g, '')]
-        : extractReactExports(content);
+        : frameworks.includes('angular') && ext === '.ts'
+          ? []
+          : extractReactExports(content);
     const selector = extractAngularSelector(content);
     for (const componentName of names.filter(Boolean)) {
       const baseName = selector ?? componentName;
@@ -488,7 +600,7 @@ export async function getWorkspaceStatus(root) {
   await walk(root, root, files, 1500);
   const packageJson = await readPackage(root);
   const frameworks = detectFrameworks(packageJson, files);
-  const routes = detectRoutes(files);
+  const routes = await detectRoutes(files);
   const session = await readAubSession(root);
   const candidates = await readComponentCandidates(root);
   const templates = await listWorkspaceTemplates(root);
@@ -515,7 +627,7 @@ export async function scanProjectUi(root, options = {}) {
   const packageJson = await readPackage(root);
   const namespace = normalizeNamespace(options.namespace ?? inferNamespace(root, packageJson), 'app');
   const frameworks = detectFrameworks(packageJson, files);
-  const routes = detectRoutes(files);
+  const routes = await detectRoutes(files);
   const candidates = await detectComponents(root, files, namespace, frameworks);
   const doc = await writeComponentCandidates(root, candidates);
   return {
