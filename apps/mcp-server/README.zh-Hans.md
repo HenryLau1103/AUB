@@ -1,71 +1,124 @@
-# AUB MCP Server
+# AUB MCP 服务器
 
-语言： [English](./README.md) · [繁體中文](./README.zh-Hant.md) · **简体中文** · [日本語](./README.ja.md) · [한국어](./README.ko.md)
+Languages: **English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
 
-这是 [Model Context Protocol](https://modelcontextprotocol.io) server，通过 **stdio 或 Streamable HTTP** 把 UI Blueprint tools 提供给 coding agents。Agent 可以直接调用 AUB tools，不需要在 repo 之间手动搬 `.ui.json`、prompt 与 report files。
+A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes UI Blueprint
+tools to coding agents (Codex, Claude Code, MCP-capable IDEs) over **stdio or Streamable HTTP**. Agents call AUB
+tools directly instead of manually moving `.ui.json`, prompt, and report files between repos.
 
-Server 是 repo 既有 pure-function libraries 的薄包装，核心逻辑仍在 [`scripts/`](../../scripts)。
+The server is a thin wrapper over the repository's existing pure-function libraries in
+[`scripts/`](../../scripts). It adds no UI Blueprint logic of its own.
 
 ## Tools
 
-主要工具包含：
+| Tool | Input | Result |
+|---|---|---|
+| `list_blueprints` | — | Every `.ui.json` / `.ui.yaml` under the workspace root with screen id, name, version. |
+| `get_blueprint` | `ref`, `format?` (`json` \| `yaml` \| `markdown`) | The resolved Blueprint as JSON/YAML, or derived `.ui.md` agent context. |
+| `validate_blueprint` | `ref?` or inline `blueprint?` | `{ valid, schemaErrors[], semanticErrors[] }` (JSON Schema + semantic rules). |
+| `scaffold_blueprint` | `ref?` or inline `blueprint?`, `sections?` (`interactions` \| `responsive` \| `acceptance`), `language?` (`en` \| `zh-Hant`) | `{ source, summary, blueprint }`. Non-destructively derives missing interactions, responsive rules, and acceptance criteria from the node tree and viewports. |
+| `import_design_bridge` | `path?` or inline `bridge?`, `registry?` | Imports an explicitly mapped Figma/Penpot Design Bridge and validates the resulting Blueprint without guessing component types. |
+| `write_blueprint` | `path`, `blueprint`, `registry?`, `overwrite?` | Validates and atomically writes a Blueprint inside the workspace. Refuses overwrite and path traversal by default. |
+| `export_prompt` | `ref`, `adapter?` (`generic` \| `codex` \| `claude-code` \| `copilot`), `task?` (`author` \| `plan` \| `implement` \| `review`) | An agent-ready prompt with embedded Blueprint context. |
+| `export_handoff` | `ref`, `output?`, `registry?`, `overwrite?`, `viewportImages?` | Writes a complete `.aub.zip` handoff inside the workspace and returns its manifest and SHA-256. |
+| `submit_report` | `ref`, `report`, `persist?` | Verifies an implementation report (schema + node mappings + acceptance evidence). Accepted reports are written to `<root>/.aub/reports/`. |
+| `list_projects` | — | Every `*.aub.project.json` under the workspace root with id, name, and screen count. |
+| `get_project` | `ref` (project path or id), `inlineScreens?` | The resolved project. With `inlineScreens: true`, each member screen includes its full Blueprint and merged design system. |
+| `validate_project` | `ref` (project path or id) | `{ valid, schemaErrors[], semanticErrors[], screens[] }` — validates the project document, project semantics, and every member screen. |
+| `resolve_component` | `type`, `registry?`, `implementation?` | Resolves core or custom component semantics and returns production module/export/prop mappings when declared. |
+| `diff_blueprints` | `before`, `after` | Returns structural changes between two Blueprint revisions. |
+| `migrate_blueprint` | `ref?` or inline `blueprint?` | Migrates v0.1/v0.2 to the current version without writing files. |
+| `lock_blueprint` | `ref?` or inline `blueprint?` | Creates a deterministic acceptance lock snapshot without writing files. |
+| `get_aub_session` | — | Reads `.aub/session.json` so agents know the active Blueprint, project, route, and preview target. |
+| `update_aub_session` | `patch` | Merges editor/agent state into `.aub/session.json`. |
+| `get_workspace_status` | — | Returns frameworks, routes, workspace templates, component candidates, and session state. |
+| `scan_project_ui` | `namespace?`, `limit?` | Statically scans React/Next, Vue/Nuxt, and Angular sources; writes `.aub/component-candidates.json` without touching `aub.registry.json`. |
+| `generate_template_from_source` | `sourcePath`, metadata | Writes `.aub/templates/<slug>.aub.template.json` with a candidate Blueprint and source references. |
+| `approve_component_candidate` | `id`, `action`, metadata | Reviews a candidate. Only `create_extension` writes `aub.registry.json`; `map_core` and `ignore` stay in the candidates file. |
+| `export_template_authoring_prompt` | — | Returns the contract other agents should follow when scanning apps into AUB templates. |
 
-- Blueprint discovery：`list_blueprints`、`get_blueprint`
-- Validation and writes：`validate_blueprint`、`write_blueprint`
-- Handoff and prompts：`export_prompt`、`export_handoff`
-- Reports：`submit_report`
-- Projects：`list_projects`、`get_project`、`validate_project`
-- Components：`resolve_component`
-- Diff/migrate/lock：`diff_blueprints`、`migrate_blueprint`、`lock_blueprint`
-- Workspace loop：`get_aub_session`、`update_aub_session`、`get_workspace_status`
-- Project scanning：`scan_project_ui`、`generate_template_from_source`、`approve_component_candidate`
-- Agent authoring contract：`export_template_authoring_prompt`
+`ref` is either a file path (relative to the workspace root) or a Blueprint `screen.id`.
 
 ## Build
 
-一般用户不需要直接启动这个 package。请在既有 app 根目录执行：
+Most users should not start this package directly. From the existing app they
+want AUB to inspect and edit, run:
 
 ```bash
 cd /path/to/existing-app
 npx aub-workspace
 ```
 
-这会启动 MCP server、提供 AUB editor，并打开已连接 workspace 的 editor。
+That command starts this MCP server, serves the AUB editor, and opens the editor
+already connected to the workspace.
 
-只有在开发 AUB 或注册特定 MCP client 时，才使用手动指令：
+Use the manual commands below when developing AUB itself or registering the MCP
+server with a specific client.
 
 ```bash
 cd apps/mcp-server
 pnpm install
-pnpm build
+pnpm build      # emits dist/
 ```
 
-Stdio entry：
+The server entry is `dist/index.js` (bin: `aub-mcp`). The workspace root is, in order of
+precedence: the first CLI argument, the `AUB_WORKSPACE` environment variable, or the current
+working directory.
 
 ```bash
 node dist/index.js /path/to/your/repo
 ```
 
-Streamable HTTP：
+For Streamable HTTP, use the second entrypoint (bin: `aub-mcp-http`):
 
 ```bash
 node dist/http.js --workspace /path/to/your/repo --host 127.0.0.1 --port 3100
 curl http://127.0.0.1:3100/health
 ```
 
-MCP endpoint 是 `http://127.0.0.1:3100/mcp`。同一个 HTTP process 也提供 `POST /rpc`，让 AUB editor 的 workspace-connected mode 可以调用相同 tool implementations。
+The MCP endpoint is `http://127.0.0.1:3100/mcp`. Localhost bindings include the
+SDK's DNS rebinding protection. When exposing another host, put the endpoint
+behind your normal authentication and network controls.
+
+The same HTTP process also exposes `POST /rpc` for the AUB editor's
+workspace-connected mode. `/rpc` calls the same registered tool implementations
+as `/mcp`; it exists so browser UI code does not need to implement the full
+Streamable HTTP MCP session protocol.
+
+Security hardening for `/rpc` can be enabled by setting one or both of:
+
+- `AUB_RPC_TOKEN` (or `--rpc-token`): one or more comma-separated tokens required via `Authorization: Bearer <token>`.
+- `AUB_RPC_ALLOWED_ORIGINS` (or `--rpc-allowed-origins`): comma-separated origin allow list.
+
+When neither is configured, `/rpc` keeps compatibility behavior while still limiting
+browser requests to localhost and `https://henrylau1103.github.io` origins.
 
 ## Register with an agent
 
-把 built entry 指到 target repository 作为 workspace root。
+Point the agent at the built entry and pass the target repository as the workspace root.
 
-Claude Code：
+### Claude Code
 
 ```bash
 claude mcp add aub -- node /abs/path/to/AUB/apps/mcp-server/dist/index.js /abs/path/to/your/repo
 ```
 
-Codex `~/.codex/config.toml`：
+Or in `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "aub": {
+      "command": "node",
+      "args": ["/abs/path/to/AUB/apps/mcp-server/dist/index.js", "/abs/path/to/your/repo"]
+    }
+  }
+}
+```
+
+### Codex
+
+In `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.aub]
@@ -73,9 +126,28 @@ command = "node"
 args = ["/abs/path/to/AUB/apps/mcp-server/dist/index.js", "/abs/path/to/your/repo"]
 ```
 
+### Generic IDE / MCP client
+
+```json
+{
+  "mcpServers": {
+    "aub": {
+      "command": "node",
+      "args": ["/abs/path/to/AUB/apps/mcp-server/dist/index.js"],
+      "env": { "AUB_WORKSPACE": "/abs/path/to/your/repo" }
+    }
+  }
+}
+```
+
 ## Test
 
 ```bash
-pnpm test
+pnpm test        # builds, then runs node:test against dist/
 pnpm typecheck
 ```
+
+Both transports register the same tool list from one server factory. Transport
+integration tests initialize a real Streamable HTTP MCP client and call
+`validate_blueprint`; tool tests cover workspace path confinement, atomic writes,
+Design Bridge import, and `.aub.zip` package creation.
