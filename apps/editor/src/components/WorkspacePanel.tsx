@@ -24,7 +24,7 @@ interface Props {
   onSaveBlueprint: () => void;
   onSavePathChange: (value: string) => void;
   onPreviewChange: (patch: { devServerUrl?: string; route?: string }) => void;
-  onReviewCandidate: (candidate: ComponentCandidate, action: 'create_extension' | 'map_core' | 'ignore', coreType?: string) => void;
+  onReviewCandidate: (candidate: ComponentCandidate, action: 'create_extension' | 'map_core' | 'ignore', coreType?: string) => void | Promise<void>;
 }
 
 export function WorkspacePanel({
@@ -53,6 +53,7 @@ export function WorkspacePanel({
   const currentPreviewUrl = previewUrl(session);
   const [previewDraft, setPreviewDraft] = useState({ devServerUrl: '', route: '' });
   const [selectedTemplateSource, setSelectedTemplateSource] = useState('');
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
   const [instructionCopied, setInstructionCopied] = useState(false);
 
   useEffect(() => {
@@ -68,6 +69,11 @@ export function WorkspacePanel({
     if (firstRoute?.path) setSelectedTemplateSource(firstRoute.path);
   }, [selectedTemplateSource, status?.routes]);
 
+  useEffect(() => {
+    const candidateIds = new Set(status?.componentCandidates.map((candidate) => candidate.id) ?? []);
+    setSelectedCandidateIds((current) => new Set([...current].filter((id) => candidateIds.has(id))));
+  }, [status?.componentCandidates]);
+
   const previewDirty = previewDraft.devServerUrl !== (session?.preview?.devServerUrl ?? '')
     || previewDraft.route !== (session?.preview?.route ?? '');
   const agentInstruction = status ? buildAgentInstruction(language, status, savePath) : '';
@@ -82,6 +88,31 @@ export function WorkspacePanel({
     } catch {
       window.prompt(zh ? '請複製這段 Agent 指令' : 'Copy this agent instruction', agentInstruction);
     }
+  }
+
+  function toggleCandidate(id: string, selected: boolean) {
+    setSelectedCandidateIds((current) => {
+      const next = new Set(current);
+      if (selected) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function reviewSelected(action: 'create_extension' | 'ignore') {
+    const selected = status?.componentCandidates.filter((candidate) => selectedCandidateIds.has(candidate.id) && candidate.status === 'candidate') ?? [];
+    for (const candidate of selected) void onReviewCandidate(candidate, action);
+    setSelectedCandidateIds(new Set());
+  }
+
+  function approveHighConfidenceCore() {
+    const highConfidence = status?.componentCandidates.filter((candidate) =>
+      candidate.status === 'candidate'
+      && candidate.suggestedCoreType
+      && typeof candidate.confidence === 'number'
+      && candidate.confidence >= 0.75
+    ) ?? [];
+    for (const candidate of highConfidence) void onReviewCandidate(candidate, 'map_core', candidate.suggestedCoreType);
   }
 
   return (
@@ -207,14 +238,52 @@ export function WorkspacePanel({
                 <iframe title="AUB implementation preview" src={currentPreviewUrl} />
               </>
             )}
+            {status.implementationReport && (
+              <div className="workspace-report-summary">
+                <strong>{zh ? 'Implementation report' : 'Implementation report'}</strong>
+                {'error' in status.implementationReport && status.implementationReport.error ? (
+                  <small>{status.implementationReport.path}: {status.implementationReport.error}</small>
+                ) : (
+                  <>
+                    <small>{status.implementationReport.path}</small>
+                    <div className="workspace-candidate-meta">
+                      <span>pass {status.implementationReport.pass ?? 0}</span>
+                      <span>fail {status.implementationReport.fail ?? 0}</span>
+                      <span>{zh ? '待審' : 'review'} {status.implementationReport.needsReview ?? 0}</span>
+                      <span>evidence {status.implementationReport.evidence ?? 0}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </section>
           <section>
             <h3>{zh ? '自訂元件候選' : 'Component candidates'}</h3>
+            <div className="workspace-candidate-batch">
+              <button type="button" onClick={approveHighConfidenceCore}>
+                {zh ? '核准高信心 core mapping' : 'Approve high-confidence core mappings'}
+              </button>
+              <button type="button" disabled={selectedCandidateIds.size === 0} onClick={() => reviewSelected('create_extension')}>
+                {zh ? '選取項目建立 extension' : 'Create extension for selected'}
+              </button>
+              <button type="button" disabled={selectedCandidateIds.size === 0} onClick={() => reviewSelected('ignore')}>
+                {zh ? '忽略選取項目' : 'Ignore selected'}
+              </button>
+              <button type="button" onClick={() => setSelectedCandidateIds(new Set())}>
+                {zh ? '保留未決為候選' : 'Keep unresolved as candidates'}
+              </button>
+            </div>
             <CandidateList
               language={language}
               candidates={status.componentCandidates}
+              selectedIds={selectedCandidateIds}
+              onToggleCandidate={toggleCandidate}
               onReviewCandidate={onReviewCandidate}
             />
+          </section>
+          <section>
+            <h3>{zh ? '來源對照' : 'Source references'}</h3>
+            <SourceReferenceList language={language} templates={status.templates} />
           </section>
           </div>
         </>
@@ -324,10 +393,14 @@ function buildAgentInstruction(language: Language, status: WorkspaceStatus, save
 function CandidateList({
   language,
   candidates,
+  selectedIds,
+  onToggleCandidate,
   onReviewCandidate,
 }: {
   language: Language;
   candidates: ComponentCandidate[];
+  selectedIds: Set<string>;
+  onToggleCandidate: (id: string, selected: boolean) => void;
   onReviewCandidate: Props['onReviewCandidate'];
 }) {
   const zh = language === 'zh-Hant';
@@ -342,7 +415,9 @@ function CandidateList({
           key={candidate.id}
           language={language}
           candidate={candidate}
+          selected={selectedIds.has(candidate.id)}
           coreTypes={coreTypes}
+          onToggleCandidate={onToggleCandidate}
           onReviewCandidate={onReviewCandidate}
         />
       ))}
@@ -353,12 +428,16 @@ function CandidateList({
 function CandidateItem({
   language,
   candidate,
+  selected,
   coreTypes,
+  onToggleCandidate,
   onReviewCandidate,
 }: {
   language: Language;
   candidate: ComponentCandidate;
+  selected: boolean;
   coreTypes: string[];
+  onToggleCandidate: (id: string, selected: boolean) => void;
   onReviewCandidate: Props['onReviewCandidate'];
 }) {
   const zh = language === 'zh-Hant';
@@ -367,7 +446,15 @@ function CandidateItem({
     : 'card';
   return (
     <article className={`workspace-candidate ${candidate.status}`}>
-      <strong>{candidate.componentName}</strong>
+      <label className="workspace-candidate-select">
+        <input
+          type="checkbox"
+          checked={selected}
+          disabled={candidate.status !== 'candidate'}
+          onChange={(event) => onToggleCandidate(candidate.id, event.target.checked)}
+        />
+        <strong>{candidate.componentName}</strong>
+      </label>
       <small>{candidate.suggestedType} · {candidate.sourcePath}</small>
       <div className="workspace-candidate-meta">
         {candidate.framework && <span>{candidate.framework}</span>}
@@ -375,6 +462,16 @@ function CandidateItem({
         {typeof candidate.confidence === 'number' && <span>{zh ? '信心' : 'confidence'} {Math.round(candidate.confidence * 100)}%</span>}
         {candidate.suggestedCoreType && <span>{zh ? '建議 core' : 'core'}: {candidate.suggestedCoreType}</span>}
       </div>
+      {candidate.props && candidate.props.length > 0 && (
+        <small>{zh ? 'Props' : 'Props'}: {candidate.props.join(', ')}</small>
+      )}
+      {candidate.sourceUsage && candidate.sourceUsage.length > 0 && (
+        <small>
+          {zh ? '使用來源' : 'Usage'}: {candidate.sourceUsage.slice(0, 3).map((usage) => `${usage.file}${usage.line ? `:${usage.line}` : ''}`).join(', ')}
+        </small>
+      )}
+      {candidate.confidenceReason && <small>{candidate.confidenceReason}</small>}
+      {candidate.mappingReason && <small>{candidate.mappingReason}</small>}
       {candidate.reason && <small>{candidate.reason}</small>}
       <span>{candidate.status}</span>
       <CandidateActions
@@ -387,7 +484,52 @@ function CandidateItem({
       {candidate.status !== 'candidate' && (
         <small>{zh ? '已審核' : 'Reviewed'}{candidate.approvedAs ? `: ${candidate.approvedAs}` : ''}</small>
       )}
+      {candidate.reviewHistory && candidate.reviewHistory.length > 0 && (
+        <small>
+          {zh ? '紀錄' : 'History'}: {candidate.reviewHistory.map((entry) => entry.approvedAs ? `${entry.action}:${entry.approvedAs}` : entry.action).join(' → ')}
+        </small>
+      )}
     </article>
+  );
+}
+
+function SourceReferenceList({ language, templates }: { language: Language; templates: WorkspaceStatus['templates'] }) {
+  const zh = language === 'zh-Hant';
+  const references = templates.flatMap((template) =>
+    (template.sourceReferences ?? []).slice(0, 8).map((reference) => ({
+      template: template.name,
+      ...reference,
+    }))
+  ).slice(0, 24);
+  const missing = templates.flatMap((template) =>
+    (template.missingMappings ?? []).map((mapping) => ({
+      template: template.name,
+      ...mapping,
+    }))
+  ).slice(0, 24);
+  if (references.length === 0 && missing.length === 0) {
+    return <p className="empty">{zh ? '產生 workspace template 後會顯示來源對照。' : 'Generate a workspace template to see source references.'}</p>;
+  }
+  return (
+    <div className="workspace-source-list">
+      {references.map((reference, index) => (
+        <div key={`${reference.template}-${reference.nodeId}-${index}`}>
+          <strong>{reference.nodeId ?? reference.selector ?? reference.template}</strong>
+          <small>{reference.template} · {reference.file}{reference.line ? `:${reference.line}` : ''}{reference.selector ? ` · ${reference.selector}` : ''}</small>
+        </div>
+      ))}
+      {missing.length > 0 && (
+        <>
+          <h4>{zh ? '待審 mapping' : 'Missing mappings'}</h4>
+          {missing.map((mapping, index) => (
+            <div key={`${mapping.template}-${mapping.candidateId ?? mapping.componentName}-${index}`}>
+              <strong>{mapping.componentName ?? mapping.suggestedType}</strong>
+              <small>{mapping.template} · {mapping.suggestedType ?? mapping.suggestedCoreType} · {mapping.sourcePath}</small>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
   );
 }
 

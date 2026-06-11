@@ -6,10 +6,11 @@ AUB を clone せず、既存 project から AUB workspace-connected mode を起
 
 ```bash
 cd /path/to/your-existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
-この command は local AUB MCP HTTP server を起動し、bundled AUB editor を serve し、editor を MCP endpoint に接続して browser を開きます。
+`init` は AUB config、GitHub issue templates、Copilot instructions、PR workflow を作成します。`aub-workspace` は local AUB MCP HTTP server を起動し、bundled AUB editor を serve し、editor を MCP endpoint に接続して browser を開きます。
 
 成功すると次のような出力になります。
 
@@ -35,6 +36,8 @@ AUB は既存 project に次の files を作成する場合があります。
 .aub/session.json
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
+.aub/ci.json
+.github/workflows/aub-contracts.yml
 aub.registry.json
 screens/*.ui.json
 ```
@@ -42,6 +45,10 @@ screens/*.ui.json
 Options:
 
 ```bash
+npx aub-workspace init
+npx aub-workspace init --force
+npx aub-workspace init --no-github
+npx aub-workspace init --ci-only
 npx aub-workspace --workspace /path/to/app
 npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open

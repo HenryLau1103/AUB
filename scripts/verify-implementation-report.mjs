@@ -7,9 +7,12 @@ import yaml from 'js-yaml';
 import reportSchema from '../schema/implementation-report.schema.json' with { type: 'json' };
 import { verifyImplementationReport } from './implementation-report.lib.mjs';
 
-const [blueprintPath, reportPath] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const requireEvidence = args.includes('--require-evidence');
+const positional = args.filter((arg) => !arg.startsWith('--'));
+const [blueprintPath, reportPath] = positional;
 if (!blueprintPath || !reportPath) {
-  console.error('Usage: node scripts/verify-implementation-report.mjs <blueprint.ui.json|yaml> <report.json>');
+  console.error('Usage: node scripts/verify-implementation-report.mjs <blueprint.ui.json|yaml> <report.json> [--require-evidence]');
   process.exit(2);
 }
 
@@ -25,7 +28,7 @@ if (!validate(report)) {
   process.exit(1);
 }
 
-const result = verifyImplementationReport(blueprint, report);
+const result = verifyImplementationReport(blueprint, report, { requireEvidence });
 console.log(JSON.stringify(result, null, 2));
 process.exit(result.ready ? 0 : 1);
 

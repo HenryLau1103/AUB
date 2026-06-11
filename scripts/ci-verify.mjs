@@ -7,8 +7,9 @@ const args = process.argv.slice(2);
 const workspace = valueAfter(args, '--workspace') ?? process.cwd();
 const configPath = valueAfter(args, '--config') ?? '.aub/ci.json';
 const requireReports = args.includes('--require-reports');
+const requireEvidence = args.includes('--require-evidence');
 
-const result = await verifyWorkspace({ workspace, configPath, requireReports });
+const result = await verifyWorkspace({ workspace, configPath, requireReports, requireEvidence });
 
 for (const check of result.checks) {
   console.log(`${check.passed ? '✓' : '✗'} ${check.kind}: ${check.path}`);

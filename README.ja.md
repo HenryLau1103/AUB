@@ -13,7 +13,7 @@
 
 [English](./README.md) · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · **日本語** · [한국어](./README.ko.md)
 
-[Workspace loop ガイド](./docs/workspace-loop-user-manual.ja.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準サンプル](./examples/dashboard.ui.json)
+[Workspace loop ガイド](./docs/workspace-loop-user-manual.ja.md) · [10 分 demo](./docs/workspace-loop-10-minute-demo.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準サンプル](./examples/dashboard.ui.json)
 
 ![レスポンシブ画面を編集する AUB ビジュアルエディター](./docs/assets/aub-editor-en.jpg)
 
@@ -25,13 +25,13 @@ AUB は、コーディング Agent が実際の app を変更するための loc
 
 ```mermaid
 flowchart LR
-  A["1. 既存 app で<br/>npx aub-workspace を実行"] --> B["2. route をスキャンして<br/>candidate template を生成"]
+  A["1. 既存 app で<br/>npx aub-workspace init を実行"] --> B["2. route をスキャンして<br/>candidate template を生成"]
   B --> C["3. mapping を確認し<br/>Blueprint を保存"]
   C --> D["4. 指示を Copilot、Codex、<br/>または他の Agent へ渡す"]
   D --> E["5. 実装証拠で<br/>PR を検証"]
 ```
 
-1. **自分の app から開始**：既存プロジェクトの root で `npx aub-workspace` を実行します。AUB の clone は不要です。
+1. **自分の app から開始**：既存プロジェクトの root で `npx aub-workspace init` を実行し、その後 `npx aub-workspace` を実行します。AUB の clone は不要です。
 2. **スキャンしてテンプレート化**：routes、components、layout の手がかり、カスタムコンポーネント候補を検出します。
 3. **契約をレビュー**：candidate template を開き、mapping を確認し、Blueprint を調整します。
 4. **Agent に渡す**：active Blueprint、route、preview URL、MCP tools を含む指示をコピーします。
@@ -43,12 +43,13 @@ flowchart LR
 
 ```bash
 cd /path/to/your-existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
 これにより local AUB MCP server が起動し、bundled editor が開き、editor が workspace に自動接続されます。この方法では AUB repo を clone する必要はありません。
 
-Editor では **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction** の順に進めます。その指示を Copilot、Codex、または他の coding agent に渡し、実 app の変更と証拠報告を依頼します。
+`init` は AUB CI config、GitHub issue templates、Copilot instructions、PR workflow を導入します。Editor では **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction** の順に進めます。その指示を Copilot、Codex、または他の coding agent に渡し、実 app の変更と証拠報告を依頼します。
 
 ## AUB が解決する問題
 
@@ -163,6 +164,8 @@ pnpm migrate old.ui.json migrated.ui.json
 pnpm diff before.ui.json after.ui.json
 pnpm report:init examples/dashboard.ui.json implementation-report.json
 pnpm report:verify examples/dashboard.ui.json implementation-report.json
+pnpm report:capture -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
+pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
 ```
 
 不足している interaction、responsive、acceptance を非破壊で補完します。
@@ -190,12 +193,14 @@ pnpm project export-md examples/project/app.aub.project.json ./out
   with:
     config: .aub/ci.json
     require-reports: "true"
+    require-evidence: "false"
 ```
 
 Blueprint、project、extension registry、node mapping、acceptance evidence、unresolved work を検証します。ローカルでも同じ検証を実行できます。
 
 ```bash
 pnpm ci:verify -- --workspace /path/to/target/repo --require-reports
+pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-evidence
 ```
 
 ## 現在の状態
@@ -205,7 +210,9 @@ pnpm ci:verify -- --workspace /path/to/target/repo --require-reports
 - Angular、Figma／Penpot bridge import：実装済み。
 - Codex、Claude Code、GitHub Copilot adapter：実装済み。
 - stdio／HTTP MCP server、23 ツール：実装済み。
+- One-command workspace initialization（`npx aub-workspace init`）：CI config、issue templates、Copilot instructions、PR workflow：実装済み。
 - Workspace-connected editor loop、local MCP HTTP、session、scanner-generated template、custom component candidate review、direct Blueprint save、implementation preview：実装済み。
+- Implementation evidence capture：viewport screenshot、DOM query、overflow、report evidence verification：実装済み。
 - 本番 component mapping、implementation report、GitHub Action：実装済み。
 - UI 内 YAML 編集、エディター内 lock 生成：backlog。
 

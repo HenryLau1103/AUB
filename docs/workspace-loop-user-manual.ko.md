@@ -36,6 +36,7 @@ AUB repo 를 먼저 clone 할 필요는 없습니다. AUB 자체를 개발하거
 
 ```bash
 cd /your-path/your-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -51,6 +52,8 @@ Stop:      Ctrl+C
 
 Browser 가 AUB Editor 를 자동으로 열고 workspace 에 연결된 상태가 됩니다.
 
+`init` 은 AUB config, GitHub issue templates, Copilot instructions, PR workflow 를 만듭니다. app source 는 수정하지 않습니다. 생성 대상이 이미 있으면 `--force` 를 붙이지 않는 한 덮어쓰지 않습니다.
+
 ---
 
 ## 3. AUB 가 project 안에 만들 수 있는 files
@@ -61,6 +64,8 @@ Browser 가 AUB Editor 를 자동으로 열고 workspace 에 연결된 상태가
 .aub/session.json
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
+.aub/ci.json
+.github/workflows/aub-contracts.yml
 aub.registry.json
 screens/*.ui.json
 ```
@@ -304,6 +309,15 @@ Agent 가 해야 할 일:
 
 Agent 는 screenshot 이나 prose 만 보고 추측하면 안 됩니다. `.ui.json` 이 source of truth 입니다.
 
+구현 후 실제 route 에 대해 local evidence 를 capture 할 수 있습니다.
+
+```bash
+pnpm report:capture -- --workspace /your-path/your-app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
+pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+```
+
+이렇게 하면 viewport screenshots, DOM checks, overflow checks, acceptance evidence 가 implementation report 에 기록되어 PR gate 가 Agent 자기 보고에만 의존하지 않습니다.
+
 ---
 
 ## 11. 실제 app route preview
@@ -348,6 +362,7 @@ Open preview
 
 ```bash
 cd /your-path/your-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -386,6 +401,7 @@ pnpm workspace:start -- --workspace /your-path/your-app
 일반 사용에는 필요 없습니다.
 
 ```bash
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -395,7 +411,7 @@ AUB 자체를 개발하거나 source code 를 수정하거나 debug 하거나 re
 
 Demo, import, export 용도로 사용할 수 있습니다.
 
-Full workspace loop 는 local project files 를 읽고 써야 하므로 local editor 와 local MCP server 가 필요합니다. `npx aub-workspace` 가 둘을 함께 시작합니다.
+Full workspace loop 는 local project files 를 읽고 써야 하므로 local editor 와 local MCP server 가 필요합니다. `npx aub-workspace init` 으로 설정을 만든 뒤 `npx aub-workspace` 가 둘을 함께 시작합니다.
 
 ### Q3. AUB 가 실제 app code 를 자동 수정하나요?
 

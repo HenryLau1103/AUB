@@ -53,3 +53,35 @@ test('IR3: verifier rejects unknown ids and unresolved work', async () => {
   assert.ok(result.errors.some((error) => error.includes('Unknown node mapping')));
   assert.ok(result.errors.some((error) => error.includes('unresolved')));
 });
+
+test('IR4: requireEvidence rejects narrative-only evidence and accepts machine evidence', async () => {
+  const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
+  const report = createImplementationReportTemplate(blueprint);
+  report.implementation = { framework: 'React', route: '/signup', files: ['src/Signup.tsx'] };
+  report.node_mappings = report.node_mappings.map((item) => ({
+    ...item,
+    status: 'mapped',
+    file: 'src/Signup.tsx',
+  }));
+  report.acceptance_results = report.acceptance_results.map((item) => ({
+    ...item,
+    status: 'pass',
+    evidence: [{ type: 'note', reference: 'Looks correct in preview.' }],
+  }));
+
+  const narrative = verifyImplementationReport(blueprint, report, { requireEvidence: true });
+  assert.equal(narrative.ready, false);
+  assert.ok(narrative.errors.some((error) => error.includes('machine-checkable evidence')));
+
+  report.acceptance_results = report.acceptance_results.map((item) => ({
+    ...item,
+    evidence: [
+      { type: 'screenshot', reference: '.aub/reports/assets/signup-desktop.png', viewport: 'desktop', bytes: 12000 },
+      { type: 'overflow', reference: 'desktop:horizontal-overflow', viewport: 'desktop', expected: false, actual: false, pass: true },
+    ],
+  }));
+
+  const machine = verifyImplementationReport(blueprint, report, { requireEvidence: true });
+  assert.equal(machine.ready, true, machine.errors.join('\n'));
+  assert.equal(machine.summary.evidence_items, blueprint.acceptance.length * 2);
+});

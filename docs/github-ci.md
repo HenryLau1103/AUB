@@ -11,6 +11,7 @@ Create `.aub/ci.json` in the repository that implements the UI:
 {
   "$schema": "https://henrylau1103.github.io/AUB/schema/aub-ci.schema.json",
   "version": "1.0.0",
+  "discover": true,
   "blueprints": ["design/dashboard.ui.json"],
   "projects": ["design/app.aub.project.json"],
   "reports": [
@@ -26,15 +27,32 @@ Each configured report must pass the implementation-report schema, map every Blu
 a source file, mark every acceptance id as `pass`, attach evidence, and contain no unresolved
 items.
 
+Use `npx aub-workspace init` in an existing app to create the baseline `.aub/ci.json`,
+GitHub issue templates, Copilot instructions, and pull-request workflow without editing app
+source files.
+
 ## Run locally
 
 ```bash
 pnpm ci:verify -- --workspace /path/to/target/repo --require-reports
+pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-evidence
 ```
 
 Omit `--require-reports` while authoring the Blueprint before implementation begins. If the
 configuration file is absent, the verifier discovers `*.ui.json`, `*.ui.yaml`, and
 `*.aub.project.json` files automatically and validates their contracts.
+
+`--require-evidence` upgrades the report check from narrative pass/fail text to machine-checkable
+evidence. A passing report needs evidence such as screenshot bytes, DOM query results, computed
+style checks, viewport overflow checks, component reuse proof, interaction proof, or code-diff
+references.
+
+To capture local preview evidence before opening a PR:
+
+```bash
+pnpm report:capture -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
+pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+```
 
 ## Add the GitHub Action
 
@@ -53,7 +71,12 @@ jobs:
         with:
           config: .aub/ci.json
           require-reports: "true"
+          require-evidence: "false"
 ```
+
+Keep `require-evidence: "false"` while adopting the workflow if existing reports are still
+narrative-only. Set it to `"true"` once the project can capture screenshot, DOM, overflow, and
+component-reuse evidence in CI or before PR submission.
 
 The Action writes a check table to the GitHub job summary and emits file-level error
 annotations for invalid schemas, semantic errors, missing reports, failed acceptance items,

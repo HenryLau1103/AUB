@@ -6,10 +6,11 @@ Run AUB workspace-connected mode from an existing project without cloning AUB.
 
 ```bash
 cd /path/to/your-existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
-The command starts a local AUB MCP HTTP server, serves the bundled AUB editor, connects the editor to the MCP endpoint, and opens the browser.
+`init` creates AUB config, GitHub issue templates, Copilot instructions, and a PR workflow. `aub-workspace` starts a local AUB MCP HTTP server, serves the bundled AUB editor, connects the editor to the MCP endpoint, and opens the browser.
 
 Success looks like this:
 
@@ -35,6 +36,8 @@ AUB may create these files in the existing project:
 .aub/session.json
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
+.aub/ci.json
+.github/workflows/aub-contracts.yml
 aub.registry.json
 screens/*.ui.json
 ```
@@ -42,6 +45,10 @@ screens/*.ui.json
 Options:
 
 ```bash
+npx aub-workspace init
+npx aub-workspace init --force
+npx aub-workspace init --no-github
+npx aub-workspace init --ci-only
 npx aub-workspace --workspace /path/to/app
 npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open

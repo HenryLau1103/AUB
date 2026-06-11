@@ -29,8 +29,20 @@ export function createImplementationReportTemplate(blueprint) {
   };
 }
 
-export function verifyImplementationReport(blueprint, report) {
+const MACHINE_EVIDENCE_TYPES = new Set([
+  'screenshot',
+  'dom_query',
+  'computed_style',
+  'overflow',
+  'component_reuse',
+  'interaction',
+  'code_diff',
+  'command',
+]);
+
+export function verifyImplementationReport(blueprint, report, options = {}) {
   const errors = [];
+  const warnings = [];
   if (report.blueprint?.screen_id !== blueprint.screen.id) {
     errors.push(`Report screen_id "${report.blueprint?.screen_id ?? ''}" does not match "${blueprint.screen.id}".`);
   }
@@ -64,6 +76,18 @@ export function verifyImplementationReport(blueprint, report) {
     }
     if (!Array.isArray(result.evidence) || result.evidence.length === 0) {
       errors.push(`Acceptance result has no evidence: ${acceptanceId}`);
+    } else if (options.requireEvidence && !result.evidence.some((item) => isMachineEvidence(item))) {
+      errors.push(`Acceptance result has no machine-checkable evidence: ${acceptanceId}`);
+    }
+    for (const evidence of result.evidence ?? []) {
+      if (evidence.type === 'screenshot' && !(Number(evidence.bytes) > 0)) {
+        const message = `Screenshot evidence should include positive bytes: ${acceptanceId}`;
+        if (options.requireEvidence) errors.push(message);
+        else warnings.push(message);
+      }
+      if (evidence.type === 'overflow' && evidence.pass === false) {
+        errors.push(`Overflow evidence failed: ${acceptanceId} (${evidence.reference})`);
+      }
     }
   }
   for (const acceptanceId of resultById.keys()) {
@@ -76,14 +100,23 @@ export function verifyImplementationReport(blueprint, report) {
   return {
     ready: errors.length === 0,
     errors,
+    warnings,
     summary: {
       nodes_total: blueprint.nodes.length,
       nodes_mapped: [...mappingById.values()].filter((item) => item.status === 'mapped' && item.file?.trim()).length,
       acceptance_total: blueprint.acceptance.length,
       acceptance_passed: [...resultById.values()].filter((item) => item.status === 'pass').length,
+      evidence_items: [...resultById.values()].reduce((count, item) => count + (item.evidence?.length ?? 0), 0),
       unresolved: report.unresolved?.length ?? 0,
     },
   };
+}
+
+function isMachineEvidence(evidence) {
+  if (!evidence || !MACHINE_EVIDENCE_TYPES.has(evidence.type)) return false;
+  if (evidence.type === 'screenshot') return Boolean(evidence.reference) && Number(evidence.bytes) > 0;
+  if (evidence.type === 'overflow') return evidence.pass === true;
+  return Boolean(evidence.reference);
 }
 
 function uniqueById(items, field, errors) {

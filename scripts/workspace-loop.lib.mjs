@@ -35,6 +35,7 @@ const MAX_SOURCE_KIND_LENGTH = 32;
 const MAX_FRAMEWORK_LENGTH = 32;
 const CORE_TYPE_PATTERN = /^[a-z][a-z0-9_]*$/;
 const CORE_KIND_BY_NAME = [
+  [/badge|status|pill/i, 'badge'],
   [/button|cta|action/i, 'button'],
   [/sidebar|nav/i, 'sidebar'],
   [/header|topbar|toolbar/i, 'top_bar'],
@@ -48,6 +49,38 @@ const CORE_KIND_BY_NAME = [
   [/tabs?/i, 'tabs'],
   [/list|feed/i, 'list'],
 ];
+const CONTAINER_TYPES = new Set([
+  'app_shell', 'page', 'section', 'header', 'sidebar', 'top_bar', 'bottom_nav',
+  'stack', 'grid', 'split_pane', 'scroll_area', 'card', 'list', 'detail_panel',
+  'timeline', 'activity_feed', 'kanban_board', 'kanban_column', 'form',
+  'field_group', 'rich_text_editor', 'button_group', 'menu', 'toolbar',
+  'command_palette', 'modal', 'drawer', 'tabs', 'stepper',
+]);
+const TAG_TYPE_MAP = new Map([
+  ['main', 'section'],
+  ['section', 'section'],
+  ['article', 'card'],
+  ['header', 'header'],
+  ['aside', 'sidebar'],
+  ['nav', 'sidebar'],
+  ['form', 'form'],
+  ['table', 'data_table'],
+  ['ul', 'list'],
+  ['ol', 'list'],
+  ['h1', 'heading'],
+  ['h2', 'heading'],
+  ['h3', 'heading'],
+  ['h4', 'heading'],
+  ['p', 'text'],
+  ['span', 'text'],
+  ['label', 'text'],
+  ['button', 'button'],
+  ['a', 'link'],
+  ['input', 'text_input'],
+  ['textarea', 'textarea'],
+  ['select', 'select'],
+  ['img', 'image'],
+]);
 
 export function resolveWorkspacePath(root, filePath) {
   const absRoot = resolve(root);
@@ -358,7 +391,11 @@ async function detectAngularRoutes(files) {
       const componentName = match[2];
       if (!route || componentName === 'undefined') continue;
       const componentPath = imports.get(componentName);
-      const htmlPath = componentPath?.replace(/\.component\.ts$/, '.component.html');
+      const componentFile = componentPath ? fileByPath.get(componentPath) : null;
+      const componentContent = componentFile ? await readSourceText(componentFile) : '';
+      const htmlPath = componentPath
+        ? resolveAngularTemplatePath(componentPath, componentContent, fileByPath)
+        : null;
       const routePath = htmlPath && fileByPath.has(htmlPath)
         ? htmlPath
         : componentPath && fileByPath.has(componentPath)
@@ -376,6 +413,16 @@ async function detectAngularRoutes(files) {
   const byRoute = new Map();
   for (const route of routes) byRoute.set(`${route.route}:${route.path}`, route);
   return [...byRoute.values()];
+}
+
+function resolveAngularTemplatePath(componentPath, content, fileByPath) {
+  const templateUrl = content.match(/templateUrl\s*:\s*['"`]([^'"`]+)['"`]/)?.[1];
+  if (templateUrl) {
+    const normalized = join(dirname(componentPath), templateUrl).split(sep).join('/');
+    if (fileByPath.has(normalized)) return normalized;
+  }
+  const inferred = componentPath.replace(/\.component\.ts$/, '.component.html');
+  return fileByPath.has(inferred) ? inferred : null;
 }
 
 function extractAngularRouteConstants(sourceTexts) {
@@ -489,6 +536,8 @@ async function detectComponents(root, files, namespace, frameworks) {
       const baseName = selector ?? componentName;
       const suggestedComponent = snake(baseName.replace(/^[a-z]+-/, ''), 'component');
       if (!suggestedComponent || ['page', 'index', 'app'].includes(suggestedComponent)) continue;
+      const sourceUsage = findUsageLocations(baseName, sourceTexts);
+      const suggestedCoreType = inferCoreType(componentName);
       candidates.push({
         id: `${slugify(file.path)}-${suggestedComponent}`,
         status: 'candidate',
@@ -497,11 +546,17 @@ async function detectComponents(root, files, namespace, frameworks) {
         componentName,
         selector,
         suggestedType: `${namespace}:${suggestedComponent}`,
-        suggestedCoreType: inferCoreType(componentName),
+        suggestedCoreType,
         isContainer: /card|panel|layout|section|list|table|form|shell|modal|drawer/i.test(componentName),
         props: extractProps(content),
-        usageCount: countUsage(baseName, sourceTexts),
+        usageCount: Math.max(1, sourceUsage.length),
+        sourceUsage,
         confidence: selector ? 0.82 : 0.72,
+        confidenceReason: selector
+          ? 'Angular selector and component metadata were found.'
+          : 'Static export/import scan found a reusable project component.',
+        mappingReason: `Name suggests AUB core type "${suggestedCoreType}" until a user approves a project-specific mapping.`,
+        reviewHistory: [],
         reason: 'Static scan found a reusable project component. Approve before adding it to aub.registry.json.',
       });
     }
@@ -512,12 +567,25 @@ async function detectComponents(root, files, namespace, frameworks) {
 }
 
 function countUsage(name, sourceTexts) {
+  return Math.max(1, findUsageLocations(name, sourceTexts).length);
+}
+
+function findUsageLocations(name, sourceTexts) {
   const tag = String(name).replace(/^[a-z]+-/, '');
-  let count = 0;
-  for (const text of sourceTexts.values()) {
-    if (text.includes(`<${name}`) || text.includes(`<${tag}`) || text.includes(name)) count += 1;
+  const usages = [];
+  for (const [absPath, text] of sourceTexts.entries()) {
+    if (text.includes(`<${name}`) || text.includes(`<${tag}`) || text.includes(name)) {
+      usages.push({
+        file: toWorkspacePath(sourceTextCacheRoot, absPath),
+        line: lineNumberAt(text, text.indexOf(name) >= 0 ? text.indexOf(name) : 0),
+      });
+    }
   }
-  return Math.max(1, count);
+  return usages.slice(0, 20);
+}
+
+function lineNumberAt(text, index) {
+  return text.slice(0, Math.max(0, index)).split('\n').length;
 }
 
 export async function readAubSession(root) {
@@ -604,6 +672,7 @@ export async function getWorkspaceStatus(root) {
   const session = await readAubSession(root);
   const candidates = await readComponentCandidates(root);
   const templates = await listWorkspaceTemplates(root);
+  const implementationReport = await readImplementationReportSummary(root, session);
   return {
     root,
     aubDir: AUB_DIR,
@@ -613,10 +682,35 @@ export async function getWorkspaceStatus(root) {
     componentCandidateCount: candidates.candidates.length,
     templateCount: templates.length,
     session,
+    implementationReport,
     routes,
     componentCandidates: candidates.candidates,
     templates,
   };
+}
+
+async function readImplementationReportSummary(root, session) {
+  const reportPath = session?.preview?.lastImplementationReport;
+  if (!reportPath) return null;
+  try {
+    const absPath = resolveWorkspacePath(root, reportPath);
+    const report = JSON.parse(await readFile(absPath, 'utf8'));
+    const acceptance = Array.isArray(report.acceptance_results) ? report.acceptance_results : [];
+    return {
+      path: toWorkspacePath(root, absPath),
+      screenId: report.blueprint?.screen_id ?? null,
+      route: report.implementation?.route ?? null,
+      pass: acceptance.filter((item) => item.status === 'pass').length,
+      fail: acceptance.filter((item) => item.status === 'fail').length,
+      needsReview: acceptance.filter((item) => item.status === 'needs-review').length,
+      evidence: acceptance.reduce((count, item) => count + (Array.isArray(item.evidence) ? item.evidence.length : 0), 0),
+    };
+  } catch {
+    return {
+      path: reportPath,
+      error: 'Unable to read implementation report.',
+    };
+  }
 }
 
 export async function scanProjectUi(root, options = {}) {
@@ -642,126 +736,362 @@ export async function scanProjectUi(root, options = {}) {
   };
 }
 
-function makeBlueprint({ id, name, framework, source, route, componentRefs = [] }) {
+async function makeBlueprint({ id, name, framework, source, route, root, files, candidates = [] }) {
+  const sourceFile = files.find((file) => file.path === source.path);
+  const sourceText = sourceFile ? await readSourceText(sourceFile) : '';
+  const extracted = extractBlueprintStructure({
+    sourcePath: source.path,
+    sourceText,
+    framework,
+    candidates,
+  });
   const screenId = `workspace.${slugify(id, 'screen').replace(/-/g, '.')}`;
-  const rootChildren = ['hero_section', ...componentRefs.map((ref, index) => `component_${index + 1}`)];
-  const nodes = [
-    {
-      id: 'root',
-      type: 'page',
-      name,
-      role: `Workspace-derived screen from ${source.path}.`,
-      parent_id: null,
-      children: rootChildren,
-      layout: { mode: 'freeform' },
-    },
-    {
-      id: 'hero_section',
-      type: 'section',
-      name: 'Imported structure',
-      role: 'Represents the source route or component at a reviewable level before implementation.',
-      parent_id: 'root',
-      children: ['source_heading', 'source_summary'],
-      layout: { mode: 'auto', display: 'flex', direction: 'column', gap: { x: 12, y: 12 }, padding: { top: 32, right: 32, bottom: 32, left: 32 } },
-      placements: {
-        desktop: { x: 64, y: 64, width: 760, height: 220, z_index: 1 },
-        tablet: { x: 48, y: 56, width: 640, height: 220, z_index: 1 },
-        mobile: { x: 16, y: 48, width: 358, height: 240, z_index: 1 },
-      },
-      source: { file: source.path },
-    },
-    {
-      id: 'source_heading',
-      type: 'heading',
-      name: `${name} heading`,
-      role: 'Visible heading inferred from the source entry.',
-      parent_id: 'hero_section',
-      children: [],
-      content: { text: name },
-    },
-    {
+  const rootChildren = extracted.nodes.filter((node) => node.parent_id === 'root').map((node) => node.id);
+  const nodes = [{
+    id: 'root',
+    type: 'page',
+    name,
+    role: `Workspace-derived screen from ${source.path}.`,
+    parent_id: null,
+    children: rootChildren,
+    layout: { mode: 'freeform' },
+  }, ...extracted.nodes];
+  if (extracted.nodes.length === 0) {
+    nodes[0].children = ['source_summary'];
+    nodes.push({
       id: 'source_summary',
-      type: 'text',
+      type: 'section',
       name: 'Source summary',
-      role: 'Records where the candidate template came from.',
-      parent_id: 'hero_section',
+      role: 'Fallback node because no semantic source structure could be extracted.',
+      parent_id: 'root',
+      children: ['source_summary_text'],
+      layout: { mode: 'auto', display: 'flex', direction: 'column', gap: { x: 12, y: 12 }, padding: { top: 24, right: 24, bottom: 24, left: 24 } },
+      placements: placementForRootChild(0),
+      source: { file: source.path },
+    }, {
+      id: 'source_summary_text',
+      type: 'text',
+      name: 'Source summary text',
+      role: 'Records where this low-confidence candidate came from.',
+      parent_id: 'source_summary',
       children: [],
       content: { text: `Generated from ${framework} source ${source.path}${route ? ` (${route})` : ''}. Review before approving.` },
-    },
-    ...componentRefs.map((ref, index) => {
-      const label = ref.suggestedType ?? ref.coreType ?? 'component';
-      return {
-        id: `component_${index + 1}`,
-        type: ref.coreType ?? 'card',
-        name: normalizeBlueprintName(ref.name, `Component ${index + 1}`),
-        role: `Placeholder for project component ${label}. Approve the component candidate before implementation reuse.`,
-        parent_id: 'root',
-        children: [],
-        layout: { mode: 'auto' },
-        content: { label },
-        placements: {
-          desktop: { x: 64 + index * 280, y: 330, width: 240, height: 140, z_index: 1 },
-          tablet: { x: 48 + index * 220, y: 320, width: 200, height: 140, z_index: 1 },
-          mobile: { x: 16, y: 320 + index * 156, width: 358, height: 140, z_index: 1 },
-        },
-        source: { file: ref.sourcePath },
-      };
-    }),
-  ];
+      source: { file: source.path },
+    });
+  }
   return {
-    version: '0.3.0',
-    screen: {
-      id: screenId,
-      name,
-      type: route === '/' ? 'landing' : 'workspace',
-      platform: 'web',
-      primary_user_goal: `Review and implement the ${name} screen using the existing project source as context.`,
-      notes: 'Generated by AUB workspace scanner. Candidate custom components require approval before registry writes.',
+    blueprint: {
+      version: '0.3.0',
+      screen: {
+        id: screenId,
+        name,
+        type: inferScreenType(route, extracted.nodes),
+        platform: 'web',
+        primary_user_goal: `Review and implement the ${name} screen using the existing project source as context.`,
+        notes: 'Generated by AUB workspace scanner. Candidate custom components require approval before registry writes.',
+      },
+      viewports: [
+        { id: 'desktop', width: 1440, height: 900 },
+        { id: 'tablet', width: 1024, height: 768 },
+        { id: 'mobile', width: 390, height: 844 },
+      ],
+      design_system: defaultDesignSystem(),
+      provenance: {
+        source_kind: 'other',
+        framework,
+        importer_version: `workspace-loop-${WORKSPACE_LOOP_VERSION}`,
+        entry_file: source.path,
+        source_files: [...new Set([source.path, ...extracted.sourceFiles])],
+      },
+      nodes,
+      interactions: extracted.interactions,
+      responsive: extracted.responsive,
+      acceptance: [
+        { id: 'acc_workspace_source_structure', type: 'layout', statement: 'The implementation preserves the reviewed Blueprint hierarchy and source route intent.', target: 'root', priority: 'must', verification_method: 'manual_ia_review' },
+        { id: 'acc_workspace_component_reuse', type: 'content', statement: 'Approved custom components are reused through aub.registry.json mappings instead of recreated as lookalikes.', target: '*', priority: 'must', verification_method: 'code_diff' },
+        { id: 'acc_workspace_responsive', type: 'responsive', statement: 'Desktop, tablet, and mobile layouts remain readable with no horizontal overflow.', target: 'desktop,tablet,mobile', priority: 'must', verification_method: 'screenshot_diff' },
+        { id: 'acc_workspace_interactions', type: 'interaction', statement: 'Visible controls keep their original route/component behavior.', target: '*', priority: 'must', verification_method: 'manual_ia_review' },
+        { id: 'acc_workspace_a11y', type: 'a11y', statement: 'Interactive elements expose accessible labels and focus states.', target: '*', priority: 'should', verification_method: 'axe_audit' },
+      ],
     },
-    viewports: [
-      { id: 'desktop', width: 1440, height: 900 },
-      { id: 'tablet', width: 1024, height: 768 },
-      { id: 'mobile', width: 390, height: 844 },
-    ],
-    design_system: defaultDesignSystem(),
-    provenance: {
-      source_kind: 'other',
-      framework,
-      importer_version: `workspace-loop-${WORKSPACE_LOOP_VERSION}`,
-      entry_file: source.path,
-      source_files: [source.path, ...componentRefs.map((ref) => ref.sourcePath)],
-    },
-    nodes,
-    interactions: [],
-    responsive: [],
-    acceptance: [
-      { id: 'acc_workspace_source_structure', type: 'layout', statement: 'The implementation preserves the reviewed Blueprint hierarchy and source route intent.', target: 'root', priority: 'must', verification_method: 'manual_ia_review' },
-      { id: 'acc_workspace_component_reuse', type: 'content', statement: 'Approved custom components are reused through aub.registry.json mappings instead of recreated as lookalikes.', target: '*', priority: 'must', verification_method: 'code_diff' },
-      { id: 'acc_workspace_responsive', type: 'responsive', statement: 'Desktop, tablet, and mobile layouts remain readable with no horizontal overflow.', target: 'desktop,tablet,mobile', priority: 'must', verification_method: 'screenshot_diff' },
-      { id: 'acc_workspace_interactions', type: 'interaction', statement: 'Visible controls keep their original route/component behavior.', target: '*', priority: 'must', verification_method: 'manual_ia_review' },
-      { id: 'acc_workspace_a11y', type: 'a11y', statement: 'Interactive elements expose accessible labels and focus states.', target: '*', priority: 'should', verification_method: 'axe_audit' },
-    ],
+    missingMappings: extracted.missingMappings,
+    sourceReferences: extracted.sourceReferences,
+    confidence: calculateTemplateConfidence(extracted, Boolean(route)),
   };
+}
+
+function extractBlueprintStructure({ sourcePath, sourceText, framework, candidates }) {
+  const candidateByTag = buildCandidateLookup(candidates);
+  const nodes = [];
+  const interactions = [];
+  const missingMappings = [];
+  const sourceReferences = [];
+  const sourceFiles = [];
+  const stack = [{ tag: 'root', nodeId: 'root', isContainer: true }];
+  const seenMappings = new Set();
+  const idCounts = new Map();
+  const sourceFileSet = new Set();
+  const tagPattern = /<\/?([A-Za-z][A-Za-z0-9_.:-]*)([^<>]*?)(\/?)>/g;
+  let match;
+  while ((match = tagPattern.exec(sourceText)) !== null) {
+    const [raw, tag, rawAttrs = '', selfClosing = ''] = match;
+    const closing = raw.startsWith('</');
+    if (closing) {
+      while (stack.length > 1) {
+        const current = stack.pop();
+        if (current.tag === tag) break;
+      }
+      continue;
+    }
+    const attrs = parseAttributes(rawAttrs);
+    const info = nodeInfoForTag({ tag, attrs, sourceText, index: match.index, sourcePath, candidateByTag });
+    if (!info) continue;
+    const parent = nearestContainer(stack);
+    const id = uniqueNodeId(`${info.type}_${slugify(info.name, info.type)}`, idCounts);
+    const isContainer = CONTAINER_TYPES.has(info.type);
+    const node = {
+      id,
+      type: info.type,
+      name: normalizeBlueprintName(info.name, title(tag, info.type)),
+      role: info.role,
+      parent_id: parent.nodeId,
+      children: isContainer ? [] : [],
+      source: {
+        file: info.sourceFile,
+        line: lineNumberAt(sourceText, match.index),
+        selector: info.selector,
+      },
+    };
+    if (parent.nodeId === 'root') node.placements = placementForRootChild(nodes.filter((item) => item.parent_id === 'root').length);
+    if (isContainer) node.layout = layoutForType(info.type);
+    if (info.content) node.content = info.content;
+    nodes.push(node);
+    const parentNode = nodes.find((item) => item.id === parent.nodeId);
+    if (parentNode && Array.isArray(parentNode.children)) parentNode.children.push(id);
+    sourceReferences.push({ nodeId: id, file: node.source.file, line: node.source.line, selector: node.source.selector });
+    sourceFileSet.add(info.sourceFile);
+    if (info.customCandidate?.sourcePath) sourceFileSet.add(info.customCandidate.sourcePath);
+    if (info.customCandidate) {
+      const key = info.customCandidate.suggestedType ?? info.customCandidate.id;
+      if (!seenMappings.has(key)) {
+        seenMappings.add(key);
+        missingMappings.push({
+          candidateId: info.customCandidate.id,
+          componentName: info.customCandidate.componentName,
+          suggestedType: info.customCandidate.suggestedType,
+          suggestedCoreType: info.customCandidate.suggestedCoreType,
+          sourcePath: info.customCandidate.sourcePath,
+          confidence: info.customCandidate.confidence,
+          reason: info.customCandidate.mappingReason ?? info.customCandidate.reason,
+        });
+      }
+    }
+    if (info.interaction) {
+      interactions.push({
+        id: uniqueNodeId(`ix_${id}`, idCounts),
+        trigger: info.interaction.trigger,
+        source_node_id: id,
+        action: info.interaction.action,
+        result_state: info.interaction.result_state,
+      });
+    }
+    if (isContainer && !selfClosing && !isVoidTag(tag)) stack.push({ tag, nodeId: id, isContainer });
+  }
+  for (const file of sourceFileSet) sourceFiles.push(file);
+  return {
+    nodes: pruneEmptyChildren(nodes),
+    interactions: interactions.slice(0, 20),
+    responsive: [
+      { viewport: 'mobile', rule: 'stack', target_node_id: 'root', changes: { source: 'workspace-scan' } },
+    ],
+    missingMappings,
+    sourceReferences,
+    sourceFiles,
+    metrics: {
+      nodes: nodes.length,
+      semanticNodes: nodes.filter((node) => node.source?.selector).length,
+      missingMappings: missingMappings.length,
+      interactions: interactions.length,
+      framework,
+    },
+  };
+}
+
+function buildCandidateLookup(candidates) {
+  const lookup = new Map();
+  for (const candidate of candidates) {
+    if (candidate.componentName) lookup.set(candidate.componentName, candidate);
+    if (candidate.selector) lookup.set(candidate.selector, candidate);
+    if (candidate.suggestedType) lookup.set(candidate.suggestedType, candidate);
+  }
+  return lookup;
+}
+
+function nodeInfoForTag({ tag, attrs, sourceText, index, sourcePath, candidateByTag }) {
+  if (shouldSkipTag(tag)) return null;
+  const candidate = candidateByTag.get(tag);
+  const lower = tag.toLowerCase();
+  const className = attrs.className ?? attrs.class ?? '';
+  const candidateType = candidate?.suggestedCoreType && CORE_TYPE_PATTERN.test(candidate.suggestedCoreType)
+    ? candidate.suggestedCoreType
+    : null;
+  const type = candidateType
+    ?? TAG_TYPE_MAP.get(lower)
+    ?? typeFromClassName(className)
+    ?? (isCustomTag(tag) ? 'card' : null);
+  if (!type) return null;
+  const text = extractInlineText(sourceText, index);
+  const selector = className ? `${tag}.${String(className).split(/\s+/).filter(Boolean).join('.')}` : tag;
+  const name = candidate?.componentName
+    ?? readableName(attrs['aria-label'] ?? attrs.title ?? attrs.name ?? text ?? className ?? tag, tag);
+  return {
+    type,
+    name,
+    selector,
+    sourceFile: sourcePath,
+    customCandidate: candidate ?? (isCustomTag(tag) ? { componentName: tag, suggestedCoreType: type, sourcePath, confidence: 0.45, reason: 'Capitalized or namespaced tag needs review.' } : null),
+    role: roleForNode({ tag, type, candidate, className }),
+    content: contentForNode({ type, tag, attrs, text, className }),
+    interaction: interactionForNode({ type, tag, attrs, text }),
+  };
+}
+
+function shouldSkipTag(tag) {
+  return ['Fragment', 'React.Fragment', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'option', 'svg', 'path', 'g', 'ng-container', 'ng-template'].includes(tag);
+}
+
+function isVoidTag(tag) {
+  return ['input', 'img', 'br', 'hr', 'meta', 'link'].includes(tag.toLowerCase());
+}
+
+function isCustomTag(tag) {
+  return /^[A-Z]/.test(tag) || tag.includes('-');
+}
+
+function typeFromClassName(className) {
+  if (!className) return null;
+  return inferCoreType(className);
+}
+
+function parseAttributes(rawAttrs) {
+  const attrs = {};
+  const attrPattern = /([:@*()[\]A-Za-z_$][:@*()[\]A-Za-z0-9_$.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|{([^}]*)})/g;
+  for (const match of rawAttrs.matchAll(attrPattern)) {
+    attrs[match[1]] = match[2] ?? match[3] ?? match[4] ?? '';
+  }
+  return attrs;
+}
+
+function readableName(value, fallback) {
+  return title(String(value || fallback).replace(/[{}()[\].:'"`]/g, ' '), title(fallback, 'Node'));
+}
+
+function roleForNode({ tag, type, candidate, className }) {
+  if (candidate) {
+    return `Project component ${candidate.componentName} scanned from ${candidate.sourcePath}; review mapping before implementation reuse.`;
+  }
+  if (className) return `${type} inferred from <${tag}> with class "${className}".`;
+  return `${type} inferred from <${tag}> in the source route.`;
+}
+
+function contentForNode({ type, tag, attrs, text, className }) {
+  if (type === 'heading' || type === 'text') return { text: text || readableName(className || tag, tag) };
+  if (type === 'button' || type === 'link') return { text: text || attrs['aria-label'] || readableName(className || tag, tag), action: attrs.href ? `navigate:${attrs.href}` : 'trigger:source-action' };
+  if (type === 'text_input' || type === 'textarea' || type === 'select') return { label: attrs['aria-label'] || attrs.name || readableName(className || tag, tag), placeholder: attrs.placeholder ?? '' };
+  if (type === 'image') return { src: attrs.src ?? 'source-image', alt: attrs.alt ?? readableName(className || tag, tag) };
+  if (type === 'data_table') return { columns: [{ id: 'primary', header: 'Primary' }, { id: 'status', header: 'Status' }] };
+  if (type === 'badge' || type === 'tag') return { label: text || readableName(className || tag, tag) };
+  return undefined;
+}
+
+function interactionForNode({ type, attrs, text }) {
+  if (attrs['(click)'] || attrs.onClick || type === 'button') {
+    return {
+      trigger: 'click',
+      action: attrs['(click)'] ? `invoke:${attrs['(click)']}` : 'invoke:source-action',
+      result_state: `Source control${text ? ` "${text}"` : ''} keeps its existing behavior.`,
+    };
+  }
+  if (type === 'form') {
+    return {
+      trigger: 'submit',
+      action: 'submit:source-form',
+      result_state: 'Form submission keeps its existing behavior.',
+    };
+  }
+  return null;
+}
+
+function extractInlineText(sourceText, index) {
+  const after = sourceText.slice(index).replace(/^<[^>]+>/, '');
+  const raw = after.match(/^([^<{]{1,80})/)?.[1]?.trim();
+  return raw ? raw.replace(/\s+/g, ' ') : '';
+}
+
+function nearestContainer(stack) {
+  for (let index = stack.length - 1; index >= 0; index -= 1) {
+    if (stack[index].isContainer) return stack[index];
+  }
+  return stack[0];
+}
+
+function uniqueNodeId(base, counts) {
+  const normalized = slugify(base, 'node').replace(/-/g, '_').slice(0, 96);
+  const count = (counts.get(normalized) ?? 0) + 1;
+  counts.set(normalized, count);
+  return count === 1 ? normalized : `${normalized}_${count}`;
+}
+
+function pruneEmptyChildren(nodes) {
+  return nodes.map((node) => {
+    if (!CONTAINER_TYPES.has(node.type)) return { ...node, children: [] };
+    return node;
+  });
+}
+
+function layoutForType(type) {
+  if (type === 'grid') return { mode: 'auto', display: 'grid', grid: { columns: 2 }, gap: { x: 16, y: 16 }, padding: { top: 16, right: 16, bottom: 16, left: 16 } };
+  if (type === 'header' || type === 'top_bar') return { mode: 'auto', display: 'flex', direction: 'row', justify: 'space-between', align: 'center', gap: { x: 16, y: 16 }, padding: { top: 16, right: 16, bottom: 16, left: 16 } };
+  return { mode: 'auto', display: 'flex', direction: 'column', gap: { x: 12, y: 12 }, padding: { top: 16, right: 16, bottom: 16, left: 16 } };
+}
+
+function placementForRootChild(index) {
+  const row = Math.floor(index / 2);
+  const column = index % 2;
+  return {
+    desktop: { x: 64 + column * 460, y: 64 + row * 240, width: column === 0 ? 420 : 560, height: 200, z_index: 1 },
+    tablet: { x: 48, y: 56 + index * 220, width: 640, height: 200, z_index: 1 },
+    mobile: { x: 16, y: 48 + index * 180, width: 358, height: 160, z_index: 1 },
+  };
+}
+
+function inferScreenType(route, nodes) {
+  if (route === '/') return 'landing';
+  if (nodes.some((node) => node.type === 'data_table')) return 'admin_table';
+  if (nodes.some((node) => node.type === 'form')) return 'form';
+  return 'workspace';
+}
+
+function calculateTemplateConfidence(extracted, hasRoute) {
+  let score = 0.35;
+  if (hasRoute) score += 0.12;
+  if (extracted.nodes.length >= 4) score += 0.18;
+  if (extracted.sourceReferences.length >= extracted.nodes.length && extracted.nodes.length > 0) score += 0.12;
+  if (extracted.interactions.length > 0) score += 0.08;
+  if (extracted.missingMappings.length > 0) score += 0.08;
+  if (extracted.missingMappings.length > 4) score -= 0.08;
+  return Math.max(0.2, Math.min(0.92, Number(score.toFixed(2))));
 }
 
 export async function generateTemplateFromSource(root, args = {}) {
   if (!args.sourcePath) throw new Error('Provide sourcePath.');
   if (typeof args.sourcePath !== 'string') throw new Error('sourcePath must be a string.');
+  clearSourceTextCacheIfRootChanged(root);
   const sourcePath = resolveWorkspacePath(root, args.sourcePath);
   const relPath = toWorkspacePath(root, sourcePath);
+  const files = [];
+  await walk(root, root, files, 2000);
   const candidates = (await readComponentCandidates(root)).candidates;
-  const nearbyCandidates = candidates
-    .filter((candidate) => candidate.sourcePath === relPath || dirname(candidate.sourcePath) === dirname(relPath))
-    .slice(0, 4);
-  const selectedCandidates = (nearbyCandidates.length ? nearbyCandidates : candidates.slice(0, 4))
-    .map((candidate) => ({
-      name: normalizeBlueprintName(candidate.componentName, 'Component'),
-      suggestedType: normalizeExtensionType(candidate.suggestedType),
-      sourcePath: candidate.sourcePath,
-      coreType: normalizeCoreType(candidate.suggestedCoreType),
-    }))
-    .filter((candidate) => candidate.suggestedType || candidate.coreType)
-    .slice(0, 4);
   const framework = normalizeFrameworkLabel(
     typeof args.framework === 'string' ? args.framework : inferFrameworkFromPath(relPath),
     'web'
@@ -772,13 +1102,15 @@ export async function generateTemplateFromSource(root, args = {}) {
   );
   const templateId = sanitizeTemplateId(args.id, `${framework}-${name}`);
   const route = normalizeRoute(typeof args.route === 'string' ? args.route : routeFromPath(relPath), routeFromPath(relPath));
-  const blueprint = makeBlueprint({
+  const built = await makeBlueprint({
     id: templateId,
     name,
     framework,
     route,
+    root,
+    files,
     source: { path: relPath },
-    componentRefs: selectedCandidates,
+    candidates,
   });
   const template = {
     format: TEMPLATE_FORMAT,
@@ -792,11 +1124,13 @@ export async function generateTemplateFromSource(root, args = {}) {
       path: relPath,
       route,
     },
-    blueprint,
-    registryRefs: selectedCandidates
-      .map((candidate) => candidate.suggestedType ?? candidate.coreType)
+    blueprint: built.blueprint,
+    registryRefs: built.missingMappings
+      .map((candidate) => candidate.suggestedType ?? candidate.suggestedCoreType)
       .filter((value) => typeof value === 'string' && value.length > 0),
-    confidence: selectedCandidates.length ? 0.72 : 0.62,
+    missingMappings: built.missingMappings,
+    sourceReferences: built.sourceReferences,
+    confidence: built.confidence,
     status: args.status === 'approved' ? 'approved' : 'candidate',
     createdAt: new Date().toISOString(),
   };
@@ -829,6 +1163,7 @@ export async function approveComponentCandidate(root, args = {}) {
   if (args.action === 'ignore') {
     candidate.status = 'ignored';
     candidate.reviewedAt = new Date().toISOString();
+    candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'ignore', reviewedAt: candidate.reviewedAt }];
     await writeComponentCandidates(root, doc.candidates);
     return { candidate, registryPath: null };
   }
@@ -841,6 +1176,7 @@ export async function approveComponentCandidate(root, args = {}) {
     candidate.status = 'approved';
     candidate.approvedAs = normalizedCoreType;
     candidate.reviewedAt = new Date().toISOString();
+    candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'map_core', approvedAs: normalizedCoreType, reviewedAt: candidate.reviewedAt }];
     await writeComponentCandidates(root, doc.candidates);
     return { candidate, registryPath: null };
   }
@@ -885,6 +1221,7 @@ export async function approveComponentCandidate(root, args = {}) {
   candidate.status = 'approved';
   candidate.approvedAs = namespacedType;
   candidate.reviewedAt = new Date().toISOString();
+  candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'create_extension', approvedAs: namespacedType, reviewedAt: candidate.reviewedAt }];
   await writeComponentCandidates(root, doc.candidates);
   return {
     candidate,

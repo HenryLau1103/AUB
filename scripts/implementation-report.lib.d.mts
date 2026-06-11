@@ -6,16 +6,19 @@ export function createImplementationReportTemplate(blueprint: Blueprint): Implem
 export interface VerifyImplementationReportResult {
   ready: boolean;
   errors: string[];
+  warnings: string[];
   summary: {
     nodes_total: number;
     nodes_mapped: number;
     acceptance_total: number;
     acceptance_passed: number;
+    evidence_items: number;
     unresolved: number;
   };
 }
 
 export function verifyImplementationReport(
   blueprint: Blueprint,
-  report: ImplementationReport
+  report: ImplementationReport,
+  options?: { requireEvidence?: boolean }
 ): VerifyImplementationReportResult;
