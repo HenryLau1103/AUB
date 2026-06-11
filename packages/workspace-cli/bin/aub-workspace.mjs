@@ -2,9 +2,9 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { createReadStream, existsSync } from 'node:fs';
-import { mkdir, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { once } from 'node:events';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -21,9 +21,10 @@ function parseArgs(argv) {
     force: false,
     github: true,
     ciOnly: false,
+    workspaceSet: false,
   };
-  if (argv[0] === 'init') {
-    args.command = 'init';
+  if (['start', 'init', 'demo'].includes(argv[0])) {
+    args.command = argv[0];
     argv = argv.slice(1);
   }
   for (let index = 0; index < argv.length; index += 1) {
@@ -42,15 +43,22 @@ function parseArgs(argv) {
       args.ciOnly = true;
     } else if (value === '--workspace') {
       args.workspace = argv[++index];
+      args.workspaceSet = true;
     } else if (value === '--host') {
       args.host = argv[++index];
     } else if (value === '--mcp-port') {
       args.mcpPort = Number(argv[++index]);
     } else if (value === '--editor-port') {
       args.editorPort = Number(argv[++index]);
+    } else if (!value.startsWith('-') && !args.workspaceSet) {
+      args.workspace = value;
+      args.workspaceSet = true;
     } else {
       throw new Error(`Unknown argument: ${value}`);
     }
+  }
+  if (args.command === 'demo' && !args.workspaceSet) {
+    args.workspace = join(process.cwd(), 'aub-safety-demo');
   }
   return args;
 }
@@ -60,6 +68,7 @@ function usage() {
     'Usage:',
     '  aub-workspace [options]',
     '  aub-workspace init [options]',
+    '  aub-workspace demo [options]',
     '',
     'Options:',
     '  --workspace <path>     Existing project root. Defaults to current directory.',
@@ -99,8 +108,8 @@ async function findOpenPort(host, preferredPort) {
 
 function findAubRuntimeRoot() {
   const vendorRoot = join(packageRoot, 'vendor', 'aub');
-  if (existsSync(join(vendorRoot, 'schema', 'ui-blueprint.schema.json'))) return vendorRoot;
   if (existsSync(join(repoFallbackRoot, 'schema', 'ui-blueprint.schema.json'))) return repoFallbackRoot;
+  if (existsSync(join(vendorRoot, 'schema', 'ui-blueprint.schema.json'))) return vendorRoot;
   throw new Error('AUB runtime payload is missing. Rebuild the package with: pnpm workspace:package');
 }
 
@@ -220,6 +229,10 @@ const INIT_FILES = {
     '  pull_request:',
     '  workflow_dispatch:',
     '',
+    'permissions:',
+    '  contents: read',
+    '  pull-requests: write',
+    '',
     'jobs:',
     '  aub-contracts:',
     '    if: ${{ hashFiles(\'**/*.ui.json\', \'**/*.ui.yaml\', \'**/*.aub.project.json\', \'.aub/ci.json\') != \'\' }}',
@@ -232,6 +245,8 @@ const INIT_FILES = {
     '          require-reports: "false"',
     '          require-evidence: "false"',
     '          min-safety-score: ""',
+    '          comment-pr: "true"',
+    '          github-token: ${{ github.token }}',
     '',
   ].join('\n'),
   '.github/ISSUE_TEMPLATE/aub-ui-change.yml': [
@@ -390,6 +405,374 @@ async function initWorkspace(args) {
   console.error('  4. Copy agent instruction');
 }
 
+function json(value) {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function demoSourceFiles() {
+  return [
+    ['package.json', json({
+      name: 'aub-safety-demo',
+      private: true,
+      version: '0.1.0',
+      scripts: {
+        dev: 'next dev',
+      },
+      dependencies: {
+        '@angular/core': '^18.0.0',
+        next: '^15.0.0',
+        react: '^19.0.0',
+        'react-dom': '^19.0.0',
+      },
+      devDependencies: {
+        '@storybook/react': '^8.0.0',
+      },
+    })],
+    ['app/risk/page.tsx', [
+      "import { ExposureTable } from '../../components/ExposureTable';",
+      "import { RiskFilterForm } from '../../components/RiskFilterForm';",
+      "import { RiskSummaryCard } from '../../components/RiskSummaryCard';",
+      '',
+      'const exposures = [',
+      "  { id: 'demo-001', name: 'North ledger exposure', owner: 'Ops', status: 'review' },",
+      "  { id: 'demo-002', name: 'Partner settlement drift', owner: 'Finance', status: 'open' },",
+      '];',
+      '',
+      'export default function RiskPage() {',
+      '  return (',
+      '    <main className="risk-page">',
+      '      <header className="risk-hero">',
+      '        <nav aria-label="Risk workspace">',
+      '          <a href="/risk">Overview</a>',
+      '          <a href="/risk/review">Review queue</a>',
+      '        </nav>',
+      '        <section>',
+      '          <h1>Risk dashboard</h1>',
+      '          <p>Review synthetic operational risk signals before approval.</p>',
+      '          <button type="button">Assign reviewer</button>',
+      '        </section>',
+      '      </header>',
+      '      <section className="risk-summary-grid">',
+      '        <RiskSummaryCard title="Open exposure" value="$1.2M" trend="up" />',
+      '        <RiskSummaryCard title="Pending reviews" value="18" trend="flat" />',
+      '        <RiskSummaryCard title="Resolved today" value="7" trend="down" />',
+      '      </section>',
+      '      <section className="risk-workbench">',
+      '        <RiskFilterForm />',
+      '        <ExposureTable rows={exposures} />',
+      '      </section>',
+      '    </main>',
+      '  );',
+      '}',
+      '',
+    ].join('\n')],
+    ['components/RiskSummaryCard.tsx', [
+      'interface RiskSummaryCardProps {',
+      '  title: string;',
+      '  value: string;',
+      "  trend: 'up' | 'flat' | 'down';",
+      '}',
+      '',
+      'export function RiskSummaryCard({ title, value, trend }: RiskSummaryCardProps) {',
+      '  return (',
+      '    <article className={`risk-summary-card ${trend}`}>',
+      '      <span>{title}</span>',
+      '      <strong>{value}</strong>',
+      '    </article>',
+      '  );',
+      '}',
+      '',
+    ].join('\n')],
+    ['components/ExposureTable.tsx', [
+      'interface ExposureRow {',
+      '  id: string;',
+      '  name: string;',
+      '  owner: string;',
+      '  status: string;',
+      '}',
+      '',
+      'export function ExposureTable({ rows }: { rows: ExposureRow[] }) {',
+      '  return (',
+      '    <table className="exposure-table">',
+      '      <thead>',
+      '        <tr><th>ID</th><th>Name</th><th>Owner</th><th>Status</th></tr>',
+      '      </thead>',
+      '      <tbody>',
+      '        {rows.map((row) => (',
+      '          <tr key={row.id}><td>{row.id}</td><td>{row.name}</td><td>{row.owner}</td><td>{row.status}</td></tr>',
+      '        ))}',
+      '      </tbody>',
+      '    </table>',
+      '  );',
+      '}',
+      '',
+    ].join('\n')],
+    ['components/RiskFilterForm.tsx', [
+      'export function RiskFilterForm() {',
+      '  return (',
+      '    <form className="risk-filter-form">',
+      '      <label htmlFor="risk-owner">Owner</label>',
+      '      <input id="risk-owner" name="owner" placeholder="Ops" />',
+      '      <label htmlFor="risk-status">Status</label>',
+      '      <select id="risk-status" name="status">',
+      '        <option>Open</option>',
+      '        <option>Review</option>',
+      '      </select>',
+      '      <button type="submit">Apply filters</button>',
+      '    </form>',
+      '  );',
+      '}',
+      '',
+    ].join('\n')],
+    ['components/RiskSummaryCard.stories.tsx', [
+      "import { RiskSummaryCard } from './RiskSummaryCard';",
+      '',
+      "export default { title: 'Risk/RiskSummaryCard', component: RiskSummaryCard };",
+      '',
+      "export const OpenExposure = { args: { title: 'Open exposure', value: '$1.2M', trend: 'up' } };",
+      '',
+    ].join('\n')],
+    ['.storybook/main.ts', [
+      "export default { stories: ['../components/**/*.stories.@(tsx|mdx)'] };",
+      '',
+    ].join('\n')],
+    ['src/app/app-route-paths.const.ts', [
+      'export const appRoutePaths = {',
+      "  operations: 'operations',",
+      "  dashboard: 'dashboard',",
+      '};',
+      '',
+    ].join('\n')],
+    ['src/app/operations/operations-routing.module.ts', [
+      "import { OperationsDashboardComponent } from './operations-dashboard.component';",
+      "import { appRoutePaths } from '../app-route-paths.const';",
+      '',
+      'export const routes = [',
+      '  { path: appRoutePaths.operations + "/" + appRoutePaths.dashboard, component: OperationsDashboardComponent },',
+      "  { path: '**', redirectTo: appRoutePaths.operations + '/' + appRoutePaths.dashboard },",
+      '];',
+      '',
+    ].join('\n')],
+    ['src/app/operations/operations-dashboard.component.ts', [
+      'import { Component } from "@angular/core";',
+      '',
+      '@Component({',
+      "  selector: 'app-operations-dashboard',",
+      "  templateUrl: './operations-dashboard.component.html',",
+      "  styleUrls: ['./operations-dashboard.component.scss'],",
+      '})',
+      'export class OperationsDashboardComponent {}',
+      '',
+    ].join('\n')],
+    ['src/app/operations/operations-dashboard.component.html', [
+      '<main class="operations-dashboard">',
+      '  <header><h1>Operations dashboard</h1><button type="button">Export</button></header>',
+      '  <section>',
+      '    <app-domain-card title="SLA health" value="98%" />',
+      '    <app-domain-card title="Queue depth" value="42" />',
+      '  </section>',
+      '  <form><label>Search</label><input name="query" /></form>',
+      '  <app-operations-table [rows]="rows"></app-operations-table>',
+      '</main>',
+      '',
+    ].join('\n')],
+    ['src/app/shared/domain-card.component.ts', [
+      'import { Component, Input } from "@angular/core";',
+      '',
+      '@Component({ selector: "app-domain-card", template: "<article><span>{{ title }}</span><strong>{{ value }}</strong></article>" })',
+      'export class DomainCardComponent {',
+      '  @Input() title = "";',
+      '  @Input() value = "";',
+      '}',
+      '',
+    ].join('\n')],
+    ['src/app/shared/operations-table.component.ts', [
+      'import { Component, Input } from "@angular/core";',
+      '',
+      '@Component({ selector: "app-operations-table", template: "<table><tr *ngFor=\\"let row of rows\\"><td>{{ row.name }}</td></tr></table>" })',
+      'export class OperationsTableComponent {',
+      '  @Input() rows: Array<{ name: string }> = [];',
+      '}',
+      '',
+    ].join('\n')],
+  ];
+}
+
+async function createDemoReports({ workspace, blueprint, implementation }) {
+  const runtimeRoot = findAubRuntimeRoot();
+  const reportModule = await import(pathToFileURL(join(runtimeRoot, 'scripts', 'implementation-report.lib.mjs')).href);
+  const failReport = reportModule.createImplementationReportTemplate(blueprint);
+  failReport.implementation = {
+    framework: 'next',
+    route: '/risk',
+    files: ['app/risk/page.tsx'],
+  };
+  failReport.unresolved = [
+    'Component candidates still need review before the agent can claim reuse.',
+    'No viewport screenshot or overflow evidence was captured.',
+  ];
+  failReport.safety_score = reportModule.scoreImplementationSafety(blueprint, failReport);
+
+  const passReport = {
+    ...reportModule.createImplementationReportTemplate(blueprint),
+    implementation,
+  };
+  passReport.node_mappings = blueprint.nodes.map((node) => ({
+    node_id: node.id,
+    status: 'mapped',
+    component: node.type,
+    file: node.source?.file ?? 'app/risk/page.tsx',
+    selector: node.source?.selector ?? `[data-aub-node="${node.id}"]`,
+    notes: 'Synthetic demo mapping showing the expected evidence shape.',
+  }));
+  const evidence = [
+    { type: 'screenshot', reference: '.aub/evidence/risk-dashboard-desktop.png', viewport: 'desktop', bytes: 128400 },
+    { type: 'screenshot', reference: '.aub/evidence/risk-dashboard-tablet.png', viewport: 'tablet', bytes: 98200 },
+    { type: 'screenshot', reference: '.aub/evidence/risk-dashboard-mobile.png', viewport: 'mobile', bytes: 76400 },
+    { type: 'overflow', reference: 'desktop viewport horizontal overflow check', viewport: 'desktop', pass: true },
+    { type: 'overflow', reference: 'tablet viewport horizontal overflow check', viewport: 'tablet', pass: true },
+    { type: 'overflow', reference: 'mobile viewport horizontal overflow check', viewport: 'mobile', pass: true },
+    { type: 'dom_query', reference: 'main.risk-page exists once', selector: 'main.risk-page', expected: 1, actual: 1 },
+    { type: 'component_reuse', reference: 'components/RiskSummaryCard.tsx import reused' },
+    { type: 'code_diff', reference: 'app/risk/page.tsx' },
+  ];
+  passReport.acceptance_results = blueprint.acceptance.map((item, index) => ({
+    acceptance_id: item.id,
+    status: 'pass',
+    evidence: index === 0 ? evidence : [evidence[index % evidence.length], evidence[(index + 3) % evidence.length]],
+    notes: 'Synthetic demo pass report. Replace these references with captured evidence in a real PR.',
+  }));
+  passReport.unresolved = [];
+  passReport.safety_score = reportModule.scoreImplementationSafety(blueprint, passReport);
+
+  await writeFile(join(workspace, '.aub', 'reports', 'risk-dashboard.fail.implementation-report.json'), json(failReport), 'utf8');
+  await writeFile(join(workspace, '.aub', 'reports', 'risk-dashboard.pass.implementation-report.json'), json(passReport), 'utf8');
+  return { failReport, passReport };
+}
+
+async function createDemoWorkspace(args) {
+  const workspace = resolve(args.workspace);
+  const workspaceInfo = await stat(workspace).catch(() => null);
+  if (workspaceInfo && !workspaceInfo.isDirectory()) {
+    throw new Error(`Demo workspace path is not a directory: ${workspace}`);
+  }
+  await mkdir(workspace, { recursive: true });
+  const existing = await readdir(workspace);
+  if (existing.length > 0 && !args.force) {
+    throw new Error(`Demo workspace is not empty: ${workspace}. Use --force or choose an empty --workspace path.`);
+  }
+
+  const files = [
+    ...demoSourceFiles(),
+    ['.aubignore', INIT_FILES['.aubignore']],
+    ['AGENTS.md', INIT_FILES['AGENTS.md']],
+    ['.aub/README.md', INIT_FILES['.aub/README.md']],
+    ['.github/workflows/aub-contracts.yml', INIT_FILES['.github/workflows/aub-contracts.yml']],
+  ];
+  for (const [relativePath, content] of files) {
+    await writeInitFile(workspace, relativePath, content, true);
+  }
+  await mkdir(join(workspace, '.aub', 'reports'), { recursive: true });
+  await mkdir(join(workspace, 'screens'), { recursive: true });
+
+  const runtimeRoot = findAubRuntimeRoot();
+  const workspaceModule = await import(pathToFileURL(join(runtimeRoot, 'scripts', 'workspace-loop.lib.mjs')).href);
+  await workspaceModule.scanProjectUi(workspace, { namespace: 'demo' });
+  const generated = await workspaceModule.generateTemplateFromSource(workspace, {
+    sourcePath: 'app/risk/page.tsx',
+    name: 'Risk dashboard',
+    route: '/risk',
+    output: '.aub/templates/risk-dashboard.aub.template.json',
+  });
+  const blueprint = generated.template.blueprint;
+  await writeFile(join(workspace, 'screens', 'risk-dashboard.ui.json'), json(blueprint), 'utf8');
+  await createDemoReports({
+    workspace,
+    blueprint,
+    implementation: {
+      framework: 'next',
+      route: '/risk',
+      files: [
+        'app/risk/page.tsx',
+        'components/RiskSummaryCard.tsx',
+        'components/ExposureTable.tsx',
+        'components/RiskFilterForm.tsx',
+      ],
+    },
+  });
+  await writeFile(join(workspace, '.aub', 'ci.json'), json({
+    $schema: 'https://henrylau1103.github.io/AUB/schema/aub-ci.schema.json',
+    version: '1.0.0',
+    discover: false,
+    blueprints: ['screens/risk-dashboard.ui.json'],
+    projects: [],
+    reports: [{
+      blueprint: 'screens/risk-dashboard.ui.json',
+      report: '.aub/reports/risk-dashboard.fail.implementation-report.json',
+    }],
+    min_safety_score: 70,
+  }), 'utf8');
+  await writeFile(join(workspace, '.aub', 'ci.pass.json'), json({
+    $schema: 'https://henrylau1103.github.io/AUB/schema/aub-ci.schema.json',
+    version: '1.0.0',
+    discover: false,
+    blueprints: ['screens/risk-dashboard.ui.json'],
+    projects: [],
+    reports: [{
+      blueprint: 'screens/risk-dashboard.ui.json',
+      report: '.aub/reports/risk-dashboard.pass.implementation-report.json',
+    }],
+    min_safety_score: 70,
+  }), 'utf8');
+  await workspaceModule.updateAubSession(workspace, {
+    activeBlueprint: 'screens/risk-dashboard.ui.json',
+    activeProject: null,
+    targetRoute: '/risk',
+    preview: {
+      devServerUrl: 'http://localhost:3000',
+      route: '/risk',
+      lastImplementationReport: '.aub/reports/risk-dashboard.fail.implementation-report.json',
+    },
+  });
+  await writeFile(join(workspace, '.aub', 'demo-readme.md'), [
+    '# AUB Safety Demo',
+    '',
+    'This synthetic workspace demonstrates the AUB workspace loop without using real customer or local project data.',
+    '',
+    'What was generated:',
+    '',
+    '- `app/risk/page.tsx`: source route for scanner extraction.',
+    '- `.aub/templates/risk-dashboard.aub.template.json`: candidate workspace template generated from source.',
+    '- `screens/risk-dashboard.ui.json`: generated Blueprint used as the review contract.',
+    '- `.aub/reports/risk-dashboard.fail.implementation-report.json`: low-evidence report expected to fail the gate.',
+    '- `.aub/reports/risk-dashboard.pass.implementation-report.json`: evidence-shaped report expected to pass the gate.',
+    '- `.aub/scan-report.json`: scanner trust report.',
+    '',
+    'Try the gate from the AUB repo root:',
+    '',
+    '```bash',
+    `pnpm ci:verify -- --workspace ${workspace} --config .aub/ci.json --require-reports --require-evidence --min-safety-score 70`,
+    `pnpm ci:verify -- --workspace ${workspace} --config .aub/ci.pass.json --require-reports --require-evidence --min-safety-score 70`,
+    '```',
+    '',
+  ].join('\n'), 'utf8');
+
+  console.error('AUB safety demo workspace created');
+  console.error(`Workspace: ${workspace}`);
+  console.error('');
+  console.error('Generated proof files:');
+  console.error('  .aub/scan-report.json');
+  console.error('  .aub/templates/risk-dashboard.aub.template.json');
+  console.error('  screens/risk-dashboard.ui.json');
+  console.error('  .aub/reports/risk-dashboard.fail.implementation-report.json');
+  console.error('  .aub/reports/risk-dashboard.pass.implementation-report.json');
+  console.error('');
+  console.error('Next steps:');
+  console.error(`  1. npx aub-workspace --workspace ${workspace}`);
+  console.error(`  2. pnpm ci:verify -- --workspace ${workspace} --config .aub/ci.json --require-reports --require-evidence --min-safety-score 70`);
+  console.error(`  3. pnpm ci:verify -- --workspace ${workspace} --config .aub/ci.pass.json --require-reports --require-evidence --min-safety-score 70`);
+}
+
 async function listen(server, host, preferredPort) {
   const port = await findOpenPort(host, preferredPort);
   server.listen(port, host);
@@ -455,6 +838,11 @@ async function main() {
 
   if (args.command === 'init') {
     await initWorkspace(args);
+    return;
+  }
+
+  if (args.command === 'demo') {
+    await createDemoWorkspace(args);
     return;
   }
 

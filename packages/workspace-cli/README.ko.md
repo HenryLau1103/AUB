@@ -34,6 +34,7 @@ AUB 는 기존 project 에 다음 files 를 만들 수 있습니다.
 
 ```text
 .aub/session.json
+.aub/scan-report.json
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
 .aub/ci.json
@@ -51,10 +52,13 @@ npx aub-workspace init
 npx aub-workspace init --force
 npx aub-workspace init --no-github
 npx aub-workspace init --ci-only
+npx aub-workspace demo
 npx aub-workspace --workspace /path/to/app
 npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open
 ```
+
+`demo` 는 실제 프로젝트 없이 safety loop 를 확인할 수 있는 합성 workspace 를 만듭니다. scan report, generated template, Blueprint, 실패하는 implementation report, 통과 가능한 implementation report 가 포함됩니다.
 
 Requirements:
 

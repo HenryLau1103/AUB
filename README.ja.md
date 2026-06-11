@@ -13,7 +13,7 @@
 
 [English](./README.md) · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · **日本語** · [한국어](./README.ko.md)
 
-[Workspace loop ガイド](./docs/workspace-loop-user-manual.ja.md) · [10 分 demo](./docs/workspace-loop-10-minute-demo.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準サンプル](./examples/dashboard.ui.json)
+[Workspace loop ガイド](./docs/workspace-loop-user-manual.ja.md) · [10 分 demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準サンプル](./examples/dashboard.ui.json)
 
 ![レスポンシブ画面を編集する AUB ビジュアルエディター](./docs/assets/aub-editor-en.jpg)
 
@@ -50,6 +50,14 @@ npx aub-workspace
 これにより local AUB MCP server が起動し、bundled editor が開き、editor が workspace に自動接続されます。この方法では AUB repo を clone する必要はありません。
 
 `init` は AUB CI config、`.aubignore`、`AGENTS.md`、GitHub issue templates、Copilot instructions、PR workflow を導入します。Editor では **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction** の順に進めます。その指示を Copilot、Codex、または他の coding agent に渡し、実 app の変更と証拠報告を依頼します。
+
+実プロジェクトを使わずに安全ループ全体を確認するには、次を実行します。
+
+```bash
+npx aub-workspace demo
+```
+
+これは合成 workspace を作成し、`.aub/scan-report.json`、candidate template、Blueprint、gate が拒否する低証拠 report、通過できる report を生成します。
 
 ## AUB が解決する問題
 

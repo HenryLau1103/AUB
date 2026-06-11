@@ -63,6 +63,13 @@ const locales = {
       ['Without AUB', 'A vague issue asks an agent to improve a page. The PR may look plausible, but reviewers still have to guess whether the agent reused real components, preserved responsive behavior, or broke interactions.'],
       ['With AUB', 'The issue references a Blueprint, approved component mappings, preview URL, acceptance ids, evidence, and a PR Safety Score. Review shifts from taste to verifiable risk.'],
     ],
+    comparisonKicker: 'Competitive focus',
+    comparisonTitle: 'AUB should not compete as another app builder',
+    comparisonCards: [
+      ['App builders are faster at new apps', 'v0, Lovable, and Bolt are better for blank-canvas generation. AUB wins only when an existing repository must preserve real routes and components.'],
+      ['Coding agents still need contracts', 'Codex, Copilot, and Claude Code can edit code, but prose alone does not prove reuse, responsive safety, or acceptance coverage.'],
+      ['Design tools do not close the PR loop', 'Figma is excellent for design collaboration. AUB is the source-controlled bridge from UI intent to implementation evidence.'],
+    ],
     integrationKicker: 'Integration contract',
     integrationTitle: 'Do not let agents invent your design system',
     integrationBody:
@@ -77,7 +84,7 @@ const locales = {
     handoffBody:
       'Use AUB issue templates to define the route, Blueprint, component reuse rules, preview URL, and acceptance criteria. Copilot, Codex, or another agent can implement against the same contract and return evidence in the PR.',
     commandNote: 'Validates contracts and implementation evidence',
-    links: ['Workspace loop guide', 'GitHub agent workflow', 'MCP server', 'Production mappings', 'GitHub CI gate', 'Blueprint schema'],
+    links: ['Workspace loop guide', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', 'Production mappings', 'GitHub CI gate', 'Blueprint schema'],
     footer: 'safe existing UI changes for coding agents',
   },
   'zh-hant': {
@@ -134,6 +141,13 @@ const locales = {
       ['沒有 AUB', 'Issue 只叫 Agent 改善某個頁面。PR 也許看起來合理，但 reviewer 仍要猜它有沒有重用正式元件、有沒有保留響應式行為、有沒有破壞互動。'],
       ['有 AUB', 'Issue 會引用 Blueprint、已核准 component mapping、preview URL、acceptance id、evidence 與 PR Safety Score。Review 從主觀喜好變成可驗證風險。'],
     ],
+    comparisonKicker: '競品定位',
+    comparisonTitle: 'AUB 不應該去當另一套 app builder',
+    comparisonCards: [
+      ['App builder 更適合新專案', 'v0、Lovable、Bolt 更適合空白生成。AUB 只有在既有 repo 需要保留正式 route 與元件時才有優勢。'],
+      ['Coding agent 仍需要合約', 'Codex、Copilot、Claude Code 能改程式，但純文字無法證明元件重用、響應式安全與驗收覆蓋。'],
+      ['設計工具不會關閉 PR loop', 'Figma 很適合設計協作。AUB 的位置是把 UI 意圖帶到 source control 與實作證據。'],
+    ],
     integrationKicker: '整合合約',
     integrationTitle: '不要讓 Agent 發明你的 design system',
     integrationBody: '自訂 registry 可指定正式 package、export symbol、source file、Storybook、文件，以及精確的 Blueprint-to-prop mapping。',
@@ -143,7 +157,7 @@ const locales = {
     handoffBody:
       '使用 AUB issue template 定義 route、Blueprint、元件重用規則、preview URL 與 acceptance criteria。Copilot、Codex 或其他 Agent 可以依同一份合約實作，並在 PR 回報證據。',
     commandNote: '驗證合約與實作證據',
-    links: ['Workspace loop 指南', 'GitHub agent workflow', 'MCP server', '正式元件對應', 'GitHub CI 閘門', 'Blueprint schema'],
+    links: ['Workspace loop 指南', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '正式元件對應', 'GitHub CI 閘門', 'Blueprint schema'],
     footer: '讓編碼 Agent 安全修改既有 UI',
   },
   'zh-hans': {
@@ -200,6 +214,13 @@ const locales = {
       ['没有 AUB', 'Issue 只让 Agent 改善某个页面。PR 也许看起来合理，但 reviewer 仍要猜它有没有复用生产组件、保留响应式行为、或破坏交互。'],
       ['有 AUB', 'Issue 会引用 Blueprint、已批准 component mapping、preview URL、acceptance id、evidence 与 PR Safety Score。Review 从主观喜好变成可验证风险。'],
     ],
+    comparisonKicker: '竞品定位',
+    comparisonTitle: 'AUB 不应该去做另一套 app builder',
+    comparisonCards: [
+      ['App builder 更适合新项目', 'v0、Lovable、Bolt 更适合空白生成。AUB 只有在既有 repo 需要保留真实 route 与组件时才有优势。'],
+      ['Coding agent 仍需要契约', 'Codex、Copilot、Claude Code 能改代码，但纯文字无法证明组件复用、响应式安全和验收覆盖。'],
+      ['设计工具不会关闭 PR loop', 'Figma 很适合设计协作。AUB 的位置是把 UI 意图带到 source control 和实现证据。'],
+    ],
     integrationKicker: '集成契约',
     integrationTitle: '不要让 Agent 发明你的 design system',
     integrationBody: '自定义 registry 可以指定生产 package、export symbol、source file、Storybook、文档，以及精确的 Blueprint-to-prop mapping。',
@@ -209,7 +230,7 @@ const locales = {
     handoffBody:
       '使用 AUB issue template 定义 route、Blueprint、组件复用规则、preview URL 与 acceptance criteria。Copilot、Codex 或其他 Agent 可以依同一份契约实现，并在 PR 返回证据。',
     commandNote: '验证契约与实现证据',
-    links: ['Workspace loop 指南', 'GitHub agent workflow', 'MCP server', '生产组件映射', 'GitHub CI 门禁', 'Blueprint schema'],
+    links: ['Workspace loop 指南', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '生产组件映射', 'GitHub CI 门禁', 'Blueprint schema'],
     footer: '让编码 Agent 安全修改既有 UI',
   },
   ja: {
@@ -266,6 +287,13 @@ const locales = {
       ['AUB なし', 'Issue が Agent にページ改善を曖昧に依頼します。PR はもっともらしく見えても、本番コンポーネント再利用、レスポンシブ挙動、既存インタラクションを reviewer が確認し直す必要があります。'],
       ['AUB あり', 'Issue は Blueprint、承認済み component mapping、preview URL、acceptance id、evidence、PR Safety Score を参照します。Review は好みではなく検証可能なリスクになります。'],
     ],
+    comparisonKicker: '競合上の焦点',
+    comparisonTitle: 'AUB は別の app builder として戦うべきではありません',
+    comparisonCards: [
+      ['App builder は新規作成が速い', 'v0、Lovable、Bolt は blank canvas 生成に強いです。AUB が勝てるのは既存 repo の route と component を守る場面です。'],
+      ['Coding agent には契約が必要', 'Codex、Copilot、Claude Code はコードを編集できますが、prose だけでは再利用、responsive safety、acceptance coverage を証明できません。'],
+      ['Design tool は PR loop を閉じない', 'Figma は設計協業に優れています。AUB は UI intent を source control と実装証拠へつなぐ役割です。'],
+    ],
     integrationKicker: '連携契約',
     integrationTitle: 'Agent に design system を発明させない',
     integrationBody: 'カスタム registry で、本番 package、export symbol、source file、Storybook、ドキュメント、正確な Blueprint-to-prop mapping を指定できます。',
@@ -275,7 +303,7 @@ const locales = {
     handoffBody:
       'AUB issue template で route、Blueprint、コンポーネント再利用ルール、preview URL、acceptance criteria を定義します。Copilot、Codex、その他の Agent は同じ契約に沿って実装し、PR で証拠を返せます。',
     commandNote: '契約と実装証拠を検証',
-    links: ['Workspace loop ガイド', 'GitHub agent workflow', 'MCP server', '本番 mapping', 'GitHub CI ゲート', 'Blueprint schema'],
+    links: ['Workspace loop ガイド', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '本番 mapping', 'GitHub CI ゲート', 'Blueprint schema'],
     footer: 'コーディング Agent に既存 UI を安全に変更させる',
   },
   ko: {
@@ -332,6 +360,13 @@ const locales = {
       ['AUB 없음', 'Issue가 Agent에게 페이지 개선을 모호하게 요청합니다. PR이 그럴듯해 보여도 reviewer는 프로덕션 컴포넌트 재사용, 반응형 동작, 기존 인터랙션 보존을 다시 확인해야 합니다.'],
       ['AUB 있음', 'Issue는 Blueprint, 승인된 component mapping, preview URL, acceptance id, evidence, PR Safety Score를 참조합니다. Review는 취향이 아니라 검증 가능한 위험 평가가 됩니다.'],
     ],
+    comparisonKicker: '경쟁 포지션',
+    comparisonTitle: 'AUB는 또 하나의 app builder로 경쟁하면 안 됩니다',
+    comparisonCards: [
+      ['App builder는 새 앱 생성이 빠릅니다', 'v0, Lovable, Bolt는 빈 화면 생성에 강합니다. AUB는 기존 repo의 route와 component를 보존해야 할 때만 이깁니다.'],
+      ['Coding agent에는 계약이 필요합니다', 'Codex, Copilot, Claude Code는 코드를 편집할 수 있지만 prose만으로는 재사용, responsive safety, acceptance coverage를 증명할 수 없습니다.'],
+      ['Design tool은 PR loop를 닫지 않습니다', 'Figma는 디자인 협업에 뛰어납니다. AUB는 UI intent를 source control과 구현 증거로 연결합니다.'],
+    ],
     integrationKicker: '통합 계약',
     integrationTitle: 'Agent가 design system을 발명하지 못하게 합니다',
     integrationBody: '사용자 정의 registry에 프로덕션 package, export symbol, source file, Storybook, 문서와 정확한 Blueprint-to-prop mapping을 지정할 수 있습니다.',
@@ -341,13 +376,14 @@ const locales = {
     handoffBody:
       'AUB issue template으로 route, Blueprint, 컴포넌트 재사용 규칙, preview URL, acceptance criteria를 정의합니다. Copilot, Codex 또는 다른 Agent가 같은 계약에 맞춰 구현하고 PR에서 증거를 반환할 수 있습니다.',
     commandNote: '계약과 구현 증거 검증',
-    links: ['Workspace loop 가이드', 'GitHub agent workflow', 'MCP server', '프로덕션 mapping', 'GitHub CI 게이트', 'Blueprint schema'],
+    links: ['Workspace loop 가이드', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '프로덕션 mapping', 'GitHub CI 게이트', 'Blueprint schema'],
     footer: '코딩 Agent가 기존 UI를 안전하게 바꾸도록 돕기',
   },
 };
 
 const linkTargets = [
   'docs/workspace-loop-user-manual.md',
+  'docs/comparison-app-builders.md',
   'docs/github-agent-workflow.md',
   'apps/mcp-server/README.md',
   'docs/custom-components.md',
@@ -407,6 +443,14 @@ function renderPage(id, locale) {
     )
     .join('\n');
   const beforeAfterCards = locale.beforeAfterCards
+    .map(
+      ([title, body]) => `          <div class="card">
+            <h3>${title}</h3>
+            <p>${body}</p>
+          </div>`
+    )
+    .join('\n');
+  const comparisonCards = locale.comparisonCards
     .map(
       ([title, body]) => `          <div class="card">
             <h3>${title}</h3>
@@ -510,6 +554,14 @@ ${cards}
         <h2>${locale.beforeAfterTitle}</h2>
         <div class="why-grid">
 ${beforeAfterCards}
+        </div>
+      </section>
+
+      <section class="why">
+        <p class="section-kicker">${locale.comparisonKicker}</p>
+        <h2>${locale.comparisonTitle}</h2>
+        <div class="why-grid">
+${comparisonCards}
         </div>
       </section>
 

@@ -84,6 +84,61 @@ export interface WorkspaceStatus {
     ignoredPatterns: string[];
     limitReached: boolean;
   };
+  scanReport?: {
+    path: string;
+    format: 'aub-scan-report';
+    format_version: string;
+    updatedAt: string;
+    packageName: string | null;
+    namespace: string;
+    frameworks: string[];
+    summary: {
+      routes: number;
+      componentCandidates: number;
+      unresolvedCandidates: number;
+      filesScanned: number;
+      filesSkipped: number;
+      directoriesSkipped: number;
+      limitReached: boolean;
+      trustScore: number;
+    };
+    trust: {
+      score: number;
+      grade: 'high' | 'medium' | 'low';
+      reasons: string[];
+      warnings: string[];
+      confidenceInputs: {
+        frameworkDetected: boolean;
+        routeCount: number;
+        componentCandidateCount: number;
+        storybookDetected: boolean;
+        scanLimitReached: boolean;
+      };
+    };
+    storybook: {
+      detected: boolean;
+      configPath?: string | null;
+      storyCount: number;
+    };
+    routes: Array<{ id: string; route: string; path: string; kind: string }>;
+    componentCandidates: Array<{
+      id: string;
+      componentName: string;
+      sourcePath: string;
+      suggestedType: string;
+      suggestedCoreType?: string;
+      status: string;
+      confidence?: number;
+      usageCount?: number;
+    }>;
+    scanAudit: {
+      filesScanned: number;
+      filesSkipped: number;
+      directoriesSkipped: number;
+      ignoredPatterns: string[];
+      limitReached: boolean;
+    };
+  } | null;
   routeCount: number;
   componentCandidateCount: number;
   templateCount: number;

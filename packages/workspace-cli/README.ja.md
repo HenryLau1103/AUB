@@ -34,6 +34,7 @@ AUB は既存 project に次の files を作成する場合があります。
 
 ```text
 .aub/session.json
+.aub/scan-report.json
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
 .aub/ci.json
@@ -51,10 +52,13 @@ npx aub-workspace init
 npx aub-workspace init --force
 npx aub-workspace init --no-github
 npx aub-workspace init --ci-only
+npx aub-workspace demo
 npx aub-workspace --workspace /path/to/app
 npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open
 ```
+
+`demo` は実プロジェクトを使わずに safety loop を確認するための合成 workspace を作成します。scan report、generated template、Blueprint、失敗する implementation report、通過できる implementation report が含まれます。
 
 Requirements:
 

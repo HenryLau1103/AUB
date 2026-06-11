@@ -212,6 +212,9 @@ function starterAcceptance(language: Language, rootId: string): Blueprint['accep
 
 export function App() {
   const [initialDraft] = useState(loadDraft);
+  const [initialHasWorkspaceEndpoint] = useState(() => (
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mcp')
+  ));
   const [initialWorkspaceEndpoint] = useState(() => {
     if (typeof window === 'undefined') return 'http://127.0.0.1:3100/mcp';
     return new URLSearchParams(window.location.search).get('mcp') ?? 'http://127.0.0.1:3100/mcp';
@@ -262,6 +265,7 @@ export function App() {
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [workspaceSavePath, setWorkspaceSavePath] = useState('');
+  const [workspacePanelOpen, setWorkspacePanelOpen] = useState(initialHasWorkspaceEndpoint);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<CanvasHandle>(null);
   const autoConnectWorkspaceRef = useRef(false);
@@ -434,10 +438,10 @@ export function App() {
   useEffect(() => {
     if (autoConnectWorkspaceRef.current) return;
     if (!initialWorkspaceEndpoint || workspaceConnection || workspaceLoading) return;
-    if (!new URLSearchParams(window.location.search).has('mcp')) return;
+    if (!initialHasWorkspaceEndpoint) return;
     autoConnectWorkspaceRef.current = true;
     void handleConnectWorkspace();
-  }, [initialWorkspaceEndpoint, workspaceConnection, workspaceLoading]);
+  }, [initialHasWorkspaceEndpoint, initialWorkspaceEndpoint, workspaceConnection, workspaceLoading]);
 
   async function handleRefreshWorkspace() {
     if (!workspaceConnection) return;
@@ -1056,6 +1060,12 @@ export function App() {
   const selectedNode = selectedIds.length === 1
     ? blueprint?.nodes.find((node) => node.id === selectedId) ?? null
     : null;
+  const modeLabel = workspaceConnection
+    ? language === 'zh-Hant' ? 'Workspace mode' : 'Workspace mode'
+    : language === 'zh-Hant' ? 'Demo mode' : 'Demo mode';
+  const workspaceLabel = workspaceConnection
+    ? language === 'zh-Hant' ? 'Workspace 已連線' : 'Workspace connected'
+    : language === 'zh-Hant' ? '連接 Workspace' : 'Connect workspace';
 
   return (
     <div className="app">
@@ -1084,6 +1094,10 @@ export function App() {
         canRedo={history.future.length > 0}
         onUndo={() => setHistory((current) => undoHistory(current))}
         onRedo={() => setHistory((current) => redoHistory(current))}
+        modeLabel={modeLabel}
+        workspaceLabel={workspaceLabel}
+        workspaceConnected={workspaceConnection !== null}
+        onOpenWorkspace={() => setWorkspacePanelOpen(true)}
       />
       <WorkflowBar
         blueprint={blueprint}
@@ -1094,31 +1108,52 @@ export function App() {
         viewportQuality={viewportQuality}
         onChange={setWorkflowStage}
       />
-      <WorkspacePanel
-        language={language}
-        endpoint={workspaceEndpoint}
-        connected={workspaceConnection !== null}
-        loading={workspaceLoading}
-        error={workspaceError}
-        status={workspaceStatus}
-        blueprint={blueprint}
-        savePath={workspaceSavePath}
-        onEndpointChange={setWorkspaceEndpoint}
-        onConnect={() => void handleConnectWorkspace()}
-        onDisconnect={() => {
-          setWorkspaceConnection(null);
-          setWorkspaceStatus(null);
-          setWorkspaceError(null);
-        }}
-        onRefresh={() => void handleRefreshWorkspace()}
-        onScanWorkspace={() => void handleScanWorkspaceUi()}
-        onGenerateTemplate={(sourcePath) => void handleGenerateWorkspaceTemplate(sourcePath)}
-        onLoadBlueprint={(path) => void handleLoadWorkspaceBlueprint(path)}
-        onSaveBlueprint={() => void handleSaveWorkspaceBlueprint()}
-        onSavePathChange={setWorkspaceSavePath}
-        onPreviewChange={(patch) => void handleWorkspacePreviewChange(patch)}
-        onReviewCandidate={(candidate, action, coreType) => void handleReviewComponentCandidate(candidate, action, coreType)}
-      />
+      {workspacePanelOpen && (
+        <div className="workspace-drawer-shell" role="dialog" aria-modal="true" aria-label={language === 'zh-Hant' ? 'Workspace 設定' : 'Workspace settings'}>
+          <button
+            type="button"
+            className="workspace-drawer-backdrop"
+            aria-label={language === 'zh-Hant' ? '關閉 Workspace 設定' : 'Close workspace settings'}
+            onClick={() => setWorkspacePanelOpen(false)}
+          />
+          <aside className="workspace-drawer">
+            <div className="workspace-drawer-header">
+              <div>
+                <strong>{language === 'zh-Hant' ? 'Workspace 設定' : 'Workspace settings'}</strong>
+                <span>{language === 'zh-Hant' ? '連線到本機 MCP 時才需要開啟。' : 'Use this only when connecting to a local MCP workspace.'}</span>
+              </div>
+              <button type="button" onClick={() => setWorkspacePanelOpen(false)}>
+                {language === 'zh-Hant' ? '關閉' : 'Close'}
+              </button>
+            </div>
+            <WorkspacePanel
+              language={language}
+              endpoint={workspaceEndpoint}
+              connected={workspaceConnection !== null}
+              loading={workspaceLoading}
+              error={workspaceError}
+              status={workspaceStatus}
+              blueprint={blueprint}
+              savePath={workspaceSavePath}
+              onEndpointChange={setWorkspaceEndpoint}
+              onConnect={() => void handleConnectWorkspace()}
+              onDisconnect={() => {
+                setWorkspaceConnection(null);
+                setWorkspaceStatus(null);
+                setWorkspaceError(null);
+              }}
+              onRefresh={() => void handleRefreshWorkspace()}
+              onScanWorkspace={() => void handleScanWorkspaceUi()}
+              onGenerateTemplate={(sourcePath) => void handleGenerateWorkspaceTemplate(sourcePath)}
+              onLoadBlueprint={(path) => void handleLoadWorkspaceBlueprint(path)}
+              onSaveBlueprint={() => void handleSaveWorkspaceBlueprint()}
+              onSavePathChange={setWorkspaceSavePath}
+              onPreviewChange={(patch) => void handleWorkspacePreviewChange(patch)}
+              onReviewCandidate={(candidate, action, coreType) => void handleReviewComponentCandidate(candidate, action, coreType)}
+            />
+          </aside>
+        </div>
+      )}
       {project && (
         <ProjectBar
           project={project}

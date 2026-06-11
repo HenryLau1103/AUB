@@ -23,6 +23,7 @@
     "report:capture": "node scripts/capture-implementation-report.mjs",
     "report:playwright": "node scripts/create-playwright-smoke.mjs",
     "report:score": "node scripts/score-implementation-report.mjs",
+    "report:comment": "node scripts/create-pr-safety-comment.mjs",
     "report:verify": "node scripts/verify-implementation-report.mjs",
     "ci:verify": "node scripts/ci-verify.mjs",
     "score:agent": "node scripts/score-agent-readability.mjs",

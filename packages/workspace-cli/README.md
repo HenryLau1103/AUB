@@ -34,6 +34,7 @@ AUB may create these files in the existing project:
 
 ```text
 .aub/session.json
+.aub/scan-report.json
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
 .aub/ci.json
@@ -51,10 +52,15 @@ npx aub-workspace init
 npx aub-workspace init --force
 npx aub-workspace init --no-github
 npx aub-workspace init --ci-only
+npx aub-workspace demo
 npx aub-workspace --workspace /path/to/app
 npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open
 ```
+
+`demo` creates a synthetic workspace that proves the safety loop without using a
+real project. It includes a scan report, generated template, Blueprint, failing
+implementation report, and passing implementation report.
 
 Requirements:
 
