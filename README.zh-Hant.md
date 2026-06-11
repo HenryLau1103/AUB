@@ -13,6 +13,8 @@
 
 [English](./README.md) · **繁體中文** · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
 
+> 本檔已與目前主版 README 的章節結構核對，僅保留正體中文譯文版本。
+
 [Agent 交付指南](./docs/agent-handoff.zh-Hant.md) · [標準範例](./examples/dashboard.ui.json)
 
 ![AUB 視覺編輯器正在編輯響應式註冊流程](./docs/assets/aub-editor-zh-hant.jpg)
