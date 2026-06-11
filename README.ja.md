@@ -107,7 +107,7 @@ node apps/mcp-server/dist/http.js --workspace /path/to/your/repo --port 3100
 
 既存プロジェクトでは `aub-mcp-http` を起動し、AUB editor を `http://127.0.0.1:3100/mcp` に接続できます。Editor は workspace 内の Blueprint を直接 load/save し、`.aub/session.json`、`.aub/templates/*.aub.template.json`、`.aub/component-candidates.json` を扱い、実際の dev server route を preview できます。Scanner が見つけた custom component は必ず candidate file に入り、ユーザー承認後にのみ `aub.registry.json` へ書き込まれます。
 
-設定例は [`apps/mcp-server/README.md`](./apps/mcp-server/README.md) を参照してください。
+完全な利用手順は [AUB Workspace Loop ユーザーマニュアル](./docs/workspace-loop-user-manual.ja.md) を参照してください。設定例は [`apps/mcp-server/README.md`](./apps/mcp-server/README.md) を参照してください。
 
 ## Blueprint 契約
 

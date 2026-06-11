@@ -1,5 +1,7 @@
 # Agent Readability Benchmark
 
+Languages: **English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
+
 This benchmark checks whether an agent can extract exact AUB facts without redesigning or inferring.
 
 ## Files

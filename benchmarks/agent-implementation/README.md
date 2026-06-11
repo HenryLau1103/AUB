@@ -1,5 +1,7 @@
 # Agent Implementation Benchmark
 
+Languages: **English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
+
 This benchmark checks whether an agent can turn a fixed AUB Blueprint into a
 working standalone implementation rather than only extract facts.
 

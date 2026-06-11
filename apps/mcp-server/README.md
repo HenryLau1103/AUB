@@ -1,5 +1,7 @@
 # AUB MCP Server
 
+Languages: **English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
+
 A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes UI Blueprint
 tools to coding agents (Codex, Claude Code, MCP-capable IDEs) over **stdio or Streamable HTTP**. Agents call AUB
 tools directly instead of manually moving `.ui.json`, prompt, and report files between repos.

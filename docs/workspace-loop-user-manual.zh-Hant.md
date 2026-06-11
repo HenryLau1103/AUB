@@ -1,5 +1,7 @@
 # AUB Workspace Loop 操作步驟手冊
 
+語言： [English](./workspace-loop-user-manual.md) · **繁體中文** · [简体中文](./workspace-loop-user-manual.zh-Hans.md) · [日本語](./workspace-loop-user-manual.ja.md) · [한국어](./workspace-loop-user-manual.ko.md)
+
 這份手冊說明如何把 AUB 用在「既有專案」上：
 
 - 讓 Agent 掃描既有專案頁面與元件。
