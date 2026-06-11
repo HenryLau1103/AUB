@@ -13,7 +13,7 @@
 
 **English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
 
-[Workspace loop guide](./docs/workspace-loop-user-manual.md) · [10-minute demo](./docs/workspace-loop-10-minute-demo.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Canonical example](./examples/dashboard.ui.json)
+[Workspace loop guide](./docs/workspace-loop-user-manual.md) · [10-minute demo](./docs/workspace-loop-10-minute-demo.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Canonical example](./examples/dashboard.ui.json)
 
 ![AUB visual editor showing a responsive onboarding screen](./docs/assets/aub-editor-en.jpg)
 
@@ -57,7 +57,13 @@ npx aub-workspace
 
 This starts the local AUB MCP server, opens the bundled editor, and connects the editor to your workspace automatically. You do not need to clone the AUB repo for this path.
 
-`init` installs the AUB CI config, GitHub issue templates, Copilot instructions, and PR workflow. In the editor, follow the workspace loop: **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction**. Paste that instruction into Copilot, Codex, or another coding agent so it can implement the real app change and report evidence.
+`init` installs the AUB CI config, `.aubignore`, `AGENTS.md`, GitHub issue templates, Copilot instructions, and PR workflow. In the editor, follow the workspace loop: **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction**. Paste that instruction into Copilot, Codex, or another coding agent so it can implement the real app change and report evidence.
+
+For a terminal-only handoff prompt, run:
+
+```bash
+pnpm agent:instructions -- --target codex
+```
 
 ## The problem AUB solves
 
@@ -321,6 +327,8 @@ pnpm report:verify examples/dashboard.ui.json implementation-report.json
 # Capture preview screenshots, overflow checks, and report evidence
 pnpm report:capture -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
 pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+pnpm report:score screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json
+pnpm report:playwright -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings --output tests/aub-ui.spec.ts
 ```
 
 ### Scaffold spec sections

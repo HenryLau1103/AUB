@@ -19,7 +19,8 @@ Create `.aub/ci.json` in the repository that implements the UI:
       "blueprint": "design/dashboard.ui.json",
       "report": ".aub/reports/dashboard.implementation-report.json"
     }
-  ]
+  ],
+  "min_safety_score": 70
 }
 ```
 
@@ -36,6 +37,7 @@ source files.
 ```bash
 pnpm ci:verify -- --workspace /path/to/target/repo --require-reports
 pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-evidence
+pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-evidence --min-safety-score 70
 ```
 
 Omit `--require-reports` while authoring the Blueprint before implementation begins. If the
@@ -52,6 +54,7 @@ To capture local preview evidence before opening a PR:
 ```bash
 pnpm report:capture -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
 pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+pnpm report:score screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json
 ```
 
 ## Add the GitHub Action
@@ -72,12 +75,17 @@ jobs:
           config: .aub/ci.json
           require-reports: "true"
           require-evidence: "false"
+          min-safety-score: "70"
 ```
 
 Keep `require-evidence: "false"` while adopting the workflow if existing reports are still
 narrative-only. Set it to `"true"` once the project can capture screenshot, DOM, overflow, and
 component-reuse evidence in CI or before PR submission.
 
+Use `min-safety-score` only after the team agrees on a rollout threshold. The score is not a
+substitute for review; it exposes risk across source coverage, acceptance evidence, viewport
+coverage, overflow safety, component reuse, unresolved mappings, and lookalike prevention.
+
 The Action writes a check table to the GitHub job summary and emits file-level error
 annotations for invalid schemas, semantic errors, missing reports, failed acceptance items,
-or unresolved implementation work.
+low safety scores, or unresolved implementation work.

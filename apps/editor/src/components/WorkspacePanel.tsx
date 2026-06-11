@@ -161,6 +161,8 @@ export function WorkspacePanel({
               <span>{zh ? 'Templates' : 'Templates'}: {status.templateCount || status.templates.length}</span>
               <span>{zh ? '候選元件' : 'Candidates'}: {status.componentCandidateCount || status.componentCandidates.length}</span>
               <span>{zh ? 'Frameworks' : 'Frameworks'}: {status.frameworks.join(', ') || (zh ? '未偵測' : 'not detected')}</span>
+              {status.storybook?.detected && <span>Storybook: {status.storybook.storyCount}</span>}
+              {status.scanAudit && <span>{zh ? '略過' : 'Skipped'}: {status.scanAudit.filesSkipped + status.scanAudit.directoriesSkipped}</span>}
             </div>
             <div className="workspace-onboarding-actions">
               <button type="button" onClick={onScanWorkspace} disabled={loading}>
@@ -246,11 +248,26 @@ export function WorkspacePanel({
                 ) : (
                   <>
                     <small>{status.implementationReport.path}</small>
+                    {status.implementationReport.safetyScore && (
+                      <div className="workspace-safety-score">
+                        <strong>
+                          {zh ? 'PR 安全分數' : 'PR Safety Score'} {status.implementationReport.safetyScore.overall}
+                        </strong>
+                        <span>{status.implementationReport.safetyScore.grade}</span>
+                      </div>
+                    )}
                     <div className="workspace-candidate-meta">
                       <span>pass {status.implementationReport.pass ?? 0}</span>
                       <span>fail {status.implementationReport.fail ?? 0}</span>
                       <span>{zh ? '待審' : 'review'} {status.implementationReport.needsReview ?? 0}</span>
                       <span>evidence {status.implementationReport.evidence ?? 0}</span>
+                      {status.implementationReport.safetyScore && (
+                        <>
+                          <span>source {status.implementationReport.safetyScore.sourceCoverageScore}</span>
+                          <span>viewport {status.implementationReport.safetyScore.viewportEvidenceScore}</span>
+                          <span>reuse {status.implementationReport.safetyScore.componentReuseScore}</span>
+                        </>
+                      )}
                     </div>
                   </>
                 )}
@@ -468,6 +485,11 @@ function CandidateItem({
       {candidate.sourceUsage && candidate.sourceUsage.length > 0 && (
         <small>
           {zh ? '使用來源' : 'Usage'}: {candidate.sourceUsage.slice(0, 3).map((usage) => `${usage.file}${usage.line ? `:${usage.line}` : ''}`).join(', ')}
+        </small>
+      )}
+      {candidate.storybookStories && candidate.storybookStories.length > 0 && (
+        <small>
+          Storybook: {candidate.storybookStories.slice(0, 3).map((story) => story.title ? `${story.title} · ${story.path}` : story.path).join(', ')}
         </small>
       )}
       {candidate.confidenceReason && <small>{candidate.confidenceReason}</small>}

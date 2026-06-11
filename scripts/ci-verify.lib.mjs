@@ -17,6 +17,7 @@ export async function verifyWorkspace({
   configPath = '.aub/ci.json',
   requireReports = false,
   requireEvidence = false,
+  minSafetyScore = null,
 } = {}) {
   const root = resolve(workspace);
   const absoluteConfig = resolve(root, configPath);
@@ -48,6 +49,7 @@ export async function verifyWorkspace({
   const projectRefs = uniqueRefs([...(config.projects ?? []), ...discovered.projects]);
   const reportRefs = config.reports ?? [];
   const reportTargets = new Set(reportRefs.map((entry) => normalizeRef(entry.blueprint)));
+  const configuredMinSafetyScore = normalizeSafetyScoreThreshold(minSafetyScore ?? config.min_safety_score);
 
   if (blueprintRefs.length === 0 && projectRefs.length === 0) {
     if (!config.discover) {
@@ -71,7 +73,10 @@ export async function verifyWorkspace({
   }
 
   for (const entry of reportRefs) {
-    const result = await verifyReportFile(root, entry, validators, { requireEvidence });
+    const result = await verifyReportFile(root, entry, validators, {
+      requireEvidence,
+      minSafetyScore: configuredMinSafetyScore,
+    });
     checks.push(result);
     failures.push(...result.failures);
   }
@@ -162,6 +167,7 @@ async function verifyProjectFile(root, ref, validators) {
 
 async function verifyReportFile(root, entry, validators, options = {}) {
   const failures = [];
+  let safetyScore = null;
   try {
     const [blueprint, report] = await Promise.all([
       readDocument(resolveRef(root, entry.blueprint)),
@@ -173,8 +179,15 @@ async function verifyReportFile(root, entry, validators, options = {}) {
       }
     } else {
       const result = verifyImplementationReport(blueprint, report, options);
+      safetyScore = result.summary.safety_score;
       for (const error of result.errors) {
         failures.push({ path: entry.report, message: `Implementation report: ${error}` });
+      }
+      if (Number.isInteger(options.minSafetyScore) && safetyScore.overall < options.minSafetyScore) {
+        failures.push({
+          path: entry.report,
+          message: `Implementation safety score ${safetyScore.overall} is below required minimum ${options.minSafetyScore}.`,
+        });
       }
     }
   } catch (error) {
@@ -184,6 +197,7 @@ async function verifyReportFile(root, entry, validators, options = {}) {
     kind: 'report',
     path: entry.report,
     blueprint: entry.blueprint,
+    safetyScore,
     passed: failures.length === 0,
     failures,
   };
@@ -236,6 +250,15 @@ function resolveRef(root, ref) {
 
 function normalizeRef(ref) {
   return ref.replaceAll('\\', '/').replace(/^\.\//, '');
+}
+
+function normalizeSafetyScoreThreshold(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 0 || number > 100) {
+    throw new Error(`min_safety_score must be an integer from 0 to 100: ${value}`);
+  }
+  return number;
 }
 
 function uniqueRefs(refs) {

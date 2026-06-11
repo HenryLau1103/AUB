@@ -44,6 +44,7 @@ export interface ComponentCandidate {
   props?: string[];
   usageCount?: number;
   sourceUsage?: Array<{ file: string; line?: number }>;
+  storybookStories?: Array<{ path: string; title?: string | null }>;
   confidence?: number;
   confidenceReason?: string;
   mappingReason?: string;
@@ -70,6 +71,19 @@ export interface WorkspaceStatus {
   root: string;
   packageName: string | null;
   frameworks: string[];
+  storybook?: {
+    detected: boolean;
+    configPath?: string | null;
+    storyCount: number;
+    stories?: Array<{ path: string; title?: string | null; component?: string | null }>;
+  };
+  scanAudit?: {
+    filesScanned: number;
+    filesSkipped: number;
+    directoriesSkipped: number;
+    ignoredPatterns: string[];
+    limitReached: boolean;
+  };
   routeCount: number;
   componentCandidateCount: number;
   templateCount: number;
@@ -82,6 +96,19 @@ export interface WorkspaceStatus {
     fail?: number;
     needsReview?: number;
     evidence?: number;
+    safetyScore?: {
+      overall: number;
+      grade: 'pass' | 'review' | 'risk' | 'fail';
+      sourceCoverageScore: number;
+      acceptanceEvidenceScore: number;
+      viewportEvidenceScore: number;
+      overflowSafety: number;
+      componentReuseScore: number;
+      unresolvedMappingCount: number;
+      lookalikePreventionCount: number;
+      evidenceItems: number;
+      expectedViewports: string[];
+    } | null;
     error?: string;
   } | null;
   blueprints?: Array<{ path: string; screenId: string; screenName: string; version: string }>;

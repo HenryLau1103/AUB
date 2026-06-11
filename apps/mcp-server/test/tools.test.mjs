@@ -490,6 +490,23 @@ test('submit_report accepts a fully mapped, passing report', async () => {
   assert.equal(result.summary.acceptance_passed, result.summary.acceptance_total);
 });
 
+test('submit_report persists safety_score with accepted reports', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-report-'));
+  try {
+    const blueprint = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
+    await writeFile(join(root, 'dashboard.ui.json'), `${JSON.stringify(blueprint, null, 2)}\n`, 'utf8');
+    const report = passingReport(blueprint);
+    const result = await submitReport({ ...ctx, root }, { ref: 'dashboard.ui.json', report, persist: true });
+    assert.equal(result.accepted, true, `errors: ${JSON.stringify(result.errors)}`);
+    assert.ok(result.savedPath);
+    const persisted = JSON.parse(await readFile(join(root, result.savedPath), 'utf8'));
+    assert.equal(typeof persisted.safety_score?.overall, 'number');
+    assert.equal(persisted.safety_score.grade, result.summary.safety_score.grade);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 const PROJECT_REF = 'examples/project/app.aub.project.json';
 
 test('list_projects finds the acme-app example project', async () => {

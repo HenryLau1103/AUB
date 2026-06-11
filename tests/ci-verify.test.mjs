@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyWorkspace } from '../scripts/ci-verify.lib.mjs';
+import { createImplementationReportTemplate } from '../scripts/implementation-report.lib.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -45,4 +46,32 @@ test('CI3: discover mode allows an initialized workspace before Blueprints exist
 
   assert.equal(result.valid, true, JSON.stringify(result.failures));
   assert.equal(result.summary.checks, 0);
+});
+
+test('CI4: min_safety_score fails low-evidence implementation reports', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'aub-ci-score-'));
+  await mkdir(join(workspace, '.aub', 'reports'), { recursive: true });
+  await mkdir(join(workspace, 'screens'), { recursive: true });
+  const blueprint = JSON.parse(await readFile(resolve(ROOT, 'examples/freeform-actions.ui.json'), 'utf8'));
+  const report = createImplementationReportTemplate(blueprint);
+  await writeFile(join(workspace, 'screens', 'freeform-actions.ui.json'), `${JSON.stringify(blueprint, null, 2)}\n`, 'utf8');
+  await writeFile(join(workspace, '.aub', 'reports', 'freeform-actions.implementation-report.json'), `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  await writeFile(join(workspace, '.aub', 'ci.json'), `${JSON.stringify({
+    version: '1.0.0',
+    blueprints: ['screens/freeform-actions.ui.json'],
+    reports: [{
+      blueprint: 'screens/freeform-actions.ui.json',
+      report: '.aub/reports/freeform-actions.implementation-report.json',
+    }],
+    min_safety_score: 70,
+  }, null, 2)}\n`, 'utf8');
+
+  const result = await verifyWorkspace({
+    workspace,
+    configPath: '.aub/ci.json',
+  });
+
+  assert.equal(result.valid, false);
+  assert.ok(result.failures.some((failure) => failure.message.includes('safety score')));
+  assert.equal(result.checks.find((check) => check.kind === 'report')?.safetyScore.grade, 'fail');
 });

@@ -4059,6 +4059,26 @@ button.primary {
   gap: 5px;
 }
 
+.workspace-safety-score {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 8px;
+}
+
+.workspace-safety-score strong {
+  color: #1d4ed8;
+}
+
+.workspace-safety-score span {
+  color: #475569;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
 .workspace-template-section .template-preview-empty {
   min-height: 54px;
 }

@@ -10,7 +10,7 @@ npx aub-workspace init
 npx aub-workspace
 ```
 
-`init` creates AUB config, GitHub issue templates, Copilot instructions, and a PR workflow. `aub-workspace` starts a local AUB MCP HTTP server, serves the bundled AUB editor, connects the editor to the MCP endpoint, and opens the browser.
+`init` creates AUB config, `.aubignore`, `AGENTS.md`, GitHub issue templates, Copilot instructions, and a PR workflow. `aub-workspace` starts a local AUB MCP HTTP server, serves the bundled AUB editor, connects the editor to the MCP endpoint, and opens the browser.
 
 Success looks like this:
 
@@ -37,6 +37,8 @@ AUB may create these files in the existing project:
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
 .aub/ci.json
+.aubignore
+AGENTS.md
 .github/workflows/aub-contracts.yml
 aub.registry.json
 screens/*.ui.json

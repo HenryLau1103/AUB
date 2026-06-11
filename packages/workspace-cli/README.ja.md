@@ -10,7 +10,7 @@ npx aub-workspace init
 npx aub-workspace
 ```
 
-`init` は AUB config、GitHub issue templates、Copilot instructions、PR workflow を作成します。`aub-workspace` は local AUB MCP HTTP server を起動し、bundled AUB editor を serve し、editor を MCP endpoint に接続して browser を開きます。
+`init` は AUB config、`.aubignore`、`AGENTS.md`、GitHub issue templates、Copilot instructions、PR workflow を作成します。`aub-workspace` は local AUB MCP HTTP server を起動し、bundled AUB editor を serve し、editor を MCP endpoint に接続して browser を開きます。
 
 成功すると次のような出力になります。
 
@@ -37,6 +37,8 @@ AUB は既存 project に次の files を作成する場合があります。
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
 .aub/ci.json
+.aubignore
+AGENTS.md
 .github/workflows/aub-contracts.yml
 aub.registry.json
 screens/*.ui.json

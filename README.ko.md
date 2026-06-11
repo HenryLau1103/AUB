@@ -13,7 +13,7 @@
 
 [English](./README.md) · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · **한국어**
 
-[Workspace loop 가이드](./docs/workspace-loop-user-manual.ko.md) · [10분 demo](./docs/workspace-loop-10-minute-demo.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [표준 예제](./examples/dashboard.ui.json)
+[Workspace loop 가이드](./docs/workspace-loop-user-manual.ko.md) · [10분 demo](./docs/workspace-loop-10-minute-demo.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [표준 예제](./examples/dashboard.ui.json)
 
 ![반응형 화면을 편집하는 AUB 비주얼 에디터](./docs/assets/aub-editor-en.jpg)
 
@@ -49,7 +49,7 @@ npx aub-workspace
 
 이 명령은 local AUB MCP server 를 시작하고 bundled editor 를 열며 editor 를 workspace 에 자동 연결합니다. 이 경로에서는 AUB repo 를 먼저 clone 할 필요가 없습니다.
 
-`init` 은 AUB CI config, GitHub issue templates, Copilot instructions, PR workflow 를 설치합니다. Editor 에서는 **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction** 순서로 진행합니다. 그 지시를 Copilot, Codex 또는 다른 coding agent 에 전달해 실제 app 변경과 증거 보고를 요청합니다.
+`init` 은 AUB CI config, `.aubignore`, `AGENTS.md`, GitHub issue templates, Copilot instructions, PR workflow 를 설치합니다. Editor 에서는 **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction** 순서로 진행합니다. 그 지시를 Copilot, Codex 또는 다른 coding agent 에 전달해 실제 app 변경과 증거 보고를 요청합니다.
 
 ## AUB가 해결하는 문제
 
@@ -166,6 +166,8 @@ pnpm report:init examples/dashboard.ui.json implementation-report.json
 pnpm report:verify examples/dashboard.ui.json implementation-report.json
 pnpm report:capture -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
 pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+pnpm report:score screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json
+pnpm report:playwright -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings --output tests/aub-ui.spec.ts
 ```
 
 누락된 interaction, responsive, acceptance를 비파괴적으로 보완합니다.
@@ -210,7 +212,7 @@ pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-e
 - Angular, Figma／Penpot bridge import: 구현 완료.
 - Codex, Claude Code, GitHub Copilot adapter: 구현 완료.
 - stdio／HTTP MCP server, 23개 도구: 구현 완료.
-- One-command workspace initialization(`npx aub-workspace init`): CI config, issue templates, Copilot instructions, PR workflow: 구현 완료.
+- One-command workspace initialization(`npx aub-workspace init`): CI config, `.aubignore`, `AGENTS.md`, issue templates, Copilot instructions, PR workflow: 구현 완료.
 - Workspace-connected editor loop, local MCP HTTP, session, scanner-generated template, custom component candidate review, direct Blueprint save, implementation preview: 구현 완료.
 - Implementation evidence capture: viewport screenshot, DOM query, overflow, report evidence verification: 구현 완료.
 - 프로덕션 component mapping, implementation report, GitHub Action: 구현 완료.

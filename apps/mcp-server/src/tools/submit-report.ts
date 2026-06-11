@@ -43,12 +43,16 @@ export async function run(
 
   let savedPath: string | undefined;
   if (accepted && args.persist !== false) {
+    const persistedReport = {
+      ...report,
+      safety_score: verification.summary?.safety_score,
+    };
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const screenId = entry.screenId || 'blueprint';
     const dir = join(ctx.root, '.aub', 'reports');
     await mkdir(dir, { recursive: true });
     const absPath = join(dir, `${screenId}-${timestamp}.json`);
-    await writeFile(absPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+    await writeFile(absPath, `${JSON.stringify(persistedReport, null, 2)}\n`, 'utf8');
     savedPath = relative(ctx.root, absPath).split(sep).join('/');
   }
 

@@ -30,8 +30,17 @@ test('WL1: Next scanner generates a source-driven candidate template', async () 
   try {
     const scan = await scanProjectUi(root);
     assert.ok(scan.frameworks.includes('next'));
+    assert.equal(scan.storybook.detected, true);
+    assert.equal(scan.storybook.storyCount, 1);
+    assert.ok(scan.scanAudit.filesScanned > 0);
+    assert.ok(scan.scanAudit.directoriesSkipped > 0);
+    assert.equal(scan.components.some((component) => component.componentName === 'HiddenWidget'), false);
     assert.ok(scan.routes.some((route) => route.route === '/risk'));
     assert.ok(scan.components.some((component) => component.componentName === 'RiskSummaryCard'));
+    assert.ok(scan.components.some((component) =>
+      component.componentName === 'RiskSummaryCard'
+      && component.storybookStories?.some((story) => story.path === 'components/RiskSummaryCard.stories.tsx')
+    ));
     assert.ok(scan.components.some((component) => component.sourceUsage?.some((usage) => usage.file === 'app/risk/page.tsx')));
 
     const result = await generateTemplateFromSource(root, {

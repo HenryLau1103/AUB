@@ -160,6 +160,24 @@ const INIT_FILES = {
     projects: [],
     reports: [],
   }, null, 2)}\n`,
+  '.aubignore': [
+    '# AUB scanner ignore file.',
+    '# Keep secrets, generated output, caches, and large local-only files out of scan results.',
+    '',
+    '.env',
+    '.env.*',
+    '*.pem',
+    '*.key',
+    '*.p12',
+    '*.sqlite',
+    '*.db',
+    '*.log',
+    'node_modules/',
+    'dist/',
+    'build/',
+    'coverage/',
+    '',
+  ].join('\n'),
   '.aub/README.md': [
     '# AUB Workspace',
     '',
@@ -177,6 +195,22 @@ const INIT_FILES = {
     '```bash',
     'npx aub-workspace',
     '```',
+    '',
+  ].join('\n'),
+  'AGENTS.md': [
+    '# AUB Agent Instructions',
+    '',
+    'When this repository uses AUB, treat `.ui.json` as the source of truth for UI changes.',
+    '',
+    'Required workflow:',
+    '',
+    '1. Read `.aub/session.json` or call AUB MCP `get_aub_session` before editing UI source.',
+    '2. Read the active Blueprint with `get_blueprint`; do not redesign from prose.',
+    '3. Resolve custom component mappings through `resolve_component` and approved `aub.registry.json` entries.',
+    '4. Do not auto-approve `.aub/component-candidates.json`; users must review candidates first.',
+    '5. Reuse mapped production components instead of creating lookalike components.',
+    '6. Produce an implementation report with screenshot, DOM, overflow, component reuse, interaction, or code-diff evidence.',
+    '7. Run AUB verification before PR handoff: `npx aub-workspace` for the editor loop, then project checks plus AUB report verification.',
     '',
   ].join('\n'),
   '.github/workflows/aub-contracts.yml': [
@@ -197,6 +231,7 @@ const INIT_FILES = {
     '          config: .aub/ci.json',
     '          require-reports: "false"',
     '          require-evidence: "false"',
+    '          min-safety-score: ""',
     '',
   ].join('\n'),
   '.github/ISSUE_TEMPLATE/aub-ui-change.yml': [
@@ -293,6 +328,8 @@ function initFileEntries(args) {
   ];
   if (!args.ciOnly) {
     entries.push(['.aub/README.md', INIT_FILES['.aub/README.md']]);
+    entries.push(['.aubignore', INIT_FILES['.aubignore']]);
+    entries.push(['AGENTS.md', INIT_FILES['AGENTS.md']]);
   }
   if (args.github) {
     entries.push(['.github/workflows/aub-contracts.yml', INIT_FILES['.github/workflows/aub-contracts.yml']]);

@@ -26,6 +26,8 @@ test('WCLI1: aub-workspace init creates AUB config without app source edits', as
 
   assert.equal(existsSync(join(root, '.aub', 'ci.json')), true);
   assert.equal(existsSync(join(root, '.aub', 'README.md')), true);
+  assert.equal(existsSync(join(root, '.aubignore')), true);
+  assert.equal(existsSync(join(root, 'AGENTS.md')), true);
   assert.equal(existsSync(join(root, '.github')), false);
 
   const config = JSON.parse(await readFile(join(root, '.aub', 'ci.json'), 'utf8'));
@@ -55,6 +57,8 @@ test('WCLI3: aub-workspace init --force overwrites existing files', async () => 
   await runInit(root, ['--no-github', '--force']);
   const readme = await readFile(join(root, '.aub', 'README.md'), 'utf8');
   assert.match(readme, /This directory is managed by AUB/);
+  const agents = await readFile(join(root, 'AGENTS.md'), 'utf8');
+  assert.match(agents, /AUB Agent Instructions/);
 });
 
 test('WCLI4: aub-workspace init --ci-only keeps issue templates out', async () => {
@@ -63,6 +67,8 @@ test('WCLI4: aub-workspace init --ci-only keeps issue templates out', async () =
 
   assert.equal(existsSync(join(root, '.aub', 'ci.json')), true);
   assert.equal(existsSync(join(root, '.aub', 'README.md')), false);
+  assert.equal(existsSync(join(root, '.aubignore')), false);
+  assert.equal(existsSync(join(root, 'AGENTS.md')), false);
   assert.equal(existsSync(join(root, '.github', 'workflows', 'aub-contracts.yml')), true);
   assert.equal(existsSync(join(root, '.github', 'ISSUE_TEMPLATE')), false);
   assert.equal(existsSync(join(root, '.github', 'copilot-instructions.md')), false);

@@ -15,7 +15,7 @@
 
 > 本檔已與目前主版 README 的章節結構核對，僅保留正體中文譯文版本。
 
-[Workspace loop 指南](./docs/workspace-loop-user-manual.zh-Hant.md) · [10 分鐘 demo](./docs/workspace-loop-10-minute-demo.md) · [Agent 交付指南](./docs/agent-handoff.zh-Hant.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準範例](./examples/dashboard.ui.json)
+[Workspace loop 指南](./docs/workspace-loop-user-manual.zh-Hant.md) · [10 分鐘 demo](./docs/workspace-loop-10-minute-demo.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [Agent 交付指南](./docs/agent-handoff.zh-Hant.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準範例](./examples/dashboard.ui.json)
 
 ![AUB 視覺編輯器正在編輯響應式註冊流程](./docs/assets/aub-editor-zh-hant.jpg)
 
@@ -59,7 +59,7 @@ npx aub-workspace
 
 這會啟動本機 AUB MCP server、開啟內建 editor，並自動把 editor 連到你的 workspace。這條路徑不需要先 clone AUB repo。
 
-`init` 會安裝 AUB CI 設定、GitHub issue templates、Copilot instructions 與 PR workflow。進入 editor 後照這條路徑走：**掃描專案 → 產生範本 → 審核自訂元件候選 → 儲存 Blueprint/session → 複製 Agent 指令**。把指令貼給 Copilot、Codex 或其他 coding agent，讓它修改真實 app 並回報證據。
+`init` 會安裝 AUB CI 設定、`.aubignore`、`AGENTS.md`、GitHub issue templates、Copilot instructions 與 PR workflow。進入 editor 後照這條路徑走：**掃描專案 → 產生範本 → 審核自訂元件候選 → 儲存 Blueprint/session → 複製 Agent 指令**。把指令貼給 Copilot、Codex 或其他 coding agent，讓它修改真實 app 並回報證據。
 
 ## AUB 解決什麼問題
 
@@ -245,6 +245,8 @@ pnpm report:verify examples/dashboard.ui.json implementation-report.json
 # 擷取 preview 截圖、overflow 檢查與 implementation evidence
 pnpm report:capture -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
 pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+pnpm report:score screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json
+pnpm report:playwright -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings --output tests/aub-ui.spec.ts
 ```
 
 ### 自動補全規格段落
@@ -351,7 +353,7 @@ Blueprint 檔案以 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.sc
 - Angular 匯入、個人範本與 AI 生成工具包：已實作。
 - Blueprint diff 與 implementation report 驗證：已實作。
 - MCP server（stdio + Streamable HTTP），提供 23 個工具，包含 Design Bridge、驗證後寫入、handoff 打包、Blueprint／project／component／diff／migrate／lock／workspace session／專案掃描／範本生成／候選審核／report：已實作。
-- 一鍵 workspace 初始化（`npx aub-workspace init`）：CI 設定、issue templates、Copilot instructions 與 PR workflow：已實作。
+- 一鍵 workspace 初始化（`npx aub-workspace init`）：CI 設定、`.aubignore`、`AGENTS.md`、issue templates、Copilot instructions 與 PR workflow：已實作。
 - Workspace-connected editor loop：本機 MCP HTTP、session state、scanner 產生的範本、自訂元件候選審核、直接儲存 Blueprint 與實作預覽：已實作。
 - Implementation evidence capture：viewport 截圖、DOM query、overflow 與 report evidence 驗證：已實作。
 - `aub.registry.json` production component mapping：已實作。
