@@ -39,7 +39,7 @@ import type { ViewportQualityIssue, ViewportQualityReport } from '../lib/viewpor
 import { Tooltip } from './Tooltip';
 import type {
   Blueprint,
-  ComponentType,
+  ResolvedComponentType,
   DesignSystem,
   Layout,
   Placement,
@@ -52,7 +52,7 @@ import type {
 export interface CanvasHandle {
   captureViewports(): Promise<Record<string, string>>;
   auditViewports(): Promise<ViewportQualityReport>;
-  addComponent(type: ComponentType): boolean;
+  addComponent(type: ResolvedComponentType): boolean;
   focusNode(id: string): boolean;
 }
 
@@ -67,7 +67,7 @@ interface Props {
   language: Language;
   onSelectionChange: (ids: string[]) => void;
   onAddNode: (
-    type: ComponentType,
+    type: ResolvedComponentType,
     parentId: string | null,
     position?: { x: number; y: number },
     viewportId?: ViewportId,
@@ -89,7 +89,7 @@ interface Props {
   onSetViewportSize: (viewportId: ViewportId, size: { width?: number; height?: number }) => void;
   onCreateStarter: (kind: 'page' | 'app') => void;
   onTemplateSelect: (id: TemplateId) => void;
-  draggingType: ComponentType | null;
+  draggingType: ResolvedComponentType | null;
   onDragComplete: () => void;
   resetKey: number;
   propertiesOpen: boolean;
@@ -735,7 +735,7 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas({
 
   function nextFreeformPosition(
     parent: UINode,
-    type: ComponentType,
+    type: ResolvedComponentType,
     convertedPlacements: Array<{ id: string; viewportId: ViewportId; patch: Partial<Placement> }>
   ): { x: number; y: number } {
     const surface = containerSurface(parent.id);
@@ -1126,10 +1126,27 @@ function buildTree(blueprint: Blueprint): TreeContext {
   const byId = new Map(blueprint.nodes.map((node) => [node.id, node]));
   const root = blueprint.nodes.find((node) => node.parent_id === null) ?? null;
   const childrenById = new Map<string, UINode[]>();
+
   for (const node of blueprint.nodes) {
-    const declared = (node.children ?? []).map((id) => byId.get(id)).filter((child): child is UINode => Boolean(child));
-    const actual = blueprint.nodes.filter((child) => child.parent_id === node.id && !declared.some((item) => item.id === child.id));
-    childrenById.set(node.id, [...declared, ...actual]);
+    childrenById.set(node.id, []);
+  }
+
+  const declaredChildren = new Map<string, Set<string>>();
+  for (const node of blueprint.nodes) {
+    const childIds: string[] = node.children ?? [];
+    const declared = childIds
+      .map((id) => byId.get(id))
+      .filter((child): child is UINode => Boolean(child));
+    const declaredSet = new Set<string>(declared.map((child) => child.id));
+    childrenById.set(node.id, [...declared]);
+    declaredChildren.set(node.id, declaredSet);
+  }
+
+  for (const node of blueprint.nodes) {
+    if (!node.parent_id || !childrenById.has(node.parent_id)) continue;
+    const childrenSet = declaredChildren.get(node.parent_id);
+    if (childrenSet?.has(node.id)) continue;
+    childrenById.get(node.parent_id)?.push(node);
   }
   return { byId, childrenById, root };
 }
@@ -1143,12 +1160,12 @@ function isNodeInSubtree(id: string, ancestorId: string, tree: TreeContext): boo
   return false;
 }
 
-function readDropType(event: React.DragEvent, fallback: ComponentType | null): ComponentType | null {
+function readDropType(event: React.DragEvent, fallback: ResolvedComponentType | null): ResolvedComponentType | null {
   const value = event.dataTransfer.getData('application/aub-component-type')
     || event.dataTransfer.getData('text/plain')
     || fallback
     || '';
-  return getTypeMeta(value as ComponentType) ? value as ComponentType : null;
+  return getTypeMeta(value as ResolvedComponentType) ? value as ResolvedComponentType : null;
 }
 
 function getArtboardMetrics(viewport: Viewport, contentHeight = viewport.height) {
@@ -1292,7 +1309,7 @@ function hasScrollableAncestor(element: HTMLElement, boundary: HTMLElement): boo
   return false;
 }
 
-function minimumReadableWidth(type: ComponentType | undefined, viewportId: ViewportId): number {
+function minimumReadableWidth(type: ResolvedComponentType | undefined, viewportId: ViewportId): number {
   if (viewportId !== 'mobile') return 0;
   if (type === 'kanban_column') return 160;
   if (type === 'data_table') return 300;
@@ -1337,7 +1354,7 @@ function childrenLayoutStyle(node: UINode, hasChildren: boolean): CSSProperties 
   return layoutToStyle(node.layout, node.type, hasChildren);
 }
 
-function layoutToStyle(layout: Layout | undefined, type: ComponentType, hasChildren: boolean): CSSProperties {
+function layoutToStyle(layout: Layout | undefined, type: ResolvedComponentType, hasChildren: boolean): CSSProperties {
   const style: CSSProperties = {};
   if (layout?.display === 'grid' || type === 'grid') {
     style.display = 'grid';

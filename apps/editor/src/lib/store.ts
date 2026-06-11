@@ -6,6 +6,7 @@ import type {
   Blueprint,
   UINode,
   ComponentType,
+  ResolvedComponentType,
   Layout,
   Placement,
   Viewport,
@@ -59,14 +60,24 @@ function genId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${idCounter.toString(36)}`;
 }
 
+const nodeIndexCache = new WeakMap<Blueprint, Map<string, UINode>>();
+
+function getNodeIndex(blueprint: Blueprint): Map<string, UINode> {
+  let index = nodeIndexCache.get(blueprint);
+  if (index) return index;
+  index = new Map(blueprint.nodes.map((node) => [node.id, node]));
+  nodeIndexCache.set(blueprint, index);
+  return index;
+}
+
 /** Create a new node with sensible defaults based on its component type. */
-export function createNode(type: ComponentType, roleHint?: string, nameHint?: string): UINode {
+export function createNode(type: ResolvedComponentType, roleHint?: string, nameHint?: string): UINode {
   const id = genId(type);
   const layout = defaultEditorLayoutForType(type);
   const base: UINode = {
     id,
     type,
-    name: nameHint ?? type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    name: nameHint ?? type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
     role: roleHint ?? `${type} added by editor`,
     parent_id: null,
     children: [],
@@ -76,7 +87,11 @@ export function createNode(type: ComponentType, roleHint?: string, nameHint?: st
   return base;
 }
 
-function defaultEditorLayoutForType(type: ComponentType): Layout | undefined {
+function toCoreComponentType(type: ResolvedComponentType): ComponentType | null {
+  return type.includes(':') ? null : (type as ComponentType);
+}
+
+function defaultEditorLayoutForType(type: ResolvedComponentType): Layout | undefined {
   if (type === 'page' || type === 'section' || type === 'card') {
     return { mode: 'freeform' };
   }
@@ -84,7 +99,7 @@ function defaultEditorLayoutForType(type: ComponentType): Layout | undefined {
 }
 
 /** Default child arrangement for every registered container type. */
-export function defaultLayoutForType(type: ComponentType): Layout | undefined {
+export function defaultLayoutForType(type: ResolvedComponentType): Layout | undefined {
   switch (type) {
     case 'grid':
       return {
@@ -153,7 +168,7 @@ export function defaultLayoutForType(type: ComponentType): Layout | undefined {
 }
 
 export function defaultPlacementForType(
-  type: ComponentType,
+  type: ResolvedComponentType,
   position: { x: number; y: number } = { x: 32, y: 32 }
 ): Placement {
   const sizes: Partial<Record<ComponentType, { width: number; height: number }>> = {
@@ -183,13 +198,14 @@ export function defaultPlacementForType(
     kanban_column: { width: 260, height: 460 },
     rich_text_editor: { width: 620, height: 480 },
   };
-  const size = sizes[type] ?? { width: 240, height: 120 };
+  const componentType = toCoreComponentType(type);
+  const size = (componentType && sizes[componentType]) ?? { width: 240, height: 120 };
   return { ...position, ...size, z_index: 1 };
 }
 
 /** Find a node by id in a blueprint (depth-first). */
 export function findNode(blueprint: Blueprint, id: string): UINode | undefined {
-  return blueprint.nodes.find((n) => n.id === id);
+  return getNodeIndex(blueprint).get(id);
 }
 
 /** Find the root node (parent_id === null). */
@@ -204,11 +220,12 @@ export function addNode(blueprint: Blueprint, node: UINode, parentId: string | n
     return { ...blueprint, nodes: [{ ...node, parent_id: null }] };
   }
   const target = parentId ?? root.id;
+  const nodeIndex = getNodeIndex(blueprint);
   const updated: Blueprint = {
     ...blueprint,
     nodes: [...blueprint.nodes, { ...node, parent_id: target }],
   };
-  const newTarget = blueprint.nodes.find((n) => n.id === target);
+  const newTarget = nodeIndex.get(target);
   if (newTarget && !newTarget.children?.includes(node.id)) {
     const next = { ...newTarget, children: [...(newTarget.children ?? []), node.id] };
     updated.nodes = updated.nodes.map((n) => (n.id === target ? next : n));
@@ -250,10 +267,11 @@ export function wrapRootInAppShell(blueprint: Blueprint, shell: UINode, slot: UI
 
 /** Delete a node and all its descendants. Promotes nothing — just removes. */
 export function deleteNode(blueprint: Blueprint, id: string): Blueprint {
+  const nodeIndex = getNodeIndex(blueprint);
   const toRemove = new Set<string>();
   const walk = (nid: string) => {
     toRemove.add(nid);
-    const n = blueprint.nodes.find((nn) => nn.id === nid);
+    const n = nodeIndex.get(nid);
     if (n?.children) for (const cid of n.children) walk(cid);
   };
   walk(id);
@@ -378,8 +396,9 @@ export function reparentNode(
   parentId: string,
   index?: number
 ): Blueprint {
-  const node = findNode(blueprint, id);
-  const parent = findNode(blueprint, parentId);
+  const nodeIndex = getNodeIndex(blueprint);
+  const node = nodeIndex.get(id);
+  const parent = nodeIndex.get(parentId);
   if (!node || !parent || !isContainerType(parent.type) || node.parent_id === null || id === parentId) {
     return blueprint;
   }
@@ -429,17 +448,18 @@ export function duplicateNodes(
   ids: string[],
   duplicateName: (name: string) => string = (name) => `${name} Copy`
 ): { blueprint: Blueprint; ids: string[] } {
-  const duplicableIds = ids.filter((id) => findNode(blueprint, id)?.parent_id !== null);
+  const nodeIndex = getNodeIndex(blueprint);
+  const duplicableIds = ids.filter((id) => nodeIndex.get(id)?.parent_id !== null);
   const selected = new Set(duplicableIds);
   const roots = duplicableIds.filter((id) => {
-    const node = findNode(blueprint, id);
+    const node = nodeIndex.get(id);
     return node && !selected.has(node.parent_id ?? '');
   });
   const idMap = new Map<string, string>();
   const clonedNodes: UINode[] = [];
 
   function cloneSubtree(id: string, parentOverride?: string) {
-    const source = findNode(blueprint, id);
+    const source = nodeIndex.get(id);
     if (!source) return;
     const nextId = genId(source.type);
     idMap.set(id, nextId);
@@ -460,10 +480,10 @@ export function duplicateNodes(
   for (const id of roots) cloneSubtree(id);
   let next = { ...blueprint, nodes: [...blueprint.nodes, ...clonedNodes] };
   for (const rootId of roots) {
-    const source = findNode(blueprint, rootId);
+    const source = nodeIndex.get(rootId);
     const cloneId = idMap.get(rootId);
     if (!source?.parent_id || !cloneId) continue;
-    const parent = findNode(next, source.parent_id);
+    const parent = getNodeIndex(next).get(source.parent_id);
     next = updateNode(next, source.parent_id, {
       children: [...(parent?.children ?? []), cloneId],
     });
@@ -480,8 +500,9 @@ export function setNodeZIndex(
   viewportId: ViewportId,
   direction: 'front' | 'back'
 ): Blueprint {
+  const nodeIndex = getNodeIndex(blueprint);
   const selected = ids
-    .map((id) => findNode(blueprint, id))
+    .map((id) => nodeIndex.get(id))
     .filter((node): node is UINode => Boolean(node));
   const groups = new Map<string | null, UINode[]>();
 
@@ -510,10 +531,10 @@ export function setNodeZIndex(
 }
 
 function isDescendant(blueprint: Blueprint, id: string, possibleAncestorId: string): boolean {
-  let current = findNode(blueprint, id);
+  let current = getNodeIndex(blueprint).get(id);
   while (current?.parent_id) {
     if (current.parent_id === possibleAncestorId) return true;
-    current = findNode(blueprint, current.parent_id);
+    current = getNodeIndex(blueprint).get(current.parent_id);
   }
   return false;
 }
@@ -554,7 +575,7 @@ function completePlacements(blueprint: Blueprint, node: UINode): UINode['placeme
   })) as UINode['placements'];
 }
 
-function defaultContentForType(type: ComponentType): Pick<UINode, 'content' | 'style'> {
+function defaultContentForType(type: ResolvedComponentType): Pick<UINode, 'content' | 'style'> {
   const contentByType: Partial<Record<ComponentType, UINode['content']>> = {
     heading: { text: 'Heading' },
     text: { text: 'Text content' },
@@ -574,8 +595,9 @@ function defaultContentForType(type: ComponentType): Pick<UINode, 'content' | 's
     card: { background: 'surface.panel', border: 'border.default', radius: 'radius.panel', shadow: 'shadow.panel' },
     button: { background: 'action.primary', foreground: 'action.primary.text', radius: 'radius.control', variant: 'primary' },
   };
+  const componentType = toCoreComponentType(type);
   return {
-    ...(contentByType[type] ? { content: contentByType[type] } : {}),
-    ...(styleByType[type] ? { style: styleByType[type] } : {}),
+    ...(componentType && contentByType[componentType] ? { content: contentByType[componentType] } : {}),
+    ...(componentType && styleByType[componentType] ? { style: styleByType[componentType] } : {}),
   };
 }

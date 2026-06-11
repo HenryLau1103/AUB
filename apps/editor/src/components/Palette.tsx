@@ -3,7 +3,7 @@ import { Boxes, Download, Layers3, LayoutTemplate, Save, Trash2 } from 'lucide-r
 import { categoryDescription, categoryLabel, componentDescription, componentLabel, t, type Language } from '../lib/i18n';
 import { getCategories, isContainerType } from '../lib/registry';
 import { TEMPLATE_GROUPS, templateDescription, templateLabel, type TemplateId } from '../lib/templates';
-import type { Blueprint, ComponentType, UINode } from '../types';
+import type { Blueprint, ResolvedComponentType, UINode } from '../types';
 import type { PersonalTemplate } from '../lib/personal-templates';
 import type { WorkspaceTemplate } from '../lib/workspace-client';
 
@@ -11,12 +11,12 @@ interface Props {
   blueprint: Blueprint | null;
   selectedIds: string[];
   language: Language;
-  onAdd: (type: ComponentType) => void;
+  onAdd: (type: ResolvedComponentType) => void;
   onSelect: (ids: string[]) => void;
   onReparent: (id: string, parentId: string) => void;
   onTemplateSelect: (id: TemplateId) => void;
-  draggingType: ComponentType | null;
-  onDraggingTypeChange: (type: ComponentType | null) => void;
+  draggingType: ResolvedComponentType | null;
+  onDraggingTypeChange: (type: ResolvedComponentType | null) => void;
   personalTemplates: PersonalTemplate[];
   onSavePersonalTemplate: (name: string) => void;
   onLoadPersonalTemplate: (template: PersonalTemplate) => void;

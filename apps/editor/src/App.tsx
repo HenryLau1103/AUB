@@ -19,7 +19,7 @@ import {
 } from './lib/io';
 import { componentLabel, t, type Language } from './lib/i18n';
 import { loadDraft, saveDraft } from './lib/draft-storage';
-import { isContainerType } from './lib/registry';
+import { isContainerType, setExtensionRegistry as setExtensionRegistryForEditor } from './lib/registry';
 import {
   addNode,
   createNode,
@@ -77,7 +77,7 @@ import {
   type EditorProject,
   type NavigationEdge,
 } from './lib/project';
-import type { Blueprint, ComponentType, Placement, UINode, ViewportId } from './types';
+import type { Blueprint, ComponentType, Placement, UINode, ViewportId, ResolvedComponentType } from './types';
 import schemaJson from '../../../schema/ui-blueprint.schema.json';
 import { defaultDesignSystem, migrateBlueprint } from '../../../scripts/migrate-blueprint.mjs';
 import { validateBlueprintSemantics } from '../../../scripts/validate-blueprint.lib.mjs';
@@ -227,7 +227,7 @@ export function App() {
       ? initialDraft.language === 'zh-Hant' ? '已恢復上次的本機草稿。' : 'Restored the last local draft.'
       : null
   ));
-  const [draggingType, setDraggingType] = useState<ComponentType | null>(null);
+  const [draggingType, setDraggingType] = useState<ResolvedComponentType | null>(null);
   const [propertiesOpen, setPropertiesOpen] = useState(() => window.innerWidth > 980);
   const [canvasResetKey, setCanvasResetKey] = useState(0);
   const [workflowStage, setWorkflowStage] = useState<WorkflowStage>('layout');
@@ -268,6 +268,15 @@ export function App() {
   const blueprint = history.present;
   const selectedId = selectedIds[0] ?? null;
 
+  useEffect(() => {
+    try {
+      setExtensionRegistryForEditor(extensionRegistry);
+    } catch (error) {
+      setNotice(t(language, 'registryInvalid', { message: (error as Error).message }));
+      setExtensionRegistry(null);
+    }
+  }, [extensionRegistry, language]);
+
   const errors = useMemo(() => {
     if (!blueprint) return [];
     const ok = validateSchema(blueprint);
@@ -299,10 +308,12 @@ export function App() {
       if (!Array.isArray(parsed.components)) {
         throw new Error('missing required "components" array');
       }
+      setExtensionRegistryForEditor(`${JSON.stringify(parsed, null, 2)}\n`);
       setExtensionRegistry(`${JSON.stringify(parsed, null, 2)}\n`);
       setNotice(t(language, 'registryImported', { count: parsed.components.length }));
     } catch (error) {
       setNotice(t(language, 'registryInvalid', { message: (error as Error).message }));
+      setExtensionRegistry(null);
     }
   }
 
@@ -318,6 +329,7 @@ export function App() {
       await runAngularEntry(files, entries, selectedEntry);
     } catch (error) {
       setNotice((error as Error).message);
+      setExtensionRegistry(null);
     }
   }
 
@@ -611,6 +623,7 @@ export function App() {
         if (!Array.isArray(parsedRegistry.components)) {
           throw new Error('aub.registry.json is missing the required "components" array');
         }
+        setExtensionRegistryForEditor(`${JSON.stringify(parsedRegistry, null, 2)}\n`);
         setExtensionRegistry(`${JSON.stringify(parsedRegistry, null, 2)}\n`);
       } else {
         setExtensionRegistry(null);
@@ -808,7 +821,7 @@ export function App() {
   }, []);
 
   function handleAdd(
-    type: ComponentType,
+    type: ResolvedComponentType,
     parentId: string | null = null,
     position?: { x: number; y: number },
     viewportId: ViewportId = 'desktop',
@@ -1236,7 +1249,7 @@ export function App() {
 
 function placementsForNewNode(
   blueprint: Blueprint,
-  type: ComponentType,
+  type: ResolvedComponentType,
   position: { x: number; y: number } | undefined,
   activeViewport: ViewportId
 ): UINode['placements'] {
@@ -1270,7 +1283,7 @@ function isTextEditingTarget(target: EventTarget | null): boolean {
 
 function localizeDefaultContent(
   language: Language,
-  type: ComponentType,
+  type: ResolvedComponentType,
   label: string,
   content: UINode['content']
 ): UINode['content'] {

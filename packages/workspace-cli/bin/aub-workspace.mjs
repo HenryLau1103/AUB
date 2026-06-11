@@ -168,6 +168,22 @@ function openBrowser(url) {
   child.unref();
 }
 
+async function stopChildProcess(child, timeoutMs = 2500) {
+  if (child.killed || child.exitCode !== null) return;
+  child.kill('SIGTERM');
+  let exited = false;
+  await Promise.race([
+    once(child, 'exit').then(() => {
+      exited = true;
+    }),
+    new Promise((resolveTimer) => setTimeout(resolveTimer, timeoutMs)),
+  ]);
+  if (!exited && !child.killed) {
+    child.kill('SIGKILL');
+    await once(child, 'exit').catch(() => {});
+  }
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
@@ -231,11 +247,14 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
     editorServer.close();
-    if (!mcp.killed) mcp.kill('SIGTERM');
+    void stopChildProcess(mcp)
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
   mcp.on('exit', (code) => {
+    if (shuttingDown) return;
     editorServer.close(() => process.exit(code ?? 0));
   });
 }

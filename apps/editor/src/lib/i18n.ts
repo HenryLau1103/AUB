@@ -1,4 +1,5 @@
-import type { ComponentType, NodeState, Viewport } from '../types';
+import type { ComponentType, NodeState, ResolvedComponentType, Viewport } from '../types';
+import { getTypeMeta } from './registry';
 
 export type Language = 'en' | 'zh-Hant';
 
@@ -888,12 +889,12 @@ export function categoryDescription(language: Language, id: string, fallback: st
   return CATEGORY_DESCRIPTIONS[language][id] ?? fallback;
 }
 
-export function componentLabel(language: Language, type: ComponentType, fallback: string = type): string {
-  return TYPE_LABELS[language][type] ?? fallback;
+export function componentLabel(language: Language, type: ResolvedComponentType, fallback: string = type): string {
+  return TYPE_LABELS[language][type as ComponentType] ?? getTypeMeta(type)?.displayName ?? fallback;
 }
 
-export function componentDescription(language: Language, type: ComponentType, fallback: string): string {
-  return TYPE_DESCRIPTIONS[language][type] ?? fallback;
+export function componentDescription(language: Language, type: ResolvedComponentType, fallback: string): string {
+  return TYPE_DESCRIPTIONS[language][type as ComponentType] ?? getTypeMeta(type)?.description ?? fallback;
 }
 
 export function viewportLabel(language: Language, id: Viewport['id']): string {

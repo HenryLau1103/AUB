@@ -92,10 +92,10 @@ export function WorkspacePanel({
         <div className="workspace-grid">
           <section>
             <h3>{zh ? 'Blueprint 檔案' : 'Blueprint files'}</h3>
-            <select defaultValue="" onChange={(event) => event.target.value && onLoadBlueprint(event.target.value)}>
-              <option value="" disabled>{zh ? '載入 workspace Blueprint...' : 'Load workspace Blueprint...'}</option>
-              {status.routes.length === 0 && <option value="" disabled>{zh ? '尚未掃描 route' : 'No scanned routes yet'}</option>}
-              {(status as any).blueprints?.map((entry: { path: string; screenName: string }) => (
+              <select defaultValue="" onChange={(event) => event.target.value && onLoadBlueprint(event.target.value)}>
+                <option value="" disabled>{zh ? '載入 workspace Blueprint...' : 'Load workspace Blueprint...'}</option>
+                {status.routes.length === 0 && <option value="" disabled>{zh ? '尚未掃描 route' : 'No scanned routes yet'}</option>}
+              {status.blueprints?.map((entry: { path: string; screenName: string }) => (
                 <option key={entry.path} value={entry.path}>{entry.screenName} · {entry.path}</option>
               ))}
             </select>
