@@ -212,6 +212,10 @@ function starterAcceptance(language: Language, rootId: string): Blueprint['accep
 
 export function App() {
   const [initialDraft] = useState(loadDraft);
+  const [initialWorkspaceEndpoint] = useState(() => {
+    if (typeof window === 'undefined') return 'http://127.0.0.1:3100/mcp';
+    return new URLSearchParams(window.location.search).get('mcp') ?? 'http://127.0.0.1:3100/mcp';
+  });
   const [history, setHistory] = useState<BlueprintHistory>(() => createHistory(initialDraft?.blueprint ?? null));
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
     const root = initialDraft?.blueprint.nodes.find((node) => node.parent_id === null);
@@ -252,7 +256,7 @@ export function App() {
   const [project, setProject] = useState<EditorProject | null>(null);
   const [activeScreenId, setActiveScreenId] = useState<string | null>(null);
   const [extensionRegistry, setExtensionRegistry] = useState<string | null>(null);
-  const [workspaceEndpoint, setWorkspaceEndpoint] = useState('http://127.0.0.1:3100/mcp');
+  const [workspaceEndpoint, setWorkspaceEndpoint] = useState(initialWorkspaceEndpoint);
   const [workspaceConnection, setWorkspaceConnection] = useState<WorkspaceConnection | null>(null);
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus | null>(null);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
@@ -260,6 +264,7 @@ export function App() {
   const [workspaceSavePath, setWorkspaceSavePath] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<CanvasHandle>(null);
+  const autoConnectWorkspaceRef = useRef(false);
   const blueprint = history.present;
   const selectedId = selectedIds[0] ?? null;
 
@@ -413,6 +418,14 @@ export function App() {
       setWorkspaceLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (autoConnectWorkspaceRef.current) return;
+    if (!initialWorkspaceEndpoint || workspaceConnection || workspaceLoading) return;
+    if (!new URLSearchParams(window.location.search).has('mcp')) return;
+    autoConnectWorkspaceRef.current = true;
+    void handleConnectWorkspace();
+  }, [initialWorkspaceEndpoint, workspaceConnection, workspaceLoading]);
 
   async function handleRefreshWorkspace() {
     if (!workspaceConnection) return;

@@ -8,6 +8,8 @@
     "node": ">=24"
   },
   "scripts": {
+    "workspace:start": "node packages/workspace-cli/bin/aub-workspace.mjs",
+    "workspace:package": "pnpm --dir apps/mcp-server build && pnpm --dir apps/editor build && pnpm --dir packages/workspace-cli pack --pack-destination ../../dist",
     "validate": "node scripts/validate.mjs",
     "scaffold": "node scripts/scaffold-blueprint.mjs",
     "project": "node scripts/project.mjs",

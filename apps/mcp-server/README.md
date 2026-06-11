@@ -39,6 +39,20 @@ The server is a thin wrapper over the repository's existing pure-function librar
 
 ## Build
 
+Most users should not start this package directly. From the existing app they
+want AUB to inspect and edit, run:
+
+```bash
+cd /path/to/existing-app
+npx aub-workspace
+```
+
+That command starts this MCP server, serves the AUB editor, and opens the editor
+already connected to the workspace.
+
+Use the manual commands below when developing AUB itself or registering the MCP
+server with a specific client.
+
 ```bash
 cd apps/mcp-server
 pnpm install

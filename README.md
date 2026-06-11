@@ -140,6 +140,25 @@ import, validated writes, handoff packaging, validation, scaffolding, component 
 prompt export, diff, migration, locking, workspace sessions, app scanning, template generation,
 component candidate review, and implementation-report submission.
 
+For most users, start inside the existing app you want AUB to work on:
+
+```bash
+cd /path/to/existing-app
+npx aub-workspace
+```
+
+This starts the local MCP HTTP server, serves the bundled AUB editor, connects
+the editor to the workspace, and opens the browser. No AUB clone is required for
+this path once `aub-workspace` is published to npm.
+
+For AUB repo development, run from the AUB repo root:
+
+```bash
+pnpm workspace:start -- --workspace /path/to/existing-app
+```
+
+Manual MCP server startup remains available for agent/client configuration:
+
 ```bash
 (cd apps/mcp-server && pnpm install && pnpm build)
 node apps/mcp-server/dist/index.js /path/to/your/repo
@@ -154,14 +173,15 @@ acceptance criteria are unchanged.
 
 ### Workspace-connected editor loop
 
-For an existing app, run the Streamable HTTP server against that app's repo and
-connect the AUB editor to `http://127.0.0.1:3100/mcp`:
+For an existing app, the one-command path is:
 
 ```bash
-node apps/mcp-server/dist/http.js --workspace /path/to/existing-app --port 3100
+cd /path/to/existing-app
+npx aub-workspace
 ```
 
-The editor uses the same server process to load and save Blueprints, update
+The command opens the editor already connected to the local MCP endpoint. The
+editor uses the same server process to load and save Blueprints, update
 `.aub/session.json`, review `.aub/templates/*.aub.template.json`, approve
 `.aub/component-candidates.json`, and preview the app's local dev route. Coding
 agents continue to use MCP tools such as `get_aub_session`, `get_blueprint`,
