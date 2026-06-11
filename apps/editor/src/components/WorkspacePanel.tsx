@@ -18,6 +18,8 @@ interface Props {
   onConnect: () => void;
   onDisconnect: () => void;
   onRefresh: () => void;
+  onScanWorkspace: () => void;
+  onGenerateTemplate: (sourcePath: string) => void;
   onLoadBlueprint: (path: string) => void;
   onSaveBlueprint: () => void;
   onSavePathChange: (value: string) => void;
@@ -38,6 +40,8 @@ export function WorkspacePanel({
   onConnect,
   onDisconnect,
   onRefresh,
+  onScanWorkspace,
+  onGenerateTemplate,
   onLoadBlueprint,
   onSaveBlueprint,
   onSavePathChange,
@@ -48,6 +52,8 @@ export function WorkspacePanel({
   const session = status?.session ?? null;
   const currentPreviewUrl = previewUrl(session);
   const [previewDraft, setPreviewDraft] = useState({ devServerUrl: '', route: '' });
+  const [selectedTemplateSource, setSelectedTemplateSource] = useState('');
+  const [instructionCopied, setInstructionCopied] = useState(false);
 
   useEffect(() => {
     setPreviewDraft({
@@ -56,8 +62,27 @@ export function WorkspacePanel({
     });
   }, [session?.preview?.devServerUrl, session?.preview?.route]);
 
+  useEffect(() => {
+    if (selectedTemplateSource) return;
+    const firstRoute = status?.routes[0];
+    if (firstRoute?.path) setSelectedTemplateSource(firstRoute.path);
+  }, [selectedTemplateSource, status?.routes]);
+
   const previewDirty = previewDraft.devServerUrl !== (session?.preview?.devServerUrl ?? '')
     || previewDraft.route !== (session?.preview?.route ?? '');
+  const agentInstruction = status ? buildAgentInstruction(language, status, savePath) : '';
+  const canCopyInstruction = Boolean(status?.session.activeBlueprint || savePath.trim());
+
+  async function copyAgentInstruction() {
+    if (!agentInstruction) return;
+    try {
+      await navigator.clipboard.writeText(agentInstruction);
+      setInstructionCopied(true);
+      window.setTimeout(() => setInstructionCopied(false), 1800);
+    } catch {
+      window.prompt(zh ? '請複製這段 Agent 指令' : 'Copy this agent instruction', agentInstruction);
+    }
+  }
 
   return (
     <section className={`workspace-panel${connected ? ' connected' : ''}`}>
@@ -89,8 +114,47 @@ export function WorkspacePanel({
       </header>
       {error && <p className="workspace-error">{error}</p>}
       {connected && status && (
-        <div className="workspace-grid">
-          <section>
+        <>
+          <section className="workspace-onboarding">
+            <div>
+              <h3>{zh ? '第一次使用流程' : 'First workspace loop'}</h3>
+              <p>
+                {zh
+                  ? '照順序完成掃描、產範本、審核、儲存，再把指令交給 Agent。'
+                  : 'Scan, generate a template, review candidates, save, then hand the instruction to your agent.'}
+              </p>
+            </div>
+            <OnboardingSteps language={language} status={status} />
+            <div className="workspace-onboarding-actions">
+              <button type="button" onClick={onScanWorkspace} disabled={loading}>
+                {zh ? '掃描專案' : 'Scan project'}
+              </button>
+              <select
+                value={selectedTemplateSource}
+                onChange={(event) => setSelectedTemplateSource(event.target.value)}
+                disabled={status.routes.length === 0}
+              >
+                <option value="" disabled>{zh ? '選擇 route 產生範本' : 'Select route for template'}</option>
+                {status.routes.map((route) => (
+                  <option key={`${route.path}-${route.route}`} value={route.path}>
+                    {route.route} · {route.path}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={!selectedTemplateSource || loading}
+                onClick={() => onGenerateTemplate(selectedTemplateSource)}
+              >
+                {zh ? '產生範本' : 'Generate template'}
+              </button>
+              <button type="button" disabled={!canCopyInstruction} onClick={() => void copyAgentInstruction()}>
+                {instructionCopied ? (zh ? '已複製' : 'Copied') : (zh ? '複製 Agent 指令' : 'Copy agent instruction')}
+              </button>
+            </div>
+          </section>
+          <div className="workspace-grid">
+            <section>
             <h3>{zh ? 'Blueprint 檔案' : 'Blueprint files'}</h3>
             <select defaultValue="" onChange={(event) => event.target.value && onLoadBlueprint(event.target.value)}>
               <option value="" disabled>{zh ? '載入 workspace Blueprint...' : 'Load workspace Blueprint...'}</option>
@@ -146,10 +210,88 @@ export function WorkspacePanel({
               onReviewCandidate={onReviewCandidate}
             />
           </section>
-        </div>
+          </div>
+        </>
       )}
     </section>
   );
+}
+
+function OnboardingSteps({ language, status }: { language: Language; status: WorkspaceStatus }) {
+  const zh = language === 'zh-Hant';
+  const candidateCount = status.componentCandidates.length;
+  const pendingCandidateCount = status.componentCandidates.filter((candidate) => candidate.status === 'candidate').length;
+  const steps = [
+    {
+      done: true,
+      label: zh ? '已連線 workspace' : 'Workspace connected',
+    },
+    {
+      done: status.routes.length > 0 || status.routeCount > 0,
+      label: zh ? '掃描 routes / components' : 'Scan routes / components',
+    },
+    {
+      done: status.templates.length > 0 || status.templateCount > 0,
+      label: zh ? '產生 workspace 範本' : 'Generate workspace template',
+    },
+    {
+      done: candidateCount === 0 ? status.routes.length > 0 : pendingCandidateCount === 0,
+      label: zh ? '審核自訂元件候選' : 'Review component candidates',
+    },
+    {
+      done: Boolean(status.session.activeBlueprint),
+      label: zh ? '儲存 Blueprint / session' : 'Save Blueprint / session',
+    },
+    {
+      done: Boolean(status.session.activeBlueprint),
+      label: zh ? '交給 Agent 實作' : 'Hand off to agent',
+    },
+  ];
+
+  return (
+    <ol className="workspace-onboarding-steps">
+      {steps.map((step, index) => (
+        <li key={step.label} className={step.done ? 'complete' : 'pending'}>
+          <span>{step.done ? '✓' : index + 1}</span>
+          {step.label}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function buildAgentInstruction(language: Language, status: WorkspaceStatus, savePath: string): string {
+  const zh = language === 'zh-Hant';
+  const session = status.session;
+  const activeBlueprint = session.activeBlueprint ?? (savePath.trim() || '(active blueprint)');
+  const targetRoute = session.targetRoute ?? session.preview?.route ?? '(target route)';
+  const preview = previewUrl(session) || '(preview URL not set)';
+  if (zh) {
+    return [
+      '我已經在 AUB Editor 調整好了。',
+      '',
+      '請透過 AUB MCP 讀取 get_aub_session，取得 activeBlueprint、targetRoute 與 preview 設定。',
+      `目前 Blueprint：${activeBlueprint}`,
+      `目標 route：${targetRoute}`,
+      `預覽 URL：${preview}`,
+      '',
+      '接著請讀 get_blueprint，依照這份 Blueprint 修改目前專案的真實畫面。',
+      '請優先使用 aub.registry.json 中已核准的元件 mapping，不要自行重做相似元件。',
+      '完成後請提交 implementation report，逐項回報 acceptance criteria 與驗證證據。',
+    ].join('\n');
+  }
+  return [
+    'I finished adjusting the screen in AUB Editor.',
+    '',
+    'Use AUB MCP get_aub_session to read activeBlueprint, targetRoute, and preview settings.',
+    `Current Blueprint: ${activeBlueprint}`,
+    `Target route: ${targetRoute}`,
+    `Preview URL: ${preview}`,
+    '',
+    'Then read get_blueprint and update the real app screen according to this Blueprint.',
+    'Prefer approved component mappings from aub.registry.json. Do not recreate lookalike components.',
+    'When done, submit an implementation report with evidence for every acceptance criterion.',
+  ].join('\n');
 }
 
 function CandidateList({
