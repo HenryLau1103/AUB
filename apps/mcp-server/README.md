@@ -27,6 +27,13 @@ The server is a thin wrapper over the repository's existing pure-function librar
 | `diff_blueprints` | `before`, `after` | Returns structural changes between two Blueprint revisions. |
 | `migrate_blueprint` | `ref?` or inline `blueprint?` | Migrates v0.1/v0.2 to the current version without writing files. |
 | `lock_blueprint` | `ref?` or inline `blueprint?` | Creates a deterministic acceptance lock snapshot without writing files. |
+| `get_aub_session` | — | Reads `.aub/session.json` so agents know the active Blueprint, project, route, and preview target. |
+| `update_aub_session` | `patch` | Merges editor/agent state into `.aub/session.json`. |
+| `get_workspace_status` | — | Returns frameworks, routes, workspace templates, component candidates, and session state. |
+| `scan_project_ui` | `namespace?`, `limit?` | Statically scans React/Next, Vue/Nuxt, and Angular sources; writes `.aub/component-candidates.json` without touching `aub.registry.json`. |
+| `generate_template_from_source` | `sourcePath`, metadata | Writes `.aub/templates/<slug>.aub.template.json` with a candidate Blueprint and source references. |
+| `approve_component_candidate` | `id`, `action`, metadata | Reviews a candidate. Only `create_extension` writes `aub.registry.json`; `map_core` and `ignore` stay in the candidates file. |
+| `export_template_authoring_prompt` | — | Returns the contract other agents should follow when scanning apps into AUB templates. |
 
 `ref` is either a file path (relative to the workspace root) or a Blueprint `screen.id`.
 
@@ -56,6 +63,11 @@ curl http://127.0.0.1:3100/health
 The MCP endpoint is `http://127.0.0.1:3100/mcp`. Localhost bindings include the
 SDK's DNS rebinding protection. When exposing another host, put the endpoint
 behind your normal authentication and network controls.
+
+The same HTTP process also exposes `POST /rpc` for the AUB editor's
+workspace-connected mode. `/rpc` calls the same registered tool implementations
+as `/mcp`; it exists so browser UI code does not need to implement the full
+Streamable HTTP MCP session protocol.
 
 ## Register with an agent
 

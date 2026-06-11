@@ -103,7 +103,7 @@ interface TreeContext {
 }
 
 const FALLBACK_VIEWPORT: Viewport = { id: 'desktop', width: 1440, height: 900 };
-const MIN_ZOOM = 0.25;
+const MIN_ZOOM = 0.05;
 const MAX_ZOOM = 1.5;
 const ZOOM_STEP = 0.1;
 
@@ -257,7 +257,22 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas({
   useEffect(() => {
     const frame = requestAnimationFrame(() => fitArtboard());
     return () => cancelAnimationFrame(frame);
-  }, [viewportId]);
+  }, [viewportId, activeViewport.width, activeViewport.height]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return undefined;
+    let frame = requestAnimationFrame(() => fitArtboard());
+    const observer = new ResizeObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => fitArtboard());
+    });
+    observer.observe(stage);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [viewportId, activeViewport.width, activeViewport.height, resetKey]);
 
   useEffect(() => {
     if (draggingType) dragHandledRef.current = false;
@@ -459,8 +474,11 @@ export const Canvas = forwardRef<CanvasHandle, Props>(function Canvas({
   function fitArtboard() {
     const stage = stageRef.current;
     if (!stage) return;
-    const horizontalScale = (stage.clientWidth - 56) / artboardMetrics.width;
-    const verticalScale = (stage.clientHeight - 56) / artboardMetrics.height;
+    const availableWidth = stage.clientWidth - 56;
+    const availableHeight = stage.clientHeight - 56;
+    if (availableWidth <= 0 || availableHeight <= 0) return;
+    const horizontalScale = availableWidth / artboardMetrics.width;
+    const verticalScale = availableHeight / artboardMetrics.height;
     updateZoom(Math.min(1, horizontalScale, verticalScale));
     stage.scrollTo({ left: 0, top: 0 });
   }
@@ -1134,8 +1152,10 @@ function readDropType(event: React.DragEvent, fallback: ComponentType | null): C
 }
 
 function getArtboardMetrics(viewport: Viewport, contentHeight = viewport.height) {
-  const width = viewport.id === 'mobile' ? 390 : viewport.id === 'tablet' ? 820 : viewport.id === 'wide' ? 1360 : 1120;
-  return { width, height: Math.round(width * (Math.max(viewport.height, contentHeight) / viewport.width)) };
+  return {
+    width: viewport.width,
+    height: Math.max(viewport.height, Math.round(contentHeight)),
+  };
 }
 
 function pointWithinContainer(clientX: number, clientY: number, element: HTMLElement | null, zoom: number, geometryScale: number) {

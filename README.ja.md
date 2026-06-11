@@ -84,7 +84,7 @@ Adapter は実行指示だけを変更し、schema、layout、interaction、acce
 
 ## MCP server
 
-16 個の MCP ツールを stdio または Streamable HTTP で提供します。Blueprint／project の検索、Figma／Penpot bridge import、検証済み write、handoff package、validation、scaffold、component resolve、prompt、diff、migration、lock、implementation report を扱えます。
+23 個の MCP ツールを stdio または Streamable HTTP で提供します。Blueprint／project の検索、Figma／Penpot bridge import、検証済み write、handoff package、validation、scaffold、component resolve、prompt、diff、migration、lock、workspace session、project scan、template generation、custom component candidate review、implementation report を扱えます。
 
 ```bash
 (cd apps/mcp-server && pnpm install && pnpm build)
@@ -93,6 +93,8 @@ node apps/mcp-server/dist/index.js /path/to/your/repo
 # Streamable HTTP
 node apps/mcp-server/dist/http.js --workspace /path/to/your/repo --port 3100
 ```
+
+既存プロジェクトでは `aub-mcp-http` を起動し、AUB editor を `http://127.0.0.1:3100/mcp` に接続できます。Editor は workspace 内の Blueprint を直接 load/save し、`.aub/session.json`、`.aub/templates/*.aub.template.json`、`.aub/component-candidates.json` を扱い、実際の dev server route を preview できます。Scanner が見つけた custom component は必ず candidate file に入り、ユーザー承認後にのみ `aub.registry.json` へ書き込まれます。
 
 設定例は [`apps/mcp-server/README.md`](./apps/mcp-server/README.md) を参照してください。
 
@@ -187,7 +189,8 @@ pnpm ci:verify -- --workspace /path/to/target/repo --require-reports
 - WYSIWYG エディター、18 テンプレート、複数画面 project、5 言語 landing page：実装済み。
 - Angular、Figma／Penpot bridge import：実装済み。
 - Codex、Claude Code、GitHub Copilot adapter：実装済み。
-- stdio／HTTP MCP server、16 ツール：実装済み。
+- stdio／HTTP MCP server、23 ツール：実装済み。
+- Workspace-connected editor loop、local MCP HTTP、session、scanner-generated template、custom component candidate review、direct Blueprint save、implementation preview：実装済み。
 - 本番 component mapping、implementation report、GitHub Action：実装済み。
 - UI 内 YAML 編集、エディター内 lock 生成：backlog。
 

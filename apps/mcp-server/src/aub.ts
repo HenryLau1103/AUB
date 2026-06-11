@@ -25,6 +25,15 @@ export {
   mergeDesignSystem,
   PROJECT_VERSION,
 } from '../../../scripts/project.lib.mjs';
+export {
+  approveComponentCandidate,
+  generateTemplateFromSource,
+  getWorkspaceStatus,
+  readAubSession,
+  scanProjectUi,
+  templateAuthoringPrompt,
+  updateAubSession,
+} from '../../../scripts/workspace-loop.lib.mjs';
 
 export type Blueprint = Record<string, any>;
 export type ImplementationReport = Record<string, any>;

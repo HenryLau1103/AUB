@@ -1,7 +1,6 @@
 import { parse, parseFragment } from 'parse5';
 import postcss from 'postcss';
 import scssSyntax from 'postcss-scss';
-import ts from 'typescript';
 import { defaultDesignSystem } from './migrate-blueprint.mjs';
 
 export const ANGULAR_IMPORTER_VERSION = '1.0.0';
@@ -432,11 +431,7 @@ function classifyElement({ tag, attrs, classes, text, astNode, forms }) {
 }
 
 function readComponentMetadata(file) {
-  const source = ts.createSourceFile(file.path, file.content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-  let className = null;
-  source.forEachChild((node) => {
-    if (ts.isClassDeclaration(node) && node.name) className ??= node.name.text;
-  });
+  const className = readClassName(file.content);
   const selector = matchStringProperty(file.content, 'selector');
   const templateUrl = matchStringProperty(file.content, 'templateUrl');
   const styleUrlsBlock = file.content.match(/styleUrls\s*:\s*\[([\s\S]*?)\]/m)?.[1] ?? '';
@@ -448,21 +443,10 @@ function readComponentMetadata(file) {
 function collectForms(files) {
   const controls = new Map();
   for (const file of files.filter((candidate) => candidate.path.endsWith('.ts'))) {
-    const source = ts.createSourceFile(file.path, file.content, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-    walkTs(source, (node) => {
-      const call = ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
-        ? node.right
-        : ts.isPropertyDeclaration(node)
-          ? node.initializer
-          : null;
-      if (!call || !ts.isCallExpression(call) || !ts.isPropertyAccessExpression(call.expression)) return;
-      if (call.expression.name.text !== 'group') return;
-      const object = call.arguments[0];
-      if (!object || !ts.isObjectLiteralExpression(object)) return;
-      for (const property of object.properties) {
-        if (!ts.isPropertyAssignment(property)) continue;
-        const name = property.name.getText(source).replace(/^['"]|['"]$/g, '');
-        const raw = property.initializer.getText(source);
+    for (const objectBlock of findGroupObjectBlocks(file.content)) {
+      for (const property of splitObjectProperties(objectBlock)) {
+        const name = property.name.replace(/^['"]|['"]$/g, '');
+        const raw = property.value;
         const pattern = raw.match(/Validators\.pattern\(\s*(['"`])([\s\S]*?)\1\s*\)/)?.[2];
         controls.set(name, {
           disabled: /disabled\s*:\s*true/.test(raw),
@@ -472,7 +456,7 @@ function collectForms(files) {
           }),
         });
       }
-    });
+    }
   }
   return { controls };
 }
@@ -620,11 +604,6 @@ function collectAttributesDeep(node) {
 function walkHtml(node, visitor) {
   visitor(node);
   for (const child of node.childNodes ?? []) walkHtml(child, visitor);
-}
-
-function walkTs(node, visitor) {
-  visitor(node);
-  node.forEachChild((child) => walkTs(child, visitor));
 }
 
 function visibleText(node) {
@@ -780,6 +759,137 @@ function assignTokens(target, prefix, values) {
 
 function matchStringProperty(source, property) {
   return source.match(new RegExp(`${property}\\s*:\\s*['"\`]([^'"\`]+)['"\`]`))?.[1] ?? null;
+}
+
+function readClassName(source) {
+  return source.match(/\bexport\s+(?:default\s+)?class\s+([A-Za-z_$][\w$]*)\b/)?.[1]
+    ?? source.match(/\bclass\s+([A-Za-z_$][\w$]*)\b/)?.[1]
+    ?? null;
+}
+
+function findGroupObjectBlocks(source) {
+  const blocks = [];
+  const pattern = /\b(?:[A-Za-z_$][\w$]*\.)*group\s*\(/g;
+  let match;
+  while ((match = pattern.exec(source))) {
+    const openParen = source.indexOf('(', match.index);
+    const firstArgument = nextNonWhitespace(source, openParen + 1);
+    if (source[firstArgument] !== '{') continue;
+    const closeBrace = findMatchingDelimiter(source, firstArgument, '{', '}');
+    if (closeBrace === -1) continue;
+    blocks.push(source.slice(firstArgument + 1, closeBrace));
+    pattern.lastIndex = closeBrace + 1;
+  }
+  return blocks;
+}
+
+function splitObjectProperties(source) {
+  const properties = [];
+  let index = 0;
+  while (index < source.length) {
+    index = nextNonWhitespace(source, index);
+    if (index >= source.length) break;
+    const key = readObjectKey(source, index);
+    if (!key) break;
+    let cursor = nextNonWhitespace(source, key.end);
+    if (source[cursor] !== ':') {
+      index = nextPropertyBoundary(source, cursor) + 1;
+      continue;
+    }
+    cursor = nextNonWhitespace(source, cursor + 1);
+    const valueEnd = nextPropertyBoundary(source, cursor);
+    properties.push({
+      name: key.name,
+      value: source.slice(cursor, valueEnd).trim(),
+    });
+    index = valueEnd + 1;
+  }
+  return properties;
+}
+
+function readObjectKey(source, index) {
+  const quote = source[index];
+  if (quote === '\'' || quote === '"' || quote === '`') {
+    const end = readQuotedEnd(source, index);
+    if (end === -1) return null;
+    return { name: source.slice(index + 1, end), end: end + 1 };
+  }
+  const match = source.slice(index).match(/^([A-Za-z_$][\w$-]*)/);
+  return match ? { name: match[1], end: index + match[0].length } : null;
+}
+
+function nextPropertyBoundary(source, index) {
+  let cursor = index;
+  let depth = 0;
+  while (cursor < source.length) {
+    const char = source[cursor];
+    if (char === '\'' || char === '"' || char === '`') {
+      const end = readQuotedEnd(source, cursor);
+      cursor = end === -1 ? source.length : end + 1;
+      continue;
+    }
+    if (source.startsWith('//', cursor)) {
+      const end = source.indexOf('\n', cursor + 2);
+      cursor = end === -1 ? source.length : end + 1;
+      continue;
+    }
+    if (source.startsWith('/*', cursor)) {
+      const end = source.indexOf('*/', cursor + 2);
+      cursor = end === -1 ? source.length : end + 2;
+      continue;
+    }
+    if ('([{'.includes(char)) depth += 1;
+    else if (')]}'.includes(char)) depth = Math.max(0, depth - 1);
+    else if (char === ',' && depth === 0) return cursor;
+    cursor += 1;
+  }
+  return source.length;
+}
+
+function findMatchingDelimiter(source, openIndex, open, close) {
+  let depth = 0;
+  for (let index = openIndex; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '\'' || char === '"' || char === '`') {
+      const end = readQuotedEnd(source, index);
+      index = end === -1 ? source.length : end;
+      continue;
+    }
+    if (source.startsWith('//', index)) {
+      const end = source.indexOf('\n', index + 2);
+      index = end === -1 ? source.length : end;
+      continue;
+    }
+    if (source.startsWith('/*', index)) {
+      const end = source.indexOf('*/', index + 2);
+      index = end === -1 ? source.length : end + 1;
+      continue;
+    }
+    if (char === open) depth += 1;
+    if (char === close) {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+function readQuotedEnd(source, start) {
+  const quote = source[start];
+  for (let index = start + 1; index < source.length; index += 1) {
+    if (source[index] === '\\') {
+      index += 1;
+      continue;
+    }
+    if (source[index] === quote) return index;
+  }
+  return -1;
+}
+
+function nextNonWhitespace(source, index) {
+  let cursor = index;
+  while (cursor < source.length && /\s/.test(source[cursor])) cursor += 1;
+  return cursor;
 }
 
 function resolveRelativeSource(fromPath, relativePath) {

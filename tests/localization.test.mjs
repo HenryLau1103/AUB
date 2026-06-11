@@ -25,7 +25,7 @@ test('L10N1: five localized Pages outputs declare language, alternates, and safe
     assert.match(html, new RegExp(`href="${page.editor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`), page.path);
     assert.equal((html.match(/rel="alternate" hreflang=/g) ?? []).length, 6, page.path);
     assert.equal((html.match(/aria-current="page"/g) ?? []).length, 1, page.path);
-    assert.match(html, /<strong>16<\/strong>/, page.path);
+    assert.match(html, /<strong>23<\/strong>/, page.path);
     assert.match(html, /Figma[／/]Penpot/, page.path);
   }
 });
@@ -38,7 +38,7 @@ test('L10N2: every README exposes all languages and current product contracts', 
       assert.ok(markdown.includes(link), `${path} missing ${link}`);
     }
     assert.match(markdown, /0\.3\.0/, path);
-    assert.match(markdown, /16/, path);
+    assert.match(markdown, /23/, path);
     assert.match(markdown, /Streamable HTTP/, path);
     assert.match(markdown, /Figma[／/]Penpot/, path);
     assert.match(markdown, /HenryLau1103\/AUB@main/, path);

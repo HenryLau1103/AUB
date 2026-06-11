@@ -35,7 +35,7 @@ const locales = {
     proof: [
       ['62', 'semantic component types'],
       ['18', 'responsive starting templates'],
-      ['16', 'MCP tools for agents'],
+      ['23', 'MCP tools for agents'],
       ['4', 'acceptance categories'],
     ],
     workflowKicker: 'Golden path',
@@ -101,7 +101,7 @@ const locales = {
     proof: [
       ['62', '種語意元件類型'],
       ['18', '個響應式起始範本'],
-      ['16', '個 Agent MCP 工具'],
+      ['23', '個 Agent MCP 工具'],
       ['4', '類驗收條件'],
     ],
     workflowKicker: '黃金流程',
@@ -161,7 +161,7 @@ const locales = {
     proof: [
       ['62', '种语义组件类型'],
       ['18', '个响应式起始模板'],
-      ['16', '个 Agent MCP 工具'],
+      ['23', '个 Agent MCP 工具'],
       ['4', '类验收条件'],
     ],
     workflowKicker: '黄金路径',
@@ -221,7 +221,7 @@ const locales = {
     proof: [
       ['62', '種類のセマンティックコンポーネント'],
       ['18', '種類のレスポンシブテンプレート'],
-      ['16', '個の Agent 向け MCP ツール'],
+      ['23', '個の Agent 向け MCP ツール'],
       ['4', '種類の受け入れカテゴリ'],
     ],
     workflowKicker: 'ゴールデンパス',
@@ -281,7 +281,7 @@ const locales = {
     proof: [
       ['62', '가지 시맨틱 컴포넌트 유형'],
       ['18', '가지 반응형 시작 템플릿'],
-      ['16', '개의 Agent용 MCP 도구'],
+      ['23', '개의 Agent용 MCP 도구'],
       ['4', '가지 인수 카테고리'],
     ],
     workflowKicker: '골든 패스',

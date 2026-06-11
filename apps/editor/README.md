@@ -31,6 +31,7 @@ WYSIWYG editor for UI Blueprints v0.3.
 - **Export** an `.aub.zip` AI handoff package with portable English/Traditional Chinese agent guides, generic and Codex tasks, JSON, Markdown, implementation report template/schema, viewport screenshots, and a SHA-256 manifest
 - **Download** an AI authoring kit containing the current schema, registry, canonical example, validation guide, and author-task prompt
 - **Live schema validation** — invalid edits show error count in the status bar
+- **Connect to a local AUB workspace** over `aub-mcp-http`, load/save Blueprints through the same MCP tools agents use, review workspace templates, approve component candidates, and preview a real app route side by side.
 
 ## Development
 
@@ -64,10 +65,12 @@ src/
 │   ├── personal-templates.ts     # browser-local template persistence/packages
 │   ├── project.ts                # browser-safe multi-screen project model + navigation
 │   ├── io.ts                     # import/export and AI handoff package
+│   ├── workspace-client.ts       # local aub-mcp-http /rpc client for workspace-connected mode
 │   └── registry.ts               # read schema/registry/components.json
 └── components/
     ├── TopBar.tsx                # import/export buttons + validation status
     ├── ProjectBar.tsx           # multi-screen switcher + navigation editor
+    ├── WorkspacePanel.tsx       # workspace connection, direct save, preview, candidate review
     ├── Palette.tsx               # components, templates, and layers
     ├── Canvas.tsx                # freeform/auto viewport artboard
     ├── AngularImportDialog.tsx   # import preview, diagnostics, optional AI review

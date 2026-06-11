@@ -322,8 +322,9 @@ export function updateManyPlacements(
 }
 
 // Resize a viewport (canvas resolution). Width/height are clamped to the schema
-// bounds. Any placement that would overflow the new width is pulled back in so
-// the blueprint stays valid.
+// bounds. Placements for the resized viewport are scaled proportionally so a
+// 1440px layout preserves its relative rhythm when switched to 1920px, 1280px,
+// or another device preset. Other viewports keep their independent geometry.
 export function setViewportSize(
   blueprint: Blueprint,
   viewportId: ViewportId,
@@ -339,18 +340,27 @@ export function setViewportSize(
   const viewports = blueprint.viewports.map((candidate) =>
     candidate.id === viewportId ? { ...candidate, width, height } : candidate
   );
+  const scaleX = width / existing.width;
+  const scaleY = height / existing.height;
 
   const nodes = blueprint.nodes.map((node) => {
     const placement = node.placements?.[viewportId];
     if (!placement) return node;
-    const clampedWidth = Math.max(1, Math.min(placement.width, width));
-    const clampedX = Math.max(0, Math.min(placement.x, Math.max(0, width - clampedWidth)));
-    if (clampedWidth === placement.width && clampedX === placement.x) return node;
+    const nextWidth = Math.max(1, Math.min(Math.round(placement.width * scaleX), width));
+    const nextHeight = Math.max(1, Math.min(Math.round(placement.height * scaleY), height));
+    const nextX = Math.max(0, Math.min(Math.round(placement.x * scaleX), Math.max(0, width - nextWidth)));
+    const nextY = Math.max(0, Math.min(Math.round(placement.y * scaleY), Math.max(0, height - nextHeight)));
     return {
       ...node,
       placements: {
         ...node.placements,
-        [viewportId]: { ...placement, width: clampedWidth, x: clampedX },
+        [viewportId]: {
+          ...placement,
+          x: nextX,
+          y: nextY,
+          width: nextWidth,
+          height: nextHeight,
+        },
       },
     };
   });

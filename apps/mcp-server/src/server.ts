@@ -16,6 +16,13 @@ import * as resolveComponent from './tools/resolve-component.js';
 import * as diffBlueprints from './tools/diff-blueprints.js';
 import * as migrateBlueprint from './tools/migrate-blueprint.js';
 import * as lockBlueprint from './tools/lock-blueprint.js';
+import * as getAubSession from './tools/get-aub-session.js';
+import * as updateAubSession from './tools/update-aub-session.js';
+import * as getWorkspaceStatus from './tools/get-workspace-status.js';
+import * as scanProjectUi from './tools/scan-project-ui.js';
+import * as generateTemplateFromSource from './tools/generate-template-from-source.js';
+import * as approveComponentCandidate from './tools/approve-component-candidate.js';
+import * as exportTemplateAuthoringPrompt from './tools/export-template-authoring-prompt.js';
 
 type ToolResult = { content: Array<{ type: 'text'; text: string }>; isError?: boolean };
 type ToolModule = {
@@ -41,6 +48,13 @@ const tools: ToolModule[] = [
   diffBlueprints,
   migrateBlueprint,
   lockBlueprint,
+  getAubSession,
+  updateAubSession,
+  getWorkspaceStatus,
+  scanProjectUi,
+  generateTemplateFromSource,
+  approveComponentCandidate,
+  exportTemplateAuthoringPrompt,
 ];
 
 function ok(payload: unknown): ToolResult {
@@ -68,4 +82,12 @@ export function createAubServer(ctx: ServerContext): McpServer {
 
 export function registeredToolNames(): string[] {
   return tools.map((tool) => tool.name);
+}
+
+export async function runAubTool(ctx: ServerContext, name: string, args: any = {}): Promise<unknown> {
+  const tool = tools.find((candidate) => candidate.name === name);
+  if (!tool) {
+    throw new Error(`Unknown AUB tool "${name}". Available: ${registeredToolNames().join(', ')}.`);
+  }
+  return tool.run(ctx, args);
 }

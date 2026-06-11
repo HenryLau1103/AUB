@@ -44,13 +44,13 @@ test('Streamable HTTP transport initializes and calls an AUB tool', async () => 
     await waitForReady(child);
     const health = await fetch(`http://127.0.0.1:${port}/health`).then((response) => response.json());
     assert.equal(health.status, 'ok');
-    assert.equal(health.tools.length, 16);
+    assert.equal(health.tools.length, 23);
 
     const client = new Client({ name: 'aub-http-test', version: '1.0.0' });
     const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`));
     await client.connect(transport);
     const tools = await client.listTools();
-    assert.equal(tools.tools.length, 16);
+    assert.equal(tools.tools.length, 23);
     const result = await client.callTool({
       name: 'validate_blueprint',
       arguments: { ref: 'examples/dashboard.ui.json' },

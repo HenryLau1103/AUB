@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import JSZip from 'jszip';
@@ -23,6 +23,13 @@ import { run as resolveComponent } from '../dist/tools/resolve-component.js';
 import { run as diffBlueprints } from '../dist/tools/diff-blueprints.js';
 import { run as migrateBlueprint } from '../dist/tools/migrate-blueprint.js';
 import { run as lockBlueprint } from '../dist/tools/lock-blueprint.js';
+import { run as getAubSession } from '../dist/tools/get-aub-session.js';
+import { run as updateAubSession } from '../dist/tools/update-aub-session.js';
+import { run as getWorkspaceStatus } from '../dist/tools/get-workspace-status.js';
+import { run as scanProjectUi } from '../dist/tools/scan-project-ui.js';
+import { run as generateTemplateFromSource } from '../dist/tools/generate-template-from-source.js';
+import { run as approveComponentCandidate } from '../dist/tools/approve-component-candidate.js';
+import { run as exportTemplateAuthoringPrompt } from '../dist/tools/export-template-authoring-prompt.js';
 import { registeredToolNames } from '../dist/server.js';
 
 const SCREEN_ID = 'dashboard.overview';
@@ -239,6 +246,13 @@ test('server exposes the complete transport-neutral tool set', () => {
     'diff_blueprints',
     'migrate_blueprint',
     'lock_blueprint',
+    'get_aub_session',
+    'update_aub_session',
+    'get_workspace_status',
+    'scan_project_ui',
+    'generate_template_from_source',
+    'approve_component_candidate',
+    'export_template_authoring_prompt',
   ]);
 });
 
@@ -254,6 +268,124 @@ test('export_prompt rejects an unknown adapter', async () => {
     () => exportPrompt(ctx, { ref: SCREEN_ID, adapter: 'nope' }),
     /Unknown adapter/
   );
+});
+
+async function createWorkspaceLoopFixture() {
+  const root = await mkdtemp(join(tmpdir(), 'aub-workspace-loop-'));
+  await mkdir(join(root, 'app', 'settings'), { recursive: true });
+  await mkdir(join(root, 'src', 'components'), { recursive: true });
+  await writeFile(join(root, 'package.json'), `${JSON.stringify({
+    name: '@acme/web-app',
+    dependencies: { next: '^15.0.0', react: '^19.0.0' },
+  }, null, 2)}\n`);
+  await writeFile(join(root, 'app', 'settings', 'page.tsx'), [
+    'import { InsightCard } from "../../src/components/InsightCard";',
+    'export default function SettingsPage() {',
+    '  return <main><h1>Settings</h1><InsightCard title="Plan" /></main>;',
+    '}',
+    '',
+  ].join('\n'));
+  await writeFile(join(root, 'src', 'components', 'InsightCard.tsx'), [
+    'interface InsightCardProps {',
+    '  title: string;',
+    '  tone?: "info" | "warning";',
+    '}',
+    'export function InsightCard(props: InsightCardProps) {',
+    '  return <section>{props.title}</section>;',
+    '}',
+    '',
+  ].join('\n'));
+  return root;
+}
+
+test('workspace session tools read and update .aub/session.json', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-session-'));
+  try {
+    const localCtx = { ...ctx, root };
+    const empty = await getAubSession(localCtx);
+    assert.equal(empty.session.activeBlueprint, null);
+    const updated = await updateAubSession(localCtx, {
+      patch: {
+        activeBlueprint: 'screens/settings.ui.json',
+        preview: { devServerUrl: 'http://localhost:3000', route: '/settings' },
+      },
+    });
+    assert.equal(updated.session.activeBlueprint, 'screens/settings.ui.json');
+    assert.equal(updated.session.preview.route, '/settings');
+    const stored = JSON.parse(await readFile(join(root, '.aub', 'session.json'), 'utf8'));
+    assert.equal(stored.preview.devServerUrl, 'http://localhost:3000');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('scan_project_ui writes component candidates without touching aub.registry.json', async () => {
+  const root = await createWorkspaceLoopFixture();
+  try {
+    const result = await scanProjectUi({ ...ctx, root }, {});
+    assert.ok(result.frameworks.includes('next'));
+    assert.ok(result.routes.some((route) => route.route === '/settings'));
+    assert.ok(result.components.some((component) => component.suggestedType === 'webapp:insight_card'));
+    const candidates = JSON.parse(await readFile(join(root, '.aub', 'component-candidates.json'), 'utf8'));
+    assert.ok(candidates.candidates.length > 0);
+    await assert.rejects(() => readFile(join(root, 'aub.registry.json'), 'utf8'), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('generate_template_from_source saves a candidate workspace template', async () => {
+  const root = await createWorkspaceLoopFixture();
+  try {
+    await scanProjectUi({ ...ctx, root }, {});
+    const result = await generateTemplateFromSource({ ...ctx, root }, {
+      sourcePath: 'app/settings/page.tsx',
+      name: 'Settings',
+    });
+    assert.equal(result.template.format, 'aub-workspace-template');
+    assert.equal(result.template.status, 'candidate');
+    assert.equal(result.template.blueprint.screen.name, 'Settings');
+    assert.ok(result.template.registryRefs.includes('webapp:insight_card'));
+    const status = await getWorkspaceStatus({ ...ctx, root });
+    assert.equal(status.templateCount, 1);
+    assert.equal(status.templates[0].path, result.savedPath);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('approve_component_candidate only writes registry for extension approval', async () => {
+  const root = await createWorkspaceLoopFixture();
+  try {
+    const scan = await scanProjectUi({ ...ctx, root }, {});
+    const candidate = scan.components.find((component) => component.suggestedType === 'webapp:insight_card');
+    assert.ok(candidate);
+    const mapped = await approveComponentCandidate({ ...ctx, root }, {
+      id: candidate.id,
+      action: 'map_core',
+      coreType: 'card',
+    });
+    assert.equal(mapped.registryPath, null);
+    await assert.rejects(() => readFile(join(root, 'aub.registry.json'), 'utf8'), /ENOENT/);
+
+    const extension = await approveComponentCandidate({ ...ctx, root }, {
+      id: candidate.id,
+      action: 'create_extension',
+      namespacedType: 'webapp:insight_card',
+    });
+    assert.equal(extension.registryPath, 'aub.registry.json');
+    const registry = JSON.parse(await readFile(join(root, 'aub.registry.json'), 'utf8'));
+    assert.equal(registry.components[0].name, 'webapp:insight_card');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('export_template_authoring_prompt explains candidate-first custom components', async () => {
+  const result = await exportTemplateAuthoringPrompt(ctx);
+  assert.equal(result.format, 'markdown');
+  assert.match(result.prompt, /component-candidates\.json/);
+  assert.match(result.prompt, /never directly to `aub\.registry\.json`/);
 });
 
 test('submit_report rejects the empty template', async () => {

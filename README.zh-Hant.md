@@ -133,7 +133,7 @@ pnpm prompt examples/dashboard.ui.json dashboard.copilot.md --adapter copilot --
 
 ## MCP server
 
-支援 [Model Context Protocol](https://modelcontextprotocol.io) 的 Agent 可以直接透過 stdio 或 Streamable HTTP 呼叫 AUB 工具，不需要把檔案複製進目標 repository。16 個工具涵蓋 Blueprint／project 探索、Figma／Penpot Design Bridge 匯入、驗證後寫入、handoff 打包、規格補全、元件解析、prompt、diff、migration、lock 與 implementation report。
+支援 [Model Context Protocol](https://modelcontextprotocol.io) 的 Agent 可以直接透過 stdio 或 Streamable HTTP 呼叫 AUB 工具，不需要把檔案複製進目標 repository。23 個工具涵蓋 Blueprint／project 探索、Figma／Penpot Design Bridge 匯入、驗證後寫入、handoff 打包、規格補全、元件解析、prompt、diff、migration、lock、workspace session、專案掃描、範本生成、自訂元件候選審核與 implementation report。
 
 ```bash
 (cd apps/mcp-server && pnpm install && pnpm build)
@@ -143,6 +143,8 @@ node apps/mcp-server/dist/http.js --workspace /path/to/your/repo --port 3100
 ```
 
 在 Claude Code、Codex 或任何 MCP client 中註冊後即可使用。設定片段與說明請看 [`apps/mcp-server/README.md`](./apps/mcp-server/README.md)。Server 包裝的是與 CLI 相同的函式庫，schema、layout 語意、互動與驗收條件完全不變。
+
+既有專案可啟動 `aub-mcp-http` 後，讓 AUB editor 連到 `http://127.0.0.1:3100/mcp`。Editor 可直接載入／儲存 workspace 裡的 Blueprint、更新 `.aub/session.json`、讀取 `.aub/templates/*.aub.template.json`、審核 `.aub/component-candidates.json`，並以 iframe 預覽真實 dev server route。Scanner 產生的自訂元件永遠先進候選檔，使用者核准後才會寫入正式 `aub.registry.json`。
 
 ## Blueprint 描述的內容
 
@@ -322,7 +324,8 @@ Blueprint 檔案以 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.sc
 - Codex、Claude Code 與 GitHub Copilot adapter：已實作。
 - Angular 匯入、個人範本與 AI 生成工具包：已實作。
 - Blueprint diff 與 implementation report 驗證：已實作。
-- MCP server（stdio + Streamable HTTP），提供 16 個工具，包含 Design Bridge、驗證後寫入、handoff 打包、Blueprint／project／component／diff／migrate／lock／report：已實作。
+- MCP server（stdio + Streamable HTTP），提供 23 個工具，包含 Design Bridge、驗證後寫入、handoff 打包、Blueprint／project／component／diff／migrate／lock／workspace session／專案掃描／範本生成／候選審核／report：已實作。
+- Workspace-connected editor loop：本機 MCP HTTP、session state、scanner 產生的範本、自訂元件候選審核、直接儲存 Blueprint 與實作預覽：已實作。
 - `aub.registry.json` production component mapping：已實作。
 - GitHub Action 與本機 CI 驗收器：已實作。
 - 多畫面專案（參照式 `.aub.project.json`、CLI、MCP 工具、編輯器畫面切換器與導覽）：已實作。
