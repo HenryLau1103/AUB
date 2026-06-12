@@ -145,6 +145,40 @@ export function WorkspacePanel({
         </div>
       </header>
       {error && <p className="workspace-error">{error}</p>}
+      {!connected && (
+        <section className="workspace-demo-story">
+          <strong>{zh ? 'Demo mode 不需要本機 MCP' : 'Demo mode does not need local MCP'}</strong>
+          <p>
+            {zh
+              ? '這個瀏覽器 demo 先保留原本 editor 體驗。要看完整「Fail → Fix → Pass」安全流程，請在任一測試資料夾執行 npx aub-workspace demo。'
+              : 'The browser demo keeps the editor usable first. To see the full Fail -> Fix -> Pass safety loop, run npx aub-workspace demo in any test folder.'}
+          </p>
+          <div className="workspace-demo-steps">
+            <span>{zh ? '1 掃描既有 route' : '1 Scan existing route'}</span>
+            <span>{zh ? '2 低證據 PR 被擋' : '2 Low-evidence PR blocked'}</span>
+            <span>{zh ? '3 補證據後可審核' : '3 Evidence-backed PR reviewable'}</span>
+          </div>
+          <div className="workspace-demo-evidence" aria-label={zh ? 'Demo safety loop 摘要' : 'Demo safety loop summary'}>
+            <div>
+              <strong>{zh ? 'Synthetic scan' : 'Synthetic scan'}</strong>
+              <small>{zh ? '1 route · 3 component candidates · scan trust high' : '1 route · 3 component candidates · scan trust high'}</small>
+            </div>
+            <div>
+              <strong>{zh ? 'Failing PR comment' : 'Failing PR comment'}</strong>
+              <small>{zh ? 'Decision: Do not merge · evidence 低 · viewport/overflow 不足' : 'Decision: Do not merge · low evidence · viewport/overflow missing'}</small>
+            </div>
+            <div>
+              <strong>{zh ? 'Passing PR comment' : 'Passing PR comment'}</strong>
+              <small>{zh ? 'Decision: Ready for review · 5/5 acceptance · evidence matrix 完整' : 'Decision: Ready for review · 5/5 acceptance · evidence matrix complete'}</small>
+            </div>
+          </div>
+          <small>
+            {zh
+              ? '完整 demo 會產生 .aub/pr-comment.fail.md 與 .aub/pr-comment.pass.md，可直接貼到 PR review 說明。'
+              : 'The full demo writes .aub/pr-comment.fail.md and .aub/pr-comment.pass.md for PR review.'}
+          </small>
+        </section>
+      )}
       {connected && status && (
         <>
           <section className="workspace-onboarding">
@@ -360,6 +394,17 @@ function ScanTrustSummary({ language, status }: { language: Language; status: Wo
       </div>
       {report.trust.warnings.length > 0 && (
         <small>{zh ? '警示' : 'Warnings'}: {report.trust.warnings.join(' ')}</small>
+      )}
+      {report.trust.breakdown && (
+        <small>
+          {zh ? '信任依據' : 'Trust basis'}: {zh ? 'route' : 'route'} {report.trust.breakdown.routeResolved ? 'yes' : 'no'}
+          {' · '}
+          {zh ? '掃描檔案' : 'files'} {report.trust.breakdown.filesScanned}
+          {' · '}
+          {zh ? '候選元件' : 'candidates'} {report.trust.breakdown.componentCandidateCount}
+          {' · '}
+          Storybook {report.trust.breakdown.storybookDetected ? 'yes' : 'no'}
+        </small>
       )}
     </div>
   );
@@ -626,6 +671,21 @@ function SourceReferenceList({ language, templates }: { language: Language; temp
   }
   return (
     <div className="workspace-source-list">
+      {templates.filter((template) => template.trustBreakdown).map((template) => (
+        <div key={`${template.path}-trust`}>
+          <strong>{zh ? '範本信任度' : 'Template trust'} · {template.name}</strong>
+          <small>
+            {zh ? '來源覆蓋' : 'source coverage'} {template.trustBreakdown?.sourceReferenceCoverage ?? 0}%
+            {' · '}
+            {zh ? '節點' : 'nodes'} {template.trustBreakdown?.nodeCount ?? 0}
+            {' · '}
+            {zh ? '未決 mapping' : 'unresolved mappings'} {template.trustBreakdown?.unresolvedCustomComponents ?? 0}
+          </small>
+          {template.trustBreakdown?.reasons && template.trustBreakdown.reasons.length > 0 && (
+            <small>{template.trustBreakdown.reasons.join(' ')}</small>
+          )}
+        </div>
+      ))}
       {references.map((reference, index) => (
         <div key={`${reference.template}-${reference.nodeId}-${index}`}>
           <strong>{reference.nodeId ?? reference.selector ?? reference.template}</strong>

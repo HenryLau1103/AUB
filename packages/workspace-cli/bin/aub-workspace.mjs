@@ -650,6 +650,31 @@ async function createDemoReports({ workspace, blueprint, implementation }) {
   return { failReport, passReport };
 }
 
+async function createDemoPrComments(workspace) {
+  const runtimeRoot = findAubRuntimeRoot();
+  const [{ verifyWorkspace }, { formatPrSafetyComment }] = await Promise.all([
+    import(pathToFileURL(join(runtimeRoot, 'scripts', 'ci-verify.lib.mjs')).href),
+    import(pathToFileURL(join(runtimeRoot, 'scripts', 'pr-safety-comment.lib.mjs')).href),
+  ]);
+  const failResult = await verifyWorkspace({
+    workspace,
+    configPath: '.aub/ci.json',
+    requireReports: true,
+    requireEvidence: true,
+    minSafetyScore: 70,
+  });
+  const passResult = await verifyWorkspace({
+    workspace,
+    configPath: '.aub/ci.pass.json',
+    requireReports: true,
+    requireEvidence: true,
+    minSafetyScore: 70,
+  });
+  await writeFile(join(workspace, '.aub', 'pr-comment.fail.md'), formatPrSafetyComment(failResult), 'utf8');
+  await writeFile(join(workspace, '.aub', 'pr-comment.pass.md'), formatPrSafetyComment(passResult), 'utf8');
+  return { failResult, passResult };
+}
+
 async function createDemoWorkspace(args) {
   const workspace = resolve(args.workspace);
   const workspaceInfo = await stat(workspace).catch(() => null);
@@ -724,6 +749,7 @@ async function createDemoWorkspace(args) {
     }],
     min_safety_score: 70,
   }), 'utf8');
+  await createDemoPrComments(workspace);
   await workspaceModule.updateAubSession(workspace, {
     activeBlueprint: 'screens/risk-dashboard.ui.json',
     activeProject: null,
@@ -746,6 +772,8 @@ async function createDemoWorkspace(args) {
     '- `screens/risk-dashboard.ui.json`: generated Blueprint used as the review contract.',
     '- `.aub/reports/risk-dashboard.fail.implementation-report.json`: low-evidence report expected to fail the gate.',
     '- `.aub/reports/risk-dashboard.pass.implementation-report.json`: evidence-shaped report expected to pass the gate.',
+    '- `.aub/pr-comment.fail.md`: PR comment showing the blocked low-evidence path.',
+    '- `.aub/pr-comment.pass.md`: PR comment showing the audit-ready evidence path.',
     '- `.aub/scan-report.json`: scanner trust report.',
     '',
     'Try the gate from the AUB repo root:',
@@ -766,6 +794,8 @@ async function createDemoWorkspace(args) {
   console.error('  screens/risk-dashboard.ui.json');
   console.error('  .aub/reports/risk-dashboard.fail.implementation-report.json');
   console.error('  .aub/reports/risk-dashboard.pass.implementation-report.json');
+  console.error('  .aub/pr-comment.fail.md');
+  console.error('  .aub/pr-comment.pass.md');
   console.error('');
   console.error('Next steps:');
   console.error(`  1. npx aub-workspace --workspace ${workspace}`);

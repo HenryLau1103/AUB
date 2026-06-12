@@ -13,7 +13,7 @@
 
 [English](./README.md) · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · **한국어**
 
-[Workspace loop 가이드](./docs/workspace-loop-user-manual.ko.md) · [10분 demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [표준 예제](./examples/dashboard.ui.json)
+[Workspace loop 가이드](./docs/workspace-loop-user-manual.ko.md) · [10분 demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Security and data safety](./docs/security-and-data-safety.md) · [표준 예제](./examples/dashboard.ui.json)
 
 ![반응형 화면을 편집하는 AUB 비주얼 에디터](./docs/assets/aub-editor-en.jpg)
 
@@ -57,7 +57,7 @@ npx aub-workspace
 npx aub-workspace demo
 ```
 
-이 명령은 합성 workspace 를 만들고 `.aub/scan-report.json`, candidate template, Blueprint, gate 에서 거부되는 낮은 증거 report, 통과 가능한 report 를 생성합니다.
+이 명령은 합성 workspace 를 만들고 `.aub/scan-report.json`, candidate template, Blueprint, gate 에서 거부되는 낮은 증거 report, 통과 가능한 report, fail/pass PR safety comment 를 생성합니다. 낮은 증거 PR 이 막히고 증거를 보강한 PR 이 review 가능해지는 흐름을 가장 빠르게 확인할 수 있습니다.
 
 ## AUB가 해결하는 문제
 
@@ -217,13 +217,14 @@ pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-e
 
 - Blueprint schema, semantic validation, migration, diff, lock: 구현 완료.
 - WYSIWYG 에디터, 18개 템플릿, 다중 화면 project, 5개 언어 landing page: 구현 완료.
+- Product/package release: `0.4.0`. workspace safety demo, PR evidence review, scanner trust breakdown, demo mode 분리가 중심입니다. Blueprint format 은 계속 `0.3.0`입니다.
 - Angular, Figma／Penpot bridge import: 구현 완료.
 - Codex, Claude Code, GitHub Copilot adapter: 구현 완료.
 - stdio／HTTP MCP server, 23개 도구: 구현 완료.
 - One-command workspace initialization(`npx aub-workspace init`): CI config, `.aubignore`, `AGENTS.md`, issue templates, Copilot instructions, PR workflow: 구현 완료.
 - Workspace-connected editor loop, local MCP HTTP, session, scanner-generated template, custom component candidate review, direct Blueprint save, implementation preview: 구현 완료.
 - Implementation evidence capture: viewport screenshot, DOM query, overflow, report evidence verification: 구현 완료.
-- 프로덕션 component mapping, implementation report, GitHub Action: 구현 완료.
+- 프로덕션 component mapping, implementation report, GitHub Action, PR Safety Score comment, evidence matrix: 구현 완료.
 - UI 내 YAML 편집, 에디터 내 lock 생성: backlog.
 
 현재 format version은 `0.3.0`입니다.

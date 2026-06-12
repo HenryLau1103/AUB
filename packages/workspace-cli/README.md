@@ -60,7 +60,8 @@ npx aub-workspace --no-open
 
 `demo` creates a synthetic workspace that proves the safety loop without using a
 real project. It includes a scan report, generated template, Blueprint, failing
-implementation report, and passing implementation report.
+implementation report, passing implementation report, and fail/pass PR safety
+comments.
 
 Requirements:
 

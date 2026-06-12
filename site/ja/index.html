@@ -62,9 +62,9 @@
           <p class="lede">AUB は、コーディング Agent が実際の app を変更するための local-first ワークベンチです。既存 route をスキャンし、編集可能な Blueprint に変換し、カスタムコンポーネント候補を確認して、実装可能で検証可能な契約を Codex、Claude Code、Copilot などに渡します。</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="https://github.com/HenryLau1103/AUB#fastest-path-for-an-existing-project">既存プロジェクトで使う</a>
-            <a class="btn btn-ghost" href="../editor/">ブラウザー demo を試す</a>
+            <a class="btn btn-ghost" href="../editor/">demo mode を開く</a>
           </div>
-          <p class="note">Apache-2.0 · local-first · agent-neutral · エディターはデータを送信しません</p>
+          <p class="note">Apache-2.0 · local-first · agent-neutral · demo mode は MCP 設定を分離します</p>
         </div>
         <a class="hero-shot" href="../editor/" aria-label="AUB エディターを開く">
           <img src="../assets/aub-editor-en.jpg" alt="レスポンシブ画面を構成する AUB ビジュアルエディター" loading="lazy" />
@@ -144,7 +144,7 @@
           </div>
           <div class="card">
             <h3>AUB あり</h3>
-            <p>Issue は Blueprint、承認済み component mapping、preview URL、acceptance id、evidence、PR Safety Score を参照します。Review は好みではなく検証可能なリスクになります。</p>
+            <p>Issue は Blueprint、承認済み component mapping、preview URL、acceptance id、evidence、evidence matrix 付き PR Safety Score comment を参照します。Review は好みではなく検証可能なリスクになります。</p>
           </div>
         </div>
       </section>
@@ -199,7 +199,7 @@
       <section class="handoff">
         <p class="section-kicker">接続して検証</p>
         <h2>GitHub issue を Agent-ready な UI 作業票にする</h2>
-        <p>AUB issue template で route、Blueprint、コンポーネント再利用ルール、preview URL、acceptance criteria を定義します。Copilot、Codex、その他の Agent は同じ契約に沿って実装し、PR で証拠を返せます。</p>
+        <p>AUB issue template で route、Blueprint、コンポーネント再利用ルール、preview URL、acceptance criteria を定義します。Copilot、Codex、その他の Agent は同じ契約に沿って実装し、evidence を PR Safety Score comment に返します。</p>
         <div class="command-card">
           <code>uses: HenryLau1103/AUB@main</code>
           <span>契約と実装証拠を検証</span>

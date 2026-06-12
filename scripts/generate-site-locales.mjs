@@ -27,8 +27,8 @@ const locales = {
     lede:
       'AUB is the local-first workbench for coding agents working on real apps. Scan an existing route, turn it into an editable Blueprint, review custom component candidates, then hand Codex, Claude Code, Copilot, or another agent a contract it can implement and prove.',
     openEditor: 'Use with an existing app',
-    viewGitHub: 'Try the browser demo',
-    note: 'Apache-2.0 · local-first · agent-neutral · the editor uploads nothing',
+    viewGitHub: 'Open demo mode',
+    note: 'Apache-2.0 · local-first · agent-neutral · demo mode keeps MCP setup separate',
     editorAria: 'Open the AUB editor',
     editorAlt: 'AUB visual editor composing a responsive screen',
     capabilitiesAria: 'Product capabilities',
@@ -61,7 +61,7 @@ const locales = {
     beforeAfterTitle: 'The difference shows up in pull request review',
     beforeAfterCards: [
       ['Without AUB', 'A vague issue asks an agent to improve a page. The PR may look plausible, but reviewers still have to guess whether the agent reused real components, preserved responsive behavior, or broke interactions.'],
-      ['With AUB', 'The issue references a Blueprint, approved component mappings, preview URL, acceptance ids, evidence, and a PR Safety Score. Review shifts from taste to verifiable risk.'],
+      ['With AUB', 'The issue references a Blueprint, approved component mappings, preview URL, acceptance ids, evidence, and a PR Safety Score comment with an evidence matrix. Review shifts from taste to verifiable risk.'],
     ],
     comparisonKicker: 'Competitive focus',
     comparisonTitle: 'AUB should not compete as another app builder',
@@ -82,7 +82,7 @@ const locales = {
     handoffKicker: 'Connect and verify',
     handoffTitle: 'GitHub issues become agent-ready UI work orders',
     handoffBody:
-      'Use AUB issue templates to define the route, Blueprint, component reuse rules, preview URL, and acceptance criteria. Copilot, Codex, or another agent can implement against the same contract and return evidence in the PR.',
+      'Use AUB issue templates to define the route, Blueprint, component reuse rules, preview URL, and acceptance criteria. Copilot, Codex, or another agent can implement against the same contract and return evidence in the PR Safety Score comment.',
     commandNote: 'Validates contracts and implementation evidence',
     links: ['Workspace loop guide', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', 'Production mappings', 'GitHub CI gate', 'Blueprint schema'],
     footer: 'safe existing UI changes for coding agents',
@@ -106,8 +106,8 @@ const locales = {
     lede:
       'AUB 是給 coding agent 修改真實 app 的 local-first 工作台。掃描既有 route、轉成可編輯 Blueprint、審核自訂元件候選，再把可實作且可驗證的合約交給 Codex、Claude Code、Copilot 或其他 Agent。',
     openEditor: '用在既有專案',
-    viewGitHub: '試用瀏覽器 demo',
-    note: 'Apache-2.0 · local-first · agent-neutral · 編輯器不會上傳資料',
+    viewGitHub: '開啟 demo mode',
+    note: 'Apache-2.0 · local-first · agent-neutral · demo mode 會把 MCP 設定分開',
     editorAria: '開啟 AUB 編輯器',
     editorAlt: 'AUB 視覺編輯器正在組合響應式畫面',
     capabilitiesAria: '產品能力',
@@ -139,7 +139,7 @@ const locales = {
     beforeAfterTitle: '差異會直接出現在 PR review',
     beforeAfterCards: [
       ['沒有 AUB', 'Issue 只叫 Agent 改善某個頁面。PR 也許看起來合理，但 reviewer 仍要猜它有沒有重用正式元件、有沒有保留響應式行為、有沒有破壞互動。'],
-      ['有 AUB', 'Issue 會引用 Blueprint、已核准 component mapping、preview URL、acceptance id、evidence 與 PR Safety Score。Review 從主觀喜好變成可驗證風險。'],
+      ['有 AUB', 'Issue 會引用 Blueprint、已核准 component mapping、preview URL、acceptance id、evidence，以及含 evidence matrix 的 PR Safety Score comment。Review 從主觀喜好變成可驗證風險。'],
     ],
     comparisonKicker: '競品定位',
     comparisonTitle: 'AUB 不應該去當另一套 app builder',
@@ -155,7 +155,7 @@ const locales = {
     handoffKicker: '連接並驗證',
     handoffTitle: 'GitHub issue 變成可交給 Agent 的 UI 工單',
     handoffBody:
-      '使用 AUB issue template 定義 route、Blueprint、元件重用規則、preview URL 與 acceptance criteria。Copilot、Codex 或其他 Agent 可以依同一份合約實作，並在 PR 回報證據。',
+      '使用 AUB issue template 定義 route、Blueprint、元件重用規則、preview URL 與 acceptance criteria。Copilot、Codex 或其他 Agent 依同一份合約實作，並把 evidence 回寫到 PR Safety Score comment。',
     commandNote: '驗證合約與實作證據',
     links: ['Workspace loop 指南', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '正式元件對應', 'GitHub CI 閘門', 'Blueprint schema'],
     footer: '讓編碼 Agent 安全修改既有 UI',
@@ -179,8 +179,8 @@ const locales = {
     lede:
       'AUB 是给 coding agent 修改真实 app 的 local-first 工作台。扫描既有 route、转换成可编辑 Blueprint、审核自定义组件候选，再把可实现且可验证的契约交给 Codex、Claude Code、Copilot 或其他 Agent。',
     openEditor: '用于既有项目',
-    viewGitHub: '试用浏览器 demo',
-    note: 'Apache-2.0 · local-first · agent-neutral · 编辑器不会上传数据',
+    viewGitHub: '打开 demo mode',
+    note: 'Apache-2.0 · local-first · agent-neutral · demo mode 会把 MCP 设置分开',
     editorAria: '打开 AUB 编辑器',
     editorAlt: 'AUB 可视化编辑器正在编排响应式页面',
     capabilitiesAria: '产品能力',
@@ -212,7 +212,7 @@ const locales = {
     beforeAfterTitle: '差异会直接出现在 PR review',
     beforeAfterCards: [
       ['没有 AUB', 'Issue 只让 Agent 改善某个页面。PR 也许看起来合理，但 reviewer 仍要猜它有没有复用生产组件、保留响应式行为、或破坏交互。'],
-      ['有 AUB', 'Issue 会引用 Blueprint、已批准 component mapping、preview URL、acceptance id、evidence 与 PR Safety Score。Review 从主观喜好变成可验证风险。'],
+      ['有 AUB', 'Issue 会引用 Blueprint、已批准 component mapping、preview URL、acceptance id、evidence，以及包含 evidence matrix 的 PR Safety Score comment。Review 从主观喜好变成可验证风险。'],
     ],
     comparisonKicker: '竞品定位',
     comparisonTitle: 'AUB 不应该去做另一套 app builder',
@@ -228,7 +228,7 @@ const locales = {
     handoffKicker: '连接并验证',
     handoffTitle: 'GitHub issue 变成可交给 Agent 的 UI 工单',
     handoffBody:
-      '使用 AUB issue template 定义 route、Blueprint、组件复用规则、preview URL 与 acceptance criteria。Copilot、Codex 或其他 Agent 可以依同一份契约实现，并在 PR 返回证据。',
+      '使用 AUB issue template 定义 route、Blueprint、组件复用规则、preview URL 与 acceptance criteria。Copilot、Codex 或其他 Agent 根据同一份契约实现，并把 evidence 写回 PR Safety Score comment。',
     commandNote: '验证契约与实现证据',
     links: ['Workspace loop 指南', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '生产组件映射', 'GitHub CI 门禁', 'Blueprint schema'],
     footer: '让编码 Agent 安全修改既有 UI',
@@ -252,8 +252,8 @@ const locales = {
     lede:
       'AUB は、コーディング Agent が実際の app を変更するための local-first ワークベンチです。既存 route をスキャンし、編集可能な Blueprint に変換し、カスタムコンポーネント候補を確認して、実装可能で検証可能な契約を Codex、Claude Code、Copilot などに渡します。',
     openEditor: '既存プロジェクトで使う',
-    viewGitHub: 'ブラウザー demo を試す',
-    note: 'Apache-2.0 · local-first · agent-neutral · エディターはデータを送信しません',
+    viewGitHub: 'demo mode を開く',
+    note: 'Apache-2.0 · local-first · agent-neutral · demo mode は MCP 設定を分離します',
     editorAria: 'AUB エディターを開く',
     editorAlt: 'レスポンシブ画面を構成する AUB ビジュアルエディター',
     capabilitiesAria: '製品機能',
@@ -285,7 +285,7 @@ const locales = {
     beforeAfterTitle: '違いは PR review に現れます',
     beforeAfterCards: [
       ['AUB なし', 'Issue が Agent にページ改善を曖昧に依頼します。PR はもっともらしく見えても、本番コンポーネント再利用、レスポンシブ挙動、既存インタラクションを reviewer が確認し直す必要があります。'],
-      ['AUB あり', 'Issue は Blueprint、承認済み component mapping、preview URL、acceptance id、evidence、PR Safety Score を参照します。Review は好みではなく検証可能なリスクになります。'],
+      ['AUB あり', 'Issue は Blueprint、承認済み component mapping、preview URL、acceptance id、evidence、evidence matrix 付き PR Safety Score comment を参照します。Review は好みではなく検証可能なリスクになります。'],
     ],
     comparisonKicker: '競合上の焦点',
     comparisonTitle: 'AUB は別の app builder として戦うべきではありません',
@@ -301,7 +301,7 @@ const locales = {
     handoffKicker: '接続して検証',
     handoffTitle: 'GitHub issue を Agent-ready な UI 作業票にする',
     handoffBody:
-      'AUB issue template で route、Blueprint、コンポーネント再利用ルール、preview URL、acceptance criteria を定義します。Copilot、Codex、その他の Agent は同じ契約に沿って実装し、PR で証拠を返せます。',
+      'AUB issue template で route、Blueprint、コンポーネント再利用ルール、preview URL、acceptance criteria を定義します。Copilot、Codex、その他の Agent は同じ契約に沿って実装し、evidence を PR Safety Score comment に返します。',
     commandNote: '契約と実装証拠を検証',
     links: ['Workspace loop ガイド', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '本番 mapping', 'GitHub CI ゲート', 'Blueprint schema'],
     footer: 'コーディング Agent に既存 UI を安全に変更させる',
@@ -325,8 +325,8 @@ const locales = {
     lede:
       'AUB는 코딩 Agent가 실제 app을 수정할 때 쓰는 local-first 워크벤치입니다. 기존 route를 스캔해 편집 가능한 Blueprint로 만들고, 사용자 정의 컴포넌트 후보를 검토한 뒤, 구현 가능하고 검증 가능한 계약을 Codex, Claude Code, Copilot 또는 다른 Agent에 전달합니다.',
     openEditor: '기존 프로젝트에서 사용',
-    viewGitHub: '브라우저 demo 사용',
-    note: 'Apache-2.0 · local-first · agent-neutral · 에디터는 데이터를 업로드하지 않습니다',
+    viewGitHub: 'demo mode 열기',
+    note: 'Apache-2.0 · local-first · agent-neutral · demo mode 는 MCP 설정을 분리합니다',
     editorAria: 'AUB 에디터 열기',
     editorAlt: '반응형 화면을 구성하는 AUB 비주얼 에디터',
     capabilitiesAria: '제품 기능',
@@ -358,7 +358,7 @@ const locales = {
     beforeAfterTitle: '차이는 PR review에서 드러납니다',
     beforeAfterCards: [
       ['AUB 없음', 'Issue가 Agent에게 페이지 개선을 모호하게 요청합니다. PR이 그럴듯해 보여도 reviewer는 프로덕션 컴포넌트 재사용, 반응형 동작, 기존 인터랙션 보존을 다시 확인해야 합니다.'],
-      ['AUB 있음', 'Issue는 Blueprint, 승인된 component mapping, preview URL, acceptance id, evidence, PR Safety Score를 참조합니다. Review는 취향이 아니라 검증 가능한 위험 평가가 됩니다.'],
+      ['AUB 있음', 'Issue는 Blueprint, 승인된 component mapping, preview URL, acceptance id, evidence, evidence matrix가 있는 PR Safety Score comment를 참조합니다. Review는 취향이 아니라 검증 가능한 위험 평가가 됩니다.'],
     ],
     comparisonKicker: '경쟁 포지션',
     comparisonTitle: 'AUB는 또 하나의 app builder로 경쟁하면 안 됩니다',
@@ -374,7 +374,7 @@ const locales = {
     handoffKicker: '연결 및 검증',
     handoffTitle: 'GitHub issue를 Agent-ready UI 작업표로 만듭니다',
     handoffBody:
-      'AUB issue template으로 route, Blueprint, 컴포넌트 재사용 규칙, preview URL, acceptance criteria를 정의합니다. Copilot, Codex 또는 다른 Agent가 같은 계약에 맞춰 구현하고 PR에서 증거를 반환할 수 있습니다.',
+      'AUB issue template으로 route, Blueprint, 컴포넌트 재사용 규칙, preview URL, acceptance criteria를 정의합니다. Copilot, Codex 또는 다른 Agent가 같은 계약에 맞춰 구현하고 evidence를 PR Safety Score comment로 반환할 수 있습니다.',
     commandNote: '계약과 구현 증거 검증',
     links: ['Workspace loop 가이드', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '프로덕션 mapping', 'GitHub CI 게이트', 'Blueprint schema'],
     footer: '코딩 Agent가 기존 UI를 안전하게 바꾸도록 돕기',

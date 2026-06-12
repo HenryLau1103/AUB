@@ -168,6 +168,7 @@ async function verifyProjectFile(root, ref, validators) {
 async function verifyReportFile(root, entry, validators, options = {}) {
   const failures = [];
   let safetyScore = null;
+  let reportSummary = null;
   try {
     const [blueprint, report] = await Promise.all([
       readDocument(resolveRef(root, entry.blueprint)),
@@ -180,6 +181,7 @@ async function verifyReportFile(root, entry, validators, options = {}) {
     } else {
       const result = verifyImplementationReport(blueprint, report, options);
       safetyScore = result.summary.safety_score;
+      reportSummary = result.summary;
       for (const error of result.errors) {
         failures.push({ path: entry.report, message: `Implementation report: ${error}` });
       }
@@ -198,6 +200,7 @@ async function verifyReportFile(root, entry, validators, options = {}) {
     path: entry.report,
     blueprint: entry.blueprint,
     safetyScore,
+    reportSummary,
     passed: failures.length === 0,
     failures,
   };

@@ -58,7 +58,7 @@ npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open
 ```
 
-`demo` は実プロジェクトを使わずに safety loop を確認するための合成 workspace を作成します。scan report、generated template、Blueprint、失敗する implementation report、通過できる implementation report が含まれます。
+`demo` は実プロジェクトを使わずに safety loop を確認するための合成 workspace を作成します。scan report、generated template、Blueprint、失敗する implementation report、通過できる implementation report、fail/pass PR safety comment が含まれます。
 
 Requirements:
 

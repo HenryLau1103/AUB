@@ -101,4 +101,8 @@ The Action writes a check table to the GitHub job summary and emits file-level e
 annotations for invalid schemas, semantic errors, missing reports, failed acceptance items,
 low safety scores, or unresolved implementation work. When `comment-pr: "true"` is enabled
 on a pull request, the Action also creates or updates one `AUB PR Safety Score` comment with
-the score table, blocking findings, and next actions.
+the merge decision, evidence matrix, reviewer focus, blocking findings, and next actions.
+
+See [`docs/examples/pr-comment-failing.md`](./examples/pr-comment-failing.md) and
+[`docs/examples/pr-comment-passing.md`](./examples/pr-comment-passing.md) for the expected
+reviewer-facing shape.
