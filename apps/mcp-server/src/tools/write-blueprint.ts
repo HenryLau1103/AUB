@@ -1,12 +1,12 @@
-import { access, mkdir, rename, writeFile } from 'node:fs/promises';
-import { dirname, extname, relative, resolve, sep } from 'node:path';
+import { access, rename, writeFile } from 'node:fs/promises';
+import { extname, relative, sep } from 'node:path';
 import yaml from 'js-yaml';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
 import type { Blueprint } from '../aub.js';
 import { buildKnownTypes, validateBlueprintSemantics } from '../aub.js';
 import { formatAjvErrors } from '../schema.js';
-import { resolveWorkspacePath } from '../workspace.js';
+import { prepareWorkspaceWritePath, resolveExistingWorkspacePath } from '../workspace.js';
 
 export const name = 'write_blueprint';
 
@@ -56,7 +56,7 @@ export async function run(
   const schemaOk = ctx.validators.validateBlueprint(blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
   const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry ? resolveWorkspacePath(ctx.root, args.registry) : null,
+    extensionPath: args.registry ? await resolveExistingWorkspacePath(ctx.root, args.registry) : null,
     startDir: ctx.root,
   });
   const semanticErrors = schemaOk
@@ -68,11 +68,10 @@ export async function run(
     );
   }
 
-  const outputPath = resolveWorkspacePath(ctx.root, args.path);
+  const outputPath = await prepareWorkspaceWritePath(ctx.root, args.path);
   if (!args.overwrite && (await exists(outputPath))) {
     throw new Error(`Refusing to overwrite existing file: ${args.path}`);
   }
-  await mkdir(dirname(outputPath), { recursive: true });
   const ext = extname(outputPath).toLowerCase();
   const content =
     ext === '.yaml' || ext === '.yml'

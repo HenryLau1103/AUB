@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import JSZip from 'jszip';
 import { findRepoRoot } from '../dist/repo.js';
 import { loadValidators } from '../dist/schema.js';
@@ -65,6 +65,28 @@ test('get_blueprint resolves by screen id and by file path', async () => {
 
   const byPath = await getBlueprint(ctx, { ref: 'examples/dashboard.ui.json' });
   assert.equal(byPath.blueprint.screen.id, SCREEN_ID);
+});
+
+test('get_blueprint and get_project reject refs outside the workspace', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-ref-root-'));
+  const outside = await mkdtemp(join(tmpdir(), 'aub-ref-outside-'));
+  try {
+    await writeFile(
+      join(outside, 'outside.ui.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'dashboard.ui.json'), 'utf8')
+    );
+    await writeFile(
+      join(outside, 'outside.aub.project.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'project', 'app.aub.project.json'), 'utf8')
+    );
+    const outsideBlueprintRef = relative(root, join(outside, 'outside.ui.json'));
+    await assert.rejects(() => getBlueprint({ ...ctx, root }, { ref: outsideBlueprintRef }));
+    await assert.rejects(() => getBlueprint({ ...ctx, root }, { ref: join(outside, 'outside.ui.json') }));
+    await assert.rejects(() => getProject({ ...ctx, root }, { ref: join(outside, 'outside.aub.project.json') }));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
 });
 
 test('get_blueprint returns markdown and yaml formats', async () => {
@@ -132,6 +154,27 @@ test('resolve_component returns metadata for a core type', async () => {
   assert.equal(result.source, 'core');
   assert.equal(result.isContainer, false);
   assert.equal(result.selectedImplementation, null);
+});
+
+test('resolve_component rejects registries outside the workspace', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-registry-root-'));
+  const outside = await mkdtemp(join(tmpdir(), 'aub-registry-outside-'));
+  try {
+    await writeFile(
+      join(outside, 'aub.registry.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'extensions', 'aub.registry.json'), 'utf8')
+    );
+    await assert.rejects(
+      () => resolveComponent({ ...ctx, root }, {
+        type: 'acme:insight_card',
+        registry: relative(root, join(outside, 'aub.registry.json')),
+      }),
+      /inside the workspace root|relative to the workspace root/
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
 });
 
 test('diff_blueprints reports changes between Blueprint revisions', async () => {
@@ -212,6 +255,27 @@ test('write_blueprint validates, writes atomically, and rejects paths outside th
   }
 });
 
+test('write_blueprint rejects symlinked output parents outside the workspace', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-write-link-'));
+  const outside = await mkdtemp(join(tmpdir(), 'aub-mcp-write-outside-'));
+  try {
+    await symlink(outside, join(root, 'linkdir'));
+    const blueprint = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
+    await assert.rejects(
+      () => writeBlueprint({ ...ctx, root }, {
+        path: 'linkdir/escaped.ui.json',
+        blueprint,
+        overwrite: true,
+      }),
+      /inside the workspace root/
+    );
+    await assert.rejects(() => readFile(join(outside, 'escaped.ui.json'), 'utf8'), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
 test('export_handoff writes a verifiable package inside the workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'aub-mcp-handoff-'));
   try {
@@ -225,6 +289,27 @@ test('export_handoff writes a verifiable package inside the workspace', async ()
     assert.ok(zip.file('implementation-report.schema.json'));
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('export_handoff rejects symlinked output parents outside the workspace', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-handoff-link-'));
+  const outside = await mkdtemp(join(tmpdir(), 'aub-mcp-handoff-outside-'));
+  try {
+    await symlink(outside, join(root, 'linkdir'));
+    const blueprint = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
+    await writeFile(join(root, 'dashboard.ui.json'), `${JSON.stringify(blueprint, null, 2)}\n`);
+    await assert.rejects(
+      () => exportHandoff({ ...ctx, root }, {
+        ref: 'dashboard.ui.json',
+        output: 'linkdir/escaped.aub.zip',
+      }),
+      /inside the workspace root/
+    );
+    await assert.rejects(() => readFile(join(outside, 'escaped.aub.zip'), 'utf8'), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
   }
 });
 
@@ -334,6 +419,19 @@ test('scan_project_ui writes component candidates without touching aub.registry.
   }
 });
 
+test('scan_project_ui caps the file limit and rejects invalid limits', async () => {
+  const root = await createWorkspaceLoopFixture();
+  try {
+    await writeFile(join(root, 'src', 'components', 'Huge.tsx'), `export function Huge() { return null; }\n${'x'.repeat(600_000)}`);
+    await assert.rejects(() => scanProjectUi({ ...ctx, root }, { limit: 0 }), /positive integer/);
+    const result = await scanProjectUi({ ...ctx, root }, { limit: 5000 });
+    assert.ok(result.components.length > 0);
+    assert.equal(result.skippedSourceFiles, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('generate_template_from_source saves a candidate workspace template', async () => {
   const root = await createWorkspaceLoopFixture();
   try {
@@ -351,6 +449,27 @@ test('generate_template_from_source saves a candidate workspace template', async
     assert.equal(status.templates[0].path, result.savedPath);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('generate_template_from_source rejects symlinked output parents outside the workspace', async () => {
+  const root = await createWorkspaceLoopFixture();
+  const outside = await mkdtemp(join(tmpdir(), 'aub-template-outside-'));
+  try {
+    await symlink(outside, join(root, 'linkdir'));
+    await scanProjectUi({ ...ctx, root }, {});
+    await assert.rejects(
+      () => generateTemplateFromSource({ ...ctx, root }, {
+        sourcePath: 'app/settings/page.tsx',
+        name: 'Settings',
+        output: 'linkdir/template-escape',
+      }),
+      /inside the workspace root/
+    );
+    await assert.rejects(() => readFile(join(outside, 'template-escape.aub.template.json'), 'utf8'), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
   }
 });
 
@@ -404,6 +523,22 @@ test('submit_report accepts a fully mapped, passing report', async () => {
   assert.equal(result.schemaErrors.length, 0);
   assert.equal(result.accepted, true, `errors: ${JSON.stringify(result.errors)}`);
   assert.equal(result.summary.acceptance_passed, result.summary.acceptance_total);
+});
+
+test('submit_report rejects unsafe accepted-report file name stems', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-report-stem-'));
+  try {
+    const blueprint = structuredClone((await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint);
+    blueprint.screen.id = 'bad..id';
+    await writeFile(join(root, 'bad.ui.json'), `${JSON.stringify(blueprint, null, 2)}\n`);
+    const report = passingReport(blueprint);
+    await assert.rejects(
+      () => submitReport({ ...ctx, root }, { ref: 'bad.ui.json', report }),
+      /Unsafe file name segment/
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 const PROJECT_REF = 'examples/project/app.aub.project.json';

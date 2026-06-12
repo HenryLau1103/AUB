@@ -35,9 +35,10 @@ function waitForReady(child) {
 
 test('Streamable HTTP transport initializes and calls an AUB tool', async () => {
   const port = await availablePort();
+  const token = 'streamable-http-test-token';
   const child = spawn(
     process.execPath,
-    ['dist/http.js', '--workspace', findRepoRoot(), '--port', String(port)],
+    ['dist/http.js', '--workspace', findRepoRoot(), '--port', String(port), '--rpc-token', token],
     { stdio: ['ignore', 'ignore', 'pipe'] }
   );
   try {
@@ -47,7 +48,11 @@ test('Streamable HTTP transport initializes and calls an AUB tool', async () => 
     assert.equal(health.tools.length, 23);
 
     const client = new Client({ name: 'aub-http-test', version: '1.0.0' });
-    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`));
+    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`), {
+      requestInit: {
+        headers: { authorization: `Bearer ${token}` },
+      },
+    });
     await client.connect(transport);
     const tools = await client.listTools();
     assert.equal(tools.tools.length, 23);

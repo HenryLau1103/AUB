@@ -156,3 +156,24 @@ test('HP4: handoff omits the registry and sets null when no extensions are provi
   const zip = await JSZip.loadAsync(bytes);
   assert.equal(zip.file('aub.registry.json'), null);
 });
+
+test('HP5: handoff rejects traversal-style viewport screenshot ids', async () => {
+  const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
+  const reportSchema = JSON.parse(await readFile(REPORT_SCHEMA_URL, 'utf8'));
+  await assert.rejects(
+    async () => createHandoffArchive({
+      blueprint,
+      markdown: exportMarkdown(blueprint),
+      genericPrompt: exportAgentPrompt(blueprint, { adapter: 'generic', task: 'implement' }),
+      codexPrompt: exportAgentPrompt(blueprint, { adapter: 'codex', task: 'implement' }),
+      agentGuide: await readFile(GUIDE_URL, 'utf8'),
+      agentGuideZhHant: await readFile(GUIDE_ZH_URL, 'utf8'),
+      reportTemplate: createImplementationReportTemplate(blueprint),
+      reportSchema,
+      viewportImages: {
+        '../../evil': 'data:image/png;base64,iVBORw0KGgo=',
+      },
+    }),
+    /Unsafe viewport id/
+  );
+});

@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 
 export const HANDOFF_FORMAT_VERSION = '1.2.0';
 export const HANDOFF_AGENT_ENTRYPOINT = 'AGENT-README.md';
+const SAFE_ZIP_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/;
 
 export async function createHandoffArchive({
   blueprint,
@@ -40,6 +41,7 @@ export async function createHandoffArchive({
   }
 
   for (const [viewportId, dataUrl] of Object.entries(viewportImages)) {
+    assertSafeZipSegment(viewportId, 'viewport id');
     files[`screenshots/${viewportId}.png`] = dataUrlToBytes(dataUrl);
   }
 
@@ -74,6 +76,22 @@ export async function createHandoffArchive({
     }),
     manifest,
   };
+}
+
+function assertSafeZipSegment(value, label) {
+  if (
+    typeof value !== 'string' ||
+    value.length === 0 ||
+    value === '.' ||
+    value === '..' ||
+    value.includes('..') ||
+    value.includes('/') ||
+    value.includes('\\') ||
+    /[\u0000-\u001f\u007f]/.test(value) ||
+    !SAFE_ZIP_SEGMENT_PATTERN.test(value)
+  ) {
+    throw new Error(`Unsafe ${label}: ${String(value)}`);
+  }
 }
 
 function appendExtensionRegistryNote(agentGuide) {

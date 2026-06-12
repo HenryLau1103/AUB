@@ -53,6 +53,24 @@ test('ANG3: imported Blueprint passes schema and semantic validation', async () 
   assert.deepEqual(validateBlueprintSemantics(result.blueprint), []);
 });
 
+test('ANG4: deeply nested templates fail with an explicit depth error', async () => {
+  const deepTemplate = `${'<div>'.repeat(205)}Too deep${'</div>'.repeat(205)}`;
+  await assert.rejects(
+    () => importAngularComponent([
+      {
+        path: 'deep/deep.component.ts',
+        content: `
+          import { Component } from '@angular/core';
+          @Component({ selector: 'app-deep', templateUrl: './deep.component.html' })
+          export class DeepComponent {}
+        `,
+      },
+      { path: 'deep/deep.component.html', content: deepTemplate },
+    ], { entry: 'app-deep' }),
+    /Angular template exceeds maximum nesting depth of 200/
+  );
+});
+
 async function walk(directory) {
   const result = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {

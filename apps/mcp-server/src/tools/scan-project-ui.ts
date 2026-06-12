@@ -9,7 +9,13 @@ const inputSchema = {
     .string()
     .optional()
     .describe('Optional namespace for suggested custom types. Defaults to package/app name, or app.'),
-  limit: z.number().int().positive().optional().describe('Maximum files to scan. Defaults to 2000.'),
+  limit: z
+    .number()
+    .int()
+    .positive()
+    .max(2000)
+    .optional()
+    .describe('Maximum files to scan. Defaults to 2000 and is capped at 2000.'),
 };
 
 export const config = {

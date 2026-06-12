@@ -35,9 +35,10 @@ runs:
     - name: Verify AUB contracts
       shell: bash
       env:
+        AUB_CONFIG_INPUT: ${{ inputs.config }}
         AUB_REQUIRE_REPORTS: ${{ inputs.require-reports }}
       run: |
-        args=(--workspace "$GITHUB_WORKSPACE" --config "${{ inputs.config }}")
+        args=(--workspace "$GITHUB_WORKSPACE" --config "$AUB_CONFIG_INPUT")
         if [[ "$AUB_REQUIRE_REPORTS" == "true" ]]; then
           args+=(--require-reports)
         fi

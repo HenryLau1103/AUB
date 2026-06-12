@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import { createReadStream, existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -211,6 +212,7 @@ async function main() {
   if (!existsSync(join(editorRoot, 'index.html'))) throw new Error(`Editor build is missing: ${editorRoot}`);
 
   const mcpPort = await findOpenPort(args.host, args.mcpPort);
+  const rpcToken = randomBytes(32).toString('base64url');
   const mcp = spawn(process.execPath, [
     mcpEntry,
     '--workspace',
@@ -219,6 +221,8 @@ async function main() {
     args.host,
     '--port',
     String(mcpPort),
+    '--rpc-token',
+    rpcToken,
   ], {
     stdio: ['ignore', 'inherit', 'inherit'],
     env: process.env,
@@ -231,6 +235,7 @@ async function main() {
   const editorPort = await listen(editorServer, args.host, args.editorPort);
   const editorUrl = new URL(`http://${args.host}:${editorPort}/`);
   editorUrl.searchParams.set('mcp', mcpUrl);
+  editorUrl.searchParams.set('token', rpcToken);
 
   console.error('');
   console.error('AUB Workspace is running');
