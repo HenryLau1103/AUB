@@ -15,7 +15,7 @@
 
 > 本檔已與目前主版 README 的章節結構核對，僅保留正體中文譯文版本。
 
-[Workspace loop 指南](./docs/workspace-loop-user-manual.zh-Hant.md) · [10 分鐘 demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [Agent 交付指南](./docs/agent-handoff.zh-Hant.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準範例](./examples/dashboard.ui.json)
+[Workspace loop 指南](./docs/workspace-loop-user-manual.zh-Hant.md) · [10 分鐘 demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [Agent 交付指南](./docs/agent-handoff.zh-Hant.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Security and data safety](./docs/security-and-data-safety.md) · [標準範例](./examples/dashboard.ui.json)
 
 ![AUB 視覺編輯器正在編輯響應式註冊流程](./docs/assets/aub-editor-zh-hant.jpg)
 
@@ -67,7 +67,7 @@ npx aub-workspace
 npx aub-workspace demo
 ```
 
-這會建立一個合成 workspace，包含 `.aub/scan-report.json`、candidate template、Blueprint、一份會被 gate 擋下的低證據 report，以及一份可通過的 report。
+這會建立一個合成 workspace，包含 `.aub/scan-report.json`、candidate template、Blueprint、一份會被 gate 擋下的低證據 report、一份可通過的 report，以及 fail/pass PR safety comment。這是最快看到「低證據 PR 被擋下，補足證據後進入審核」的方式。
 
 ## AUB 解決什麼問題
 
@@ -354,6 +354,7 @@ Blueprint 檔案以 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.sc
 
 ## 專案狀態
 
+- 產品／package release：`0.4.0`，重點是 workspace safety demo、PR evidence review、scanner trust breakdown 與 demo mode 分離。Blueprint 格式仍維持 `0.3.0`。
 - Blueprint schema 與語意驗證：已實作。
 - WYSIWYG 編輯器，自由／自動佈局、拖曳、縮放、多選、畫板縮放、本地化與範本：已實作。
 - JSON、Markdown、截圖、雜湊與 `.aub.zip` 交付：已實作。
@@ -365,7 +366,7 @@ Blueprint 檔案以 [`schema/ui-blueprint.schema.json`](./schema/ui-blueprint.sc
 - Workspace-connected editor loop：本機 MCP HTTP、session state、scanner 產生的範本、自訂元件候選審核、直接儲存 Blueprint 與實作預覽：已實作。
 - Implementation evidence capture：viewport 截圖、DOM query、overflow 與 report evidence 驗證：已實作。
 - `aub.registry.json` production component mapping：已實作。
-- GitHub Action 與本機 CI 驗收器：已實作。
+- GitHub Action 與本機 CI 驗收器、PR Safety Score comment、evidence matrix 輸出：已實作。
 - 多畫面專案（參照式 `.aub.project.json`、CLI、MCP 工具、編輯器畫面切換器與導覽）：已實作。
 - 可設定的畫布解析度（預設值 + 自訂寬高）：已實作。
 - 英文、繁中、簡中、日文、韓文 GitHub Pages 與 README：已實作。

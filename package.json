@@ -1,6 +1,6 @@
 {
   "name": "aub",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "UI Blueprint Agent — structured spec format for AI coding agents",
   "private": true,
   "type": "module",

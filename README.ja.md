@@ -13,7 +13,7 @@
 
 [English](./README.md) · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · **日本語** · [한국어](./README.ko.md)
 
-[Workspace loop ガイド](./docs/workspace-loop-user-manual.ja.md) · [10 分 demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [標準サンプル](./examples/dashboard.ui.json)
+[Workspace loop ガイド](./docs/workspace-loop-user-manual.ja.md) · [10 分 demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Security and data safety](./docs/security-and-data-safety.md) · [標準サンプル](./examples/dashboard.ui.json)
 
 ![レスポンシブ画面を編集する AUB ビジュアルエディター](./docs/assets/aub-editor-en.jpg)
 
@@ -57,7 +57,7 @@ npx aub-workspace
 npx aub-workspace demo
 ```
 
-これは合成 workspace を作成し、`.aub/scan-report.json`、candidate template、Blueprint、gate が拒否する低証拠 report、通過できる report を生成します。
+これは合成 workspace を作成し、`.aub/scan-report.json`、candidate template、Blueprint、gate が拒否する低証拠 report、通過できる report、fail/pass PR safety comment を生成します。低証拠 PR が止まり、証拠を補った PR が review 可能になる流れを最短で確認できます。
 
 ## AUB が解決する問題
 
@@ -217,13 +217,14 @@ pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-e
 
 - Blueprint schema、semantic validation、migration、diff、lock：実装済み。
 - WYSIWYG エディター、18 テンプレート、複数画面 project、5 言語 landing page：実装済み。
+- Product/package release: `0.4.0`。workspace safety demo、PR evidence review、scanner trust breakdown、demo mode 分離が中心です。Blueprint format は `0.3.0` のままです。
 - Angular、Figma／Penpot bridge import：実装済み。
 - Codex、Claude Code、GitHub Copilot adapter：実装済み。
 - stdio／HTTP MCP server、23 ツール：実装済み。
 - One-command workspace initialization（`npx aub-workspace init`）：CI config、`.aubignore`、`AGENTS.md`、issue templates、Copilot instructions、PR workflow：実装済み。
 - Workspace-connected editor loop、local MCP HTTP、session、scanner-generated template、custom component candidate review、direct Blueprint save、implementation preview：実装済み。
 - Implementation evidence capture：viewport screenshot、DOM query、overflow、report evidence verification：実装済み。
-- 本番 component mapping、implementation report、GitHub Action：実装済み。
+- 本番 component mapping、implementation report、GitHub Action、PR Safety Score comment、evidence matrix：実装済み。
 - UI 内 YAML 編集、エディター内 lock 生成：backlog。
 
 現在の format version は `0.3.0` です。

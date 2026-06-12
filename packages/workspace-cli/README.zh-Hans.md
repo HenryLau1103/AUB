@@ -58,7 +58,7 @@ npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open
 ```
 
-`demo` 会创建一个合成 workspace，用来证明安全流程，不需要使用真实项目。它包含 scan report、generated template、Blueprint、会失败的 implementation report 和可通过的 implementation report。
+`demo` 会创建一个合成 workspace，用来证明安全流程，不需要使用真实项目。它包含 scan report、generated template、Blueprint、会失败的 implementation report、可通过的 implementation report，以及 fail/pass PR safety comment。
 
 Requirements:
 

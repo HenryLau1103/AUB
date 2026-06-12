@@ -26,6 +26,17 @@ export interface WorkspaceTemplate {
     line?: number;
     selector?: string;
   }>;
+  trustBreakdown?: {
+    routeResolved: boolean;
+    nodeCount: number;
+    sourceBackedNodes: number;
+    sourceReferenceCoverage: number;
+    semanticTagsMapped: number;
+    interactionCount: number;
+    missingMappings: number;
+    unresolvedCustomComponents: number;
+    reasons?: string[];
+  };
   confidence?: number;
   status: 'candidate' | 'approved';
   createdAt?: string;
@@ -112,6 +123,17 @@ export interface WorkspaceStatus {
         routeCount: number;
         componentCandidateCount: number;
         storybookDetected: boolean;
+        scanLimitReached: boolean;
+      };
+      breakdown?: {
+        frameworkDetected: boolean;
+        routeResolved: boolean;
+        routeCount: number;
+        componentCandidateCount: number;
+        storybookDetected: boolean;
+        filesScanned: number;
+        filesSkipped: number;
+        directoriesSkipped: number;
         scanLimitReached: boolean;
       };
     };

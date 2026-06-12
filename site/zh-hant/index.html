@@ -62,9 +62,9 @@
           <p class="lede">AUB 是給 coding agent 修改真實 app 的 local-first 工作台。掃描既有 route、轉成可編輯 Blueprint、審核自訂元件候選，再把可實作且可驗證的合約交給 Codex、Claude Code、Copilot 或其他 Agent。</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="https://github.com/HenryLau1103/AUB#fastest-path-for-an-existing-project">用在既有專案</a>
-            <a class="btn btn-ghost" href="../editor/">試用瀏覽器 demo</a>
+            <a class="btn btn-ghost" href="../editor/">開啟 demo mode</a>
           </div>
-          <p class="note">Apache-2.0 · local-first · agent-neutral · 編輯器不會上傳資料</p>
+          <p class="note">Apache-2.0 · local-first · agent-neutral · demo mode 會把 MCP 設定分開</p>
         </div>
         <a class="hero-shot" href="../editor/" aria-label="開啟 AUB 編輯器">
           <img src="../assets/aub-editor-en.jpg" alt="AUB 視覺編輯器正在組合響應式畫面" loading="lazy" />
@@ -144,7 +144,7 @@
           </div>
           <div class="card">
             <h3>有 AUB</h3>
-            <p>Issue 會引用 Blueprint、已核准 component mapping、preview URL、acceptance id、evidence 與 PR Safety Score。Review 從主觀喜好變成可驗證風險。</p>
+            <p>Issue 會引用 Blueprint、已核准 component mapping、preview URL、acceptance id、evidence，以及含 evidence matrix 的 PR Safety Score comment。Review 從主觀喜好變成可驗證風險。</p>
           </div>
         </div>
       </section>
@@ -199,7 +199,7 @@
       <section class="handoff">
         <p class="section-kicker">連接並驗證</p>
         <h2>GitHub issue 變成可交給 Agent 的 UI 工單</h2>
-        <p>使用 AUB issue template 定義 route、Blueprint、元件重用規則、preview URL 與 acceptance criteria。Copilot、Codex 或其他 Agent 可以依同一份合約實作，並在 PR 回報證據。</p>
+        <p>使用 AUB issue template 定義 route、Blueprint、元件重用規則、preview URL 與 acceptance criteria。Copilot、Codex 或其他 Agent 依同一份合約實作，並把 evidence 回寫到 PR Safety Score comment。</p>
         <div class="command-card">
           <code>uses: HenryLau1103/AUB@main</code>
           <span>驗證合約與實作證據</span>

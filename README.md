@@ -13,7 +13,7 @@
 
 **English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
 
-[Workspace loop guide](./docs/workspace-loop-user-manual.md) · [10-minute demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Canonical example](./examples/dashboard.ui.json)
+[Workspace loop guide](./docs/workspace-loop-user-manual.md) · [10-minute demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Security and data safety](./docs/security-and-data-safety.md) · [Canonical example](./examples/dashboard.ui.json)
 
 ![AUB visual editor showing a responsive onboarding screen](./docs/assets/aub-editor-en.jpg)
 
@@ -71,7 +71,7 @@ To see the full safety loop without using a real project, run:
 npx aub-workspace demo
 ```
 
-This creates a synthetic workspace with `.aub/scan-report.json`, a generated candidate template, a Blueprint, one failing implementation report, and one passing report. It is the fastest way to see the PR gate reject low-evidence agent work.
+This creates a synthetic workspace with `.aub/scan-report.json`, a generated candidate template, a Blueprint, one failing implementation report, one passing report, and fail/pass PR safety comments. It is the fastest way to see the PR gate reject low-evidence agent work and then approve evidence-backed work for review.
 
 ## The problem AUB solves
 
@@ -440,6 +440,7 @@ The `$schema` key is optional and ignored by AUB tooling — it only drives edit
 
 ## Project status
 
+- Product/package release: `0.4.0` focused on the workspace safety demo, PR evidence review, scanner trust breakdown, and demo-mode separation. The Blueprint format remains `0.3.0`.
 - Blueprint schema and semantic validation: implemented.
 - WYSIWYG editor with freeform/auto layout, drag, resize, multi-select, zoom, localization, and templates: implemented.
 - JSON, Markdown, screenshots, hashes, and `.aub.zip` handoff: implemented.
@@ -450,7 +451,7 @@ The `$schema` key is optional and ignored by AUB tooling — it only drives edit
 - Workspace-connected editor loop for local MCP HTTP, session state, scanner-generated templates, component candidate review, direct Blueprint save, and implementation preview: implemented.
 - One-command workspace initialization (`aub-workspace init`) and evidence capture (`pnpm report:capture`): implemented.
 - Production component mappings in `aub.registry.json`: implemented.
-- GitHub Action and local CI verifier for contracts plus implementation evidence: implemented.
+- GitHub Action and local CI verifier for contracts plus implementation evidence, PR Safety Score comments, and evidence matrix output: implemented.
 - Multi-screen projects (reference-based `.aub.project.json`, CLI, MCP tools, editor screen switcher + navigation): implemented.
 - Configurable canvas resolution (presets + custom width/height): implemented.
 - Localized GitHub Pages and README files in English, Traditional Chinese, Simplified Chinese, Japanese, and Korean: implemented.

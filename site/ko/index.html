@@ -62,9 +62,9 @@
           <p class="lede">AUB는 코딩 Agent가 실제 app을 수정할 때 쓰는 local-first 워크벤치입니다. 기존 route를 스캔해 편집 가능한 Blueprint로 만들고, 사용자 정의 컴포넌트 후보를 검토한 뒤, 구현 가능하고 검증 가능한 계약을 Codex, Claude Code, Copilot 또는 다른 Agent에 전달합니다.</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="https://github.com/HenryLau1103/AUB#fastest-path-for-an-existing-project">기존 프로젝트에서 사용</a>
-            <a class="btn btn-ghost" href="../editor/">브라우저 demo 사용</a>
+            <a class="btn btn-ghost" href="../editor/">demo mode 열기</a>
           </div>
-          <p class="note">Apache-2.0 · local-first · agent-neutral · 에디터는 데이터를 업로드하지 않습니다</p>
+          <p class="note">Apache-2.0 · local-first · agent-neutral · demo mode 는 MCP 설정을 분리합니다</p>
         </div>
         <a class="hero-shot" href="../editor/" aria-label="AUB 에디터 열기">
           <img src="../assets/aub-editor-en.jpg" alt="반응형 화면을 구성하는 AUB 비주얼 에디터" loading="lazy" />
@@ -144,7 +144,7 @@
           </div>
           <div class="card">
             <h3>AUB 있음</h3>
-            <p>Issue는 Blueprint, 승인된 component mapping, preview URL, acceptance id, evidence, PR Safety Score를 참조합니다. Review는 취향이 아니라 검증 가능한 위험 평가가 됩니다.</p>
+            <p>Issue는 Blueprint, 승인된 component mapping, preview URL, acceptance id, evidence, evidence matrix가 있는 PR Safety Score comment를 참조합니다. Review는 취향이 아니라 검증 가능한 위험 평가가 됩니다.</p>
           </div>
         </div>
       </section>
@@ -199,7 +199,7 @@
       <section class="handoff">
         <p class="section-kicker">연결 및 검증</p>
         <h2>GitHub issue를 Agent-ready UI 작업표로 만듭니다</h2>
-        <p>AUB issue template으로 route, Blueprint, 컴포넌트 재사용 규칙, preview URL, acceptance criteria를 정의합니다. Copilot, Codex 또는 다른 Agent가 같은 계약에 맞춰 구현하고 PR에서 증거를 반환할 수 있습니다.</p>
+        <p>AUB issue template으로 route, Blueprint, 컴포넌트 재사용 규칙, preview URL, acceptance criteria를 정의합니다. Copilot, Codex 또는 다른 Agent가 같은 계약에 맞춰 구현하고 evidence를 PR Safety Score comment로 반환할 수 있습니다.</p>
         <div class="command-card">
           <code>uses: HenryLau1103/AUB@main</code>
           <span>계약과 구현 증거 검증</span>

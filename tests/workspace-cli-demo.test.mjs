@@ -21,11 +21,20 @@ test('WCLI5: aub-workspace demo creates a synthetic safety gate workspace', asyn
   assert.equal(existsSync(join(root, 'screens', 'risk-dashboard.ui.json')), true);
   assert.equal(existsSync(join(root, '.aub', 'reports', 'risk-dashboard.fail.implementation-report.json')), true);
   assert.equal(existsSync(join(root, '.aub', 'reports', 'risk-dashboard.pass.implementation-report.json')), true);
+  assert.equal(existsSync(join(root, '.aub', 'pr-comment.fail.md')), true);
+  assert.equal(existsSync(join(root, '.aub', 'pr-comment.pass.md')), true);
 
   const scanReport = JSON.parse(await readFile(join(root, '.aub', 'scan-report.json'), 'utf8'));
   assert.equal(scanReport.format, 'aub-scan-report');
   assert.ok(scanReport.summary.routes >= 1);
   assert.ok(scanReport.summary.componentCandidates >= 1);
+
+  const failComment = await readFile(join(root, '.aub', 'pr-comment.fail.md'), 'utf8');
+  const passComment = await readFile(join(root, '.aub', 'pr-comment.pass.md'), 'utf8');
+  assert.match(failComment, /Decision:\*\* Do not merge/);
+  assert.match(failComment, /Evidence Matrix/);
+  assert.match(passComment, /Decision:\*\* Ready for review/);
+  assert.match(passComment, /Evidence Matrix/);
 
   const pass = await verifyWorkspace({
     workspace: root,

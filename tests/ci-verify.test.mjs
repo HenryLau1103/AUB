@@ -75,3 +75,18 @@ test('CI4: min_safety_score fails low-evidence implementation reports', async ()
   assert.ok(result.failures.some((failure) => failure.message.includes('safety score')));
   assert.equal(result.checks.find((check) => check.kind === 'report')?.safetyScore.grade, 'fail');
 });
+
+test('CI5: AUB self-dogfood editor report passes the evidence gate', async () => {
+  const result = await verifyWorkspace({
+    workspace: ROOT,
+    configPath: 'examples/dogfood/aub.ci.json',
+    requireReports: true,
+    requireEvidence: true,
+    minSafetyScore: 70,
+  });
+
+  assert.equal(result.valid, true, JSON.stringify(result.failures));
+  const report = result.checks.find((check) => check.kind === 'report');
+  assert.equal(report?.safetyScore.grade, 'pass');
+  assert.equal(report?.reportSummary.acceptance_passed, report?.reportSummary.acceptance_total);
+});

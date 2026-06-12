@@ -1,7 +1,7 @@
 {
   "name": "@aub/mcp-server",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "AUB Model Context Protocol server — exposes UI Blueprint tools to coding agents over stdio and Streamable HTTP",
   "type": "module",
   "bin": {

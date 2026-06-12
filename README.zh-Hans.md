@@ -13,7 +13,7 @@
 
 [English](./README.md) · [繁體中文](./README.zh-Hant.md) · **简体中文** · [日本語](./README.ja.md) · [한국어](./README.ko.md)
 
-[Workspace loop 指南](./docs/workspace-loop-user-manual.zh-Hans.md) · [10 分钟 demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [标准示例](./examples/dashboard.ui.json)
+[Workspace loop 指南](./docs/workspace-loop-user-manual.zh-Hans.md) · [10 分钟 demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Security and data safety](./docs/security-and-data-safety.md) · [标准示例](./examples/dashboard.ui.json)
 
 ![AUB 可视化编辑器正在编辑响应式页面](./docs/assets/aub-editor-en.jpg)
 
@@ -57,7 +57,7 @@ npx aub-workspace
 npx aub-workspace demo
 ```
 
-这会创建一个合成 workspace，包含 `.aub/scan-report.json`、candidate template、Blueprint、一份会被 gate 拦下的低证据 report，以及一份可通过的 report。
+这会创建一个合成 workspace，包含 `.aub/scan-report.json`、candidate template、Blueprint、一份会被 gate 拦下的低证据 report、一份可通过的 report，以及 fail/pass PR safety comment。这是最快看到“低证据 PR 被拦下，补足证据后进入审核”的方式。
 
 ## AUB 解决的问题
 
@@ -227,6 +227,7 @@ pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-e
 
 ## 项目状态
 
+- 产品／package release：`0.4.0`，重点是 workspace safety demo、PR evidence review、scanner trust breakdown 与 demo mode 分离。Blueprint 格式仍维持 `0.3.0`。
 - Blueprint schema、语义验证、migration、diff、lock：已实现。
 - WYSIWYG 编辑器、18 个模板、多页面项目和五语 landing page：已实现。
 - Angular 与 Figma／Penpot bridge 导入：已实现。
@@ -235,7 +236,7 @@ pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-e
 - 一键 workspace 初始化（`npx aub-workspace init`）：CI 配置、`.aubignore`、`AGENTS.md`、issue templates、Copilot instructions 和 PR workflow：已实现。
 - Workspace-connected editor loop、本机 MCP HTTP、session、项目扫描模板、自定义组件候选审核、直接保存 Blueprint 与实现预览：已实现。
 - Implementation evidence capture：viewport 截图、DOM query、overflow 与 report evidence 验证：已实现。
-- 生产组件 mapping、implementation report 与 GitHub Action：已实现。
+- 生产组件 mapping、implementation report、GitHub Action、PR Safety Score comment 与 evidence matrix：已实现。
 - UI 内 YAML 编辑与 editor 内 lock 生成：待办。
 
 当前格式版本为 `0.3.0`。

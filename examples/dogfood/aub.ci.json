@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "discover": false,
+  "blueprints": [
+    "examples/dogfood/editor-workspace-drawer.ui.json"
+  ],
+  "projects": [],
+  "reports": [
+    {
+      "blueprint": "examples/dogfood/editor-workspace-drawer.ui.json",
+      "report": "examples/dogfood/editor-workspace-drawer.implementation-report.json"
+    }
+  ],
+  "min_safety_score": 70
+}

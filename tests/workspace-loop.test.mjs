@@ -37,8 +37,11 @@ test('WL1: Next scanner generates a source-driven candidate template', async () 
     assert.equal(scan.scanReport.format, 'aub-scan-report');
     assert.equal(scan.scanReport.summary.routes, scan.routes.length);
     assert.ok(scan.scanReport.summary.trustScore >= 60);
+    assert.equal(scan.scanReport.trust.breakdown.routeResolved, true);
+    assert.ok(scan.scanReport.trust.breakdown.filesScanned > 0);
     const persistedScanReport = JSON.parse(await readFile(join(root, '.aub', 'scan-report.json'), 'utf8'));
     assert.equal(persistedScanReport.summary.componentCandidates, scan.components.length);
+    assert.equal(persistedScanReport.trust.breakdown.storybookDetected, true);
     assert.ok(scan.scanAudit.directoriesSkipped > 0);
     assert.equal(scan.components.some((component) => component.componentName === 'HiddenWidget'), false);
     assert.ok(scan.routes.some((route) => route.route === '/risk'));
@@ -62,6 +65,9 @@ test('WL1: Next scanner generates a source-driven candidate template', async () 
     assert.ok(result.template.blueprint.nodes.some((node) => node.type === 'form'));
     assert.ok(result.template.missingMappings.some((mapping) => mapping.componentName === 'RiskSummaryCard'));
     assert.ok(result.template.sourceReferences.length >= 6);
+    assert.ok(result.template.trustBreakdown.sourceReferenceCoverage >= 90);
+    assert.ok(result.template.trustBreakdown.nodeCount >= 8);
+    assert.ok(result.template.trustBreakdown.reasons.some((reason) => reason.includes('non-placeholder')));
     assert.ok(result.template.blueprint.nodes.filter((node) => node.id !== 'root').every((node) => node.source?.file));
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -89,6 +95,8 @@ test('WL2: Angular scanner resolves templateUrl routes and selector candidates',
     assert.ok(result.template.blueprint.nodes.some((node) => node.type === 'data_table'));
     assert.ok(result.template.missingMappings.some((mapping) => mapping.suggestedType === 'portal:domain_card'));
     assert.ok(result.template.sourceReferences.some((reference) => reference.selector?.includes('app-domain-card')));
+    assert.equal(result.template.trustBreakdown.routeResolved, true);
+    assert.ok(result.template.trustBreakdown.unresolvedCustomComponents >= 1);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

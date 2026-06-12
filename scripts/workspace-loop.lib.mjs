@@ -832,6 +832,17 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
     trust: {
       score: trustScore,
       grade: trustScore >= 80 ? 'high' : trustScore >= 60 ? 'medium' : 'low',
+      breakdown: {
+        frameworkDetected: confidenceInputs.frameworkDetected,
+        routeResolved: routes.length > 0,
+        routeCount: routes.length,
+        componentCandidateCount: candidates.length,
+        storybookDetected: Boolean(storybook?.detected),
+        filesScanned: scanAudit.filesScanned,
+        filesSkipped: scanAudit.filesSkipped,
+        directoriesSkipped: scanAudit.directoriesSkipped,
+        scanLimitReached: Boolean(scanAudit.limitReached),
+      },
       reasons: [
         confidenceInputs.frameworkDetected ? 'Supported framework detected.' : 'Framework fallback only.',
         routes.length > 0 ? 'Route entries were found.' : 'No route entries were found.',
@@ -1090,7 +1101,37 @@ async function makeBlueprint({ id, name, framework, source, route, root, files, 
     },
     missingMappings: extracted.missingMappings,
     sourceReferences: extracted.sourceReferences,
+    trustBreakdown: buildTemplateTrustBreakdown(extracted, Boolean(route)),
     confidence: calculateTemplateConfidence(extracted, Boolean(route)),
+  };
+}
+
+function buildTemplateTrustBreakdown(extracted, hasRoute) {
+  const nodeCount = extracted.nodes.length;
+  const sourceBackedNodes = extracted.sourceReferences.length;
+  const sourceReferenceCoverage = nodeCount === 0
+    ? 0
+    : Math.round((sourceBackedNodes / nodeCount) * 100);
+  const reasons = [];
+  if (hasRoute) reasons.push('Source route was resolved.');
+  else reasons.push('No route was resolved; template is source-file only.');
+  if (nodeCount >= 4) reasons.push('Scanner extracted a non-placeholder node tree.');
+  else reasons.push('Scanner extracted only a shallow node tree.');
+  if (sourceReferenceCoverage >= 90) reasons.push('Most nodes have source references.');
+  else reasons.push('Some nodes lack source references.');
+  if (extracted.missingMappings.length > 0) reasons.push('Custom component mappings need user review.');
+  else reasons.push('No unresolved custom component mappings were detected.');
+
+  return {
+    routeResolved: hasRoute,
+    nodeCount,
+    sourceBackedNodes,
+    sourceReferenceCoverage,
+    semanticTagsMapped: extracted.metrics.semanticNodes,
+    interactionCount: extracted.metrics.interactions,
+    missingMappings: extracted.metrics.missingMappings,
+    unresolvedCustomComponents: extracted.missingMappings.length,
+    reasons,
   };
 }
 
@@ -1405,6 +1446,7 @@ export async function generateTemplateFromSource(root, args = {}) {
       .filter((value) => typeof value === 'string' && value.length > 0),
     missingMappings: built.missingMappings,
     sourceReferences: built.sourceReferences,
+    trustBreakdown: built.trustBreakdown,
     confidence: built.confidence,
     status: args.status === 'approved' ? 'approved' : 'candidate',
     createdAt: new Date().toISOString(),

@@ -10,7 +10,8 @@ npx aub-workspace demo
 ```
 
 It creates a demo app, `.aub/scan-report.json`, a candidate template, a generated
-Blueprint, a failing low-evidence report, and a passing evidence-shaped report.
+Blueprint, a failing low-evidence report, a passing evidence-shaped report, and
+fail/pass PR safety comments.
 Use it before trying AUB against a private or large codebase.
 
 ## 1. Initialize AUB in an Existing App
@@ -89,6 +90,11 @@ Evidence should include:
 - horizontal overflow checks
 - DOM query evidence where the implementation exposes AUB node selectors
 - component reuse or code-diff references
+
+The demo workspace also writes these reviewer-facing files:
+
+- `.aub/pr-comment.fail.md`: shows the blocked low-evidence PR path.
+- `.aub/pr-comment.pass.md`: shows the evidence-backed PR review path.
 
 ## Before and After
 
