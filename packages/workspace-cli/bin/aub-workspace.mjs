@@ -918,11 +918,15 @@ async function main() {
   const editorPort = await listen(editorServer, args.host, args.editorPort);
   const editorUrl = new URL(`http://${args.host}:${editorPort}/`);
   editorUrl.searchParams.set('mcp', mcpEndpoint.href);
+  const displayedMcpEndpoint = new URL(mcpEndpoint.href);
+  displayedMcpEndpoint.searchParams.set('token', '<redacted>');
+  const displayedEditorUrl = new URL(editorUrl.href);
+  displayedEditorUrl.searchParams.set('mcp', displayedMcpEndpoint.href);
 
   console.error('');
   console.error('AUB Workspace is running');
   console.error(`Workspace: ${workspace}`);
-  console.error(`Editor:    ${editorUrl.href}`);
+  console.error(`Editor:    ${displayedEditorUrl.href}`);
   console.error(`MCP:       ${mcpUrl}`);
   console.error('Security:  The editor launch URL contains a short-lived local RPC token; the editor removes it from the address bar after startup.');
   console.error('Stop:      Ctrl+C');

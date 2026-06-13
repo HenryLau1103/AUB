@@ -270,8 +270,7 @@ test('HP7: handoff rejects non-PNG screenshot data URLs', async () => {
 test('HP8: handoff rejects oversized viewport screenshots', async () => {
   const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
   const reportSchema = JSON.parse(await readFile(REPORT_SCHEMA_URL, 'utf8'));
-  const pngBytes = new Uint8Array(8 * 1024 * 1024 + 9);
-  pngBytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  const oversizedBase64 = 'A'.repeat(Math.ceil((8 * 1024 * 1024 + 1) / 3) * 4);
   await assert.rejects(
     async () => createHandoffArchive({
       blueprint,
@@ -283,7 +282,7 @@ test('HP8: handoff rejects oversized viewport screenshots', async () => {
       reportTemplate: createImplementationReportTemplate(blueprint),
       reportSchema,
       viewportImages: {
-        desktop: `data:image/png;base64,${Buffer.from(pngBytes).toString('base64')}`,
+        desktop: `data:image/png;base64,${oversizedBase64}`,
       },
     }),
     /screenshot exceeds maximum size/

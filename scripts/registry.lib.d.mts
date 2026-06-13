@@ -40,6 +40,12 @@ export const REPO_ROOT: string;
 export function buildCoreKnownTypes(): Promise<KnownTypes>;
 export function discoverExtensionRegistry(startDir?: string): string | null;
 export function discoverWorkspaceExtensionRegistry(workspaceRoot: string, startDir?: string): string | null;
+export function resolveWorkspaceExtensionRegistry(workspaceRoot: string, registryPath: string): string;
+export function resolveKnownTypesForBlueprint(options?: {
+  workspaceRoot: string;
+  blueprintAbsPath?: string | null;
+  explicitRegistry?: string | null;
+}): Promise<BuildKnownTypesResult>;
 export function parseExtensionRegistry(
   doc: unknown,
   coreTypes: Set<string>,

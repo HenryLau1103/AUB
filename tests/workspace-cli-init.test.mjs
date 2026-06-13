@@ -136,7 +136,7 @@ test('WCLI4: aub-workspace init --ci-only keeps issue templates out', async () =
   assert.equal(existsSync(join(root, '.github', 'copilot-instructions.md')), false);
 });
 
-test('WCLI5: aub-workspace start passes the RPC token inside the MCP endpoint URL', async (t) => {
+test('WCLI5: aub-workspace start redacts terminal URLs while requiring authenticated RPC', async (t) => {
   if (!(await ensureWorkspaceRuntimeBuilt())) {
     t.skip('workspace runtime dist is missing; run apps/mcp-server build and apps/editor build for launcher smoke coverage');
     return;
@@ -164,7 +164,8 @@ test('WCLI5: aub-workspace start passes the RPC token inside the MCP endpoint UR
     assert.equal(editorUrl.searchParams.has('token'), false);
     const endpoint = new URL(editorUrl.searchParams.get('mcp'));
     const token = endpoint.searchParams.get('token');
-    assert.ok(token, 'expected RPC token inside mcp endpoint');
+    assert.equal(token, '<redacted>');
+    assert.equal(editorUrlText.includes('rpc_'), false, 'terminal output must not expose the raw RPC token');
 
     const rpcUrl = new URL(endpoint.href);
     rpcUrl.pathname = rpcUrl.pathname.replace(/\/mcp$/, '/rpc');
@@ -177,7 +178,7 @@ test('WCLI5: aub-workspace start passes the RPC token inside the MCP endpoint UR
     });
     assert.equal(unauthorized.status, 401);
 
-    const authorized = await fetch(rpcUrl, {
+    const redactedTokenRequest = await fetch(rpcUrl, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -186,9 +187,7 @@ test('WCLI5: aub-workspace start passes the RPC token inside the MCP endpoint UR
       },
       body: JSON.stringify({ tool: 'get_workspace_status', args: {} }),
     });
-    assert.equal(authorized.status, 200);
-    const payload = await authorized.json();
-    assert.equal(payload.ok, true);
+    assert.equal(redactedTokenRequest.status, 401);
   } finally {
     await stopChild(child);
     await rm(root, { recursive: true, force: true });

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import yaml from 'js-yaml';
-import { buildKnownTypes, discoverWorkspaceExtensionRegistry } from './registry.lib.mjs';
+import { resolveKnownTypesForBlueprint } from './registry.lib.mjs';
 import { validateBlueprintSemantics } from './validate-blueprint.lib.mjs';
 import { loadProject, validateProjectSemantics } from './project.lib.mjs';
 import { verifyImplementationReport } from './implementation-report.lib.mjs';
@@ -113,9 +113,9 @@ async function verifyBlueprintFile(root, ref, validators) {
       }
     } else {
       try {
-        const { knownTypes } = await buildKnownTypes({
-          extensionPath: discoverWorkspaceExtensionRegistry(root, dirname(path)),
-          discover: false,
+        const { knownTypes } = await resolveKnownTypesForBlueprint({
+          workspaceRoot: root,
+          blueprintAbsPath: path,
         });
         for (const error of validateBlueprintSemantics(blueprint, { knownTypes })) {
           failures.push({ path: ref, message: `Blueprint semantics: ${error}` });
@@ -154,9 +154,9 @@ async function verifyProjectFile(root, ref, validators) {
         continue;
       }
       try {
-        const { knownTypes } = await buildKnownTypes({
-          extensionPath: discoverWorkspaceExtensionRegistry(root, dirname(screen.path)),
-          discover: false,
+        const { knownTypes } = await resolveKnownTypesForBlueprint({
+          workspaceRoot: root,
+          blueprintAbsPath: screen.path,
         });
         for (const error of validateBlueprintSemantics(screen.blueprint, { knownTypes })) {
           failures.push({ path: screenRef, message: `Blueprint semantics: ${error}` });

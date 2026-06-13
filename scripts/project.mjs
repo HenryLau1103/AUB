@@ -17,7 +17,7 @@ import {
   buildProject,
 } from './project.lib.mjs';
 import { validateBlueprintSemantics } from './validate-blueprint.lib.mjs';
-import { buildKnownTypes, discoverWorkspaceExtensionRegistry } from './registry.lib.mjs';
+import { resolveKnownTypesForBlueprint } from './registry.lib.mjs';
 import { exportMarkdown } from './export-md.lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -47,13 +47,31 @@ function ajvErrorLines(errors, label) {
  * each member screen against the blueprint schema + blueprint semantics.
  * Returns { ok, errors } where errors is a flat array of human-readable strings.
  */
-export async function validateProjectFile(projectPathArg) {
+function parseWorkspaceOption(argv) {
+  const args = [];
+  let workspaceRoot = process.cwd();
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (token === '--workspace') {
+      workspaceRoot = resolve(argv[index + 1]);
+      index += 1;
+    } else if (token.startsWith('--workspace=')) {
+      workspaceRoot = resolve(token.slice('--workspace='.length));
+    } else {
+      args.push(token);
+    }
+  }
+  return { args, workspaceRoot };
+}
+
+export async function validateProjectFile(projectPathArg, options = {}) {
   const errors = [];
   const projectPath = resolve(projectPathArg);
+  const workspaceRoot = resolve(options.workspaceRoot ?? process.cwd());
 
   let loaded;
   try {
-    loaded = await loadProject(projectPath);
+    loaded = await loadProject(projectPath, { workspaceRoot });
   } catch (err) {
     return { ok: false, errors: [`cannot load project: ${err.message}`] };
   }
@@ -105,9 +123,9 @@ export async function validateProjectFile(projectPathArg) {
     }
     let knownTypes;
     try {
-      const resolved = await buildKnownTypes({
-        extensionPath: discoverWorkspaceExtensionRegistry(dirname(projectPath), dirname(memberPath)),
-        discover: false,
+      const resolved = await resolveKnownTypesForBlueprint({
+        workspaceRoot,
+        blueprintAbsPath: memberPath,
       });
       knownTypes = resolved.knownTypes;
     } catch (err) {
@@ -127,13 +145,15 @@ export async function validateProjectFile(projectPathArg) {
   return { ok: errors.length === 0, errors, perScreen };
 }
 
-async function cmdValidate(arg) {
+async function cmdValidate(argv) {
+  const { args, workspaceRoot } = parseWorkspaceOption(argv);
+  const arg = args[0];
   if (!arg) {
-    console.error('Usage: node scripts/project.mjs validate <project.aub.project.json>');
+    console.error('Usage: node scripts/project.mjs validate <project.aub.project.json> [--workspace <root>]');
     process.exit(2);
   }
   const projectPath = resolve(arg);
-  const result = await validateProjectFile(projectPath);
+  const result = await validateProjectFile(projectPath, { workspaceRoot });
 
   if (result.perScreen) {
     for (const screen of result.perScreen) {
@@ -256,13 +276,16 @@ function buildOverviewMarkdown(project, screens) {
   return lines.join('\n');
 }
 
-async function cmdExportMd(arg, outDirArg) {
+async function cmdExportMd(argv) {
+  const { args, workspaceRoot } = parseWorkspaceOption(argv);
+  const arg = args[0];
+  const outDirArg = args[1];
   if (!arg) {
-    console.error('Usage: node scripts/project.mjs export-md <project.aub.project.json> [outDir]');
+    console.error('Usage: node scripts/project.mjs export-md <project.aub.project.json> [outDir] [--workspace <root>]');
     process.exit(2);
   }
   const projectPath = resolve(arg);
-  const loaded = await loadProject(projectPath);
+  const loaded = await loadProject(projectPath, { workspaceRoot });
   const { project, screens, errors } = loaded;
 
   if (errors.length > 0) {
@@ -298,11 +321,11 @@ async function cmdExportMd(arg, outDirArg) {
 
 function usage() {
   console.error('Usage:');
-  console.error('  node scripts/project.mjs validate <project.aub.project.json>');
+  console.error('  node scripts/project.mjs validate <project.aub.project.json> [--workspace <root>]');
   console.error(
     '  node scripts/project.mjs init <out.aub.project.json> <screen1.ui.json> [screen2.ui.json ...]'
   );
-  console.error('  node scripts/project.mjs export-md <project.aub.project.json> [outDir]');
+  console.error('  node scripts/project.mjs export-md <project.aub.project.json> [outDir] [--workspace <root>]');
 }
 
 async function main() {
@@ -312,13 +335,13 @@ async function main() {
 
   switch (subcommand) {
     case 'validate':
-      await cmdValidate(rest[0]);
+      await cmdValidate(rest);
       break;
     case 'init':
       await cmdInit(rest[0], rest.slice(1));
       break;
     case 'export-md':
-      await cmdExportMd(rest[0], rest[1]);
+      await cmdExportMd(rest);
       break;
     default:
       usage();

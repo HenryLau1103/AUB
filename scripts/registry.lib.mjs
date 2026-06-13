@@ -5,9 +5,9 @@
 // resolve them, they are never free-guessed.
 
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve, join, relative, sep, isAbsolute } from 'node:path';
+import { basename, dirname, resolve, join, relative, sep, isAbsolute } from 'node:path';
 import { loadCoreRegistry, computeTypeLists } from './generate-registry-artifacts.lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -60,20 +60,47 @@ function isInsideRoot(absRoot, absPath) {
  * directory cannot influence validation for an unrelated child workspace.
  */
 export function discoverWorkspaceExtensionRegistry(workspaceRoot, startDir = workspaceRoot) {
-  const root = resolve(workspaceRoot);
-  let dir = resolve(startDir);
+  const root = realpathSync(resolve(workspaceRoot));
+  let dir = realpathSync(resolve(startDir));
   if (!isInsideRoot(root, dir)) {
     throw new Error(`Registry discovery start directory must stay inside workspace: ${startDir}`);
   }
   for (let i = 0; i < 64; i += 1) {
     const candidate = join(dir, EXTENSION_REGISTRY_FILENAME);
-    if (existsSync(candidate)) return candidate;
+    if (existsSync(candidate)) {
+      const realCandidate = realpathSync(candidate);
+      if (!isInsideRoot(root, realCandidate)) {
+        throw new Error(`Registry path must stay inside workspace: ${candidate}`);
+      }
+      return realCandidate;
+    }
     if (dir === root) break;
     const parent = dirname(dir);
     if (parent === dir || !isInsideRoot(root, parent)) break;
     dir = parent;
   }
   return null;
+}
+
+export function resolveWorkspaceExtensionRegistry(workspaceRoot, registryPath) {
+  const root = realpathSync(resolve(workspaceRoot));
+  const candidate = isAbsolute(registryPath) ? resolve(registryPath) : resolve(workspaceRoot, registryPath);
+  const realCandidate = realpathSync(candidate);
+  if (!isInsideRoot(root, realCandidate)) {
+    throw new Error(`Registry path must stay inside workspace: ${registryPath}`);
+  }
+  if (basename(realCandidate).toLowerCase() !== EXTENSION_REGISTRY_FILENAME) {
+    throw new Error(`Registry path must point to ${EXTENSION_REGISTRY_FILENAME}: ${registryPath}`);
+  }
+  return realCandidate;
+}
+
+export async function resolveKnownTypesForBlueprint({ workspaceRoot, blueprintAbsPath, explicitRegistry } = {}) {
+  if (!workspaceRoot) throw new Error('workspaceRoot is required to resolve component types.');
+  const extensionPath = explicitRegistry
+    ? resolveWorkspaceExtensionRegistry(workspaceRoot, explicitRegistry)
+    : discoverWorkspaceExtensionRegistry(workspaceRoot, blueprintAbsPath ? dirname(blueprintAbsPath) : workspaceRoot);
+  return buildKnownTypes({ extensionPath, discover: false });
 }
 
 /**

@@ -62,6 +62,7 @@ import {
 } from './lib/personal-templates';
 import type { ViewportQualityReport } from './lib/viewport-quality';
 import {
+  attachWorkspaceTokenIfMissing,
   connectWorkspace,
   workspaceRpc,
   type ComponentCandidate,
@@ -260,6 +261,7 @@ export function App() {
   const [activeScreenId, setActiveScreenId] = useState<string | null>(null);
   const [extensionRegistry, setExtensionRegistry] = useState<string | null>(null);
   const [workspaceEndpoint, setWorkspaceEndpoint] = useState(initialWorkspaceEndpoint);
+  const [workspaceRpcToken, setWorkspaceRpcToken] = useState<string | undefined>();
   const [workspaceConnection, setWorkspaceConnection] = useState<WorkspaceConnection | null>(null);
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus | null>(null);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
@@ -429,9 +431,11 @@ export function App() {
     setWorkspaceLoading(true);
     setWorkspaceError(null);
     try {
-      const { connection } = await connectWorkspace(workspaceEndpoint);
+      const endpoint = attachWorkspaceTokenIfMissing(workspaceEndpoint, workspaceRpcToken);
+      const { connection } = await connectWorkspace(endpoint);
       const status = await loadWorkspaceStatus(connection);
       setWorkspaceConnection(connection);
+      setWorkspaceRpcToken(connection.rpcToken ?? workspaceRpcToken);
       setWorkspaceStatus(status);
       setWorkspaceEndpoint(connection.endpoint);
       setWorkspaceSavePath(status.session.activeBlueprint ?? (blueprint ? `${blueprint.screen.id}.ui.json` : ''));

@@ -48,10 +48,14 @@ export async function createHandoffArchive({
     if (!blueprint.viewports?.some((viewport) => viewport.id === viewportId)) {
       throw new Error(`Unknown viewport id: ${viewportId}`);
     }
-    const imageBytes = pngDataUrlToBytes(dataUrl, viewportId);
-    if (imageBytes.byteLength > MAX_VIEWPORT_IMAGE_BYTES) {
+    const estimatedImageBytes = estimatePngDataUrlBytes(dataUrl, viewportId);
+    if (estimatedImageBytes > MAX_VIEWPORT_IMAGE_BYTES) {
       throw new Error(`Viewport ${viewportId} screenshot exceeds maximum size of ${MAX_VIEWPORT_IMAGE_BYTES} bytes.`);
     }
+    if (totalViewportImageBytes + estimatedImageBytes > MAX_TOTAL_VIEWPORT_IMAGE_BYTES) {
+      throw new Error(`Viewport screenshots exceed maximum total size of ${MAX_TOTAL_VIEWPORT_IMAGE_BYTES} bytes.`);
+    }
+    const imageBytes = pngDataUrlToBytes(dataUrl, viewportId);
     totalViewportImageBytes += imageBytes.byteLength;
     if (totalViewportImageBytes > MAX_TOTAL_VIEWPORT_IMAGE_BYTES) {
       throw new Error(`Viewport screenshots exceed maximum total size of ${MAX_TOTAL_VIEWPORT_IMAGE_BYTES} bytes.`);
@@ -140,6 +144,16 @@ function pngDataUrlToBytes(dataUrl, viewportId) {
     throw new Error(`Viewport ${viewportId} screenshot is not a PNG.`);
   }
   return bytes;
+}
+
+function estimatePngDataUrlBytes(dataUrl, viewportId) {
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(dataUrl));
+  if (!match) {
+    throw new Error(`Viewport ${viewportId} screenshot must be a PNG data URL.`);
+  }
+  const base64 = match[1];
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
 }
 
 function base64ToBytes(base64) {

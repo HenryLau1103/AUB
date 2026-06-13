@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { access, mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises';
+import { access, link, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { defaultDesignSystem } from './migrate-blueprint.mjs';
 import { scoreImplementationSafety } from './implementation-report.lib.mjs';
@@ -57,7 +57,6 @@ const SOURCE_TEXT_CACHE_MAX_ENTRIES = 2000;
 const MAX_SCAN_FILES = 2000;
 const MAX_SOURCE_FILE_BYTES = 512 * 1024;
 const MAX_TOTAL_SOURCE_BYTES = 64 * 1024 * 1024;
-const SOURCE_READ_CONCURRENCY = 32;
 const MAX_TEMPLATE_NAME_LENGTH = 120;
 const MAX_TEMPLATE_ID_LENGTH = 120;
 const MAX_ROUTE_LENGTH = 220;
@@ -166,8 +165,7 @@ async function readJsonIfExists(path, fallback) {
   return JSON.parse(await readFile(path, 'utf8'));
 }
 
-async function writeJsonAtomic(path, value) {
-  const content = `${JSON.stringify(value, null, 2)}\n`;
+async function withPathLock(path, fn) {
   const previous = writeLocks.get(path) ?? Promise.resolve();
   let release;
   const current = new Promise((resolveLock) => {
@@ -177,19 +175,51 @@ async function writeJsonAtomic(path, value) {
   writeLocks.set(path, chained);
   try {
     await previous;
-    const tempPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
-    await writeFile(tempPath, content, { encoding: 'utf8', flag: 'wx' });
-    await rename(tempPath, path);
+    return await fn();
   } finally {
     release();
     if (writeLocks.get(path) === chained) writeLocks.delete(path);
   }
+}
+
+async function writeJsonAtomicLocked(path, value, { overwrite = true } = {}) {
+  const content = `${JSON.stringify(value, null, 2)}\n`;
+  const tempPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  await writeFile(tempPath, content, { encoding: 'utf8', flag: 'wx' });
+  if (!overwrite) {
+    try {
+      await link(tempPath, path);
+    } catch (err) {
+      if (err?.code === 'EEXIST') {
+        throw new Error(`Refusing to overwrite existing file: ${path}`);
+      }
+      throw err;
+    } finally {
+      await rm(tempPath, { force: true });
+    }
+  } else {
+    await rename(tempPath, path);
+  }
   return { bytes: new TextEncoder().encode(content).byteLength };
+}
+
+async function writeJsonAtomic(path, value, options = {}) {
+  return withPathLock(path, () => writeJsonAtomicLocked(path, value, options));
 }
 
 async function writeWorkspaceJsonAtomic(root, filePath, value) {
   const path = await prepareWorkspaceWritePath(root, filePath);
   return writeJsonAtomic(path, value);
+}
+
+async function updateWorkspaceJson(root, filePath, fallback, mutate) {
+  const path = await prepareWorkspaceWritePath(root, filePath);
+  return withPathLock(path, async () => {
+    const current = await readJsonIfExists(path, fallback);
+    const next = await mutate(current);
+    const write = await writeJsonAtomicLocked(path, next);
+    return { path, value: next, bytes: write.bytes };
+  });
 }
 
 function toWorkspacePath(root, absPath) {
@@ -344,6 +374,7 @@ function createSourceReader() {
     skippedLargeFiles: 0,
     skippedBudgetFiles: 0,
     totalSourceBytes: 0,
+    sourceFilesRead: 0,
   };
   const accounted = new Map();
   return {
@@ -367,6 +398,7 @@ function createSourceReader() {
           return { text: '', skipped: true, skippedReason: 'budget' };
         }
         audit.totalSourceBytes += st.size;
+        audit.sourceFilesRead += 1;
         accounted.set(file.absPath, 'read');
         const result = await readSourceText(file);
         if (result.skipped) {
@@ -460,6 +492,7 @@ async function createWalkState(root) {
       ignoredPatterns,
       limitReached: false,
       sourceBytesRead: 0,
+      sourceFilesRead: 0,
       sourceFilesSkippedBySize: 0,
       sourceFilesSkippedByBudget: 0,
       sourceByteLimitReached: false,
@@ -871,8 +904,18 @@ export async function readAubSession(root) {
 }
 
 export async function updateAubSession(root, patch = {}) {
-  const current = await readAubSession(root);
-  const next = {
+  const result = await updateWorkspaceJson(root, SESSION_PATH, {
+    version: WORKSPACE_LOOP_VERSION,
+    activeBlueprint: null,
+    activeProject: null,
+    targetRoute: null,
+    preview: {
+      devServerUrl: null,
+      route: null,
+      lastImplementationReport: null,
+    },
+    updatedAt: null,
+  }, (current) => ({
     ...current,
     ...patch,
     preview: {
@@ -880,9 +923,8 @@ export async function updateAubSession(root, patch = {}) {
       ...(patch.preview ?? {}),
     },
     updatedAt: new Date().toISOString(),
-  };
-  await writeWorkspaceJsonAtomic(root, SESSION_PATH, next);
-  return { path: SESSION_PATH, session: next };
+  }));
+  return { path: SESSION_PATH, session: result.value };
 }
 
 export async function readComponentCandidates(root) {
@@ -954,6 +996,7 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
       directoriesSkipped: scanAudit.directoriesSkipped,
       limitReached: scanAudit.limitReached,
       sourceBytesRead: scanAudit.sourceBytesRead ?? 0,
+      sourceFilesRead: scanAudit.sourceFilesRead ?? 0,
       sourceFilesSkippedBySize: scanAudit.sourceFilesSkippedBySize ?? 0,
       sourceFilesSkippedByBudget: scanAudit.sourceFilesSkippedByBudget ?? 0,
       sourceByteLimitReached: Boolean(scanAudit.sourceByteLimitReached),
@@ -973,6 +1016,7 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
         directoriesSkipped: scanAudit.directoriesSkipped,
         scanLimitReached: Boolean(scanAudit.limitReached),
         sourceBytesRead: scanAudit.sourceBytesRead ?? 0,
+        sourceFilesRead: scanAudit.sourceFilesRead ?? 0,
         sourceFilesSkippedBySize: scanAudit.sourceFilesSkippedBySize ?? 0,
         sourceFilesSkippedByBudget: scanAudit.sourceFilesSkippedByBudget ?? 0,
         sourceByteLimitReached: Boolean(scanAudit.sourceByteLimitReached),
@@ -1065,6 +1109,24 @@ export async function getWorkspaceStatus(root) {
   const candidates = await readComponentCandidates(root);
   const templates = await listWorkspaceTemplates(root);
   const scanReport = await readScanReport(root);
+  walkState.audit.sourceBytesRead = Math.max(
+    sourceReader.audit.totalSourceBytes,
+    scanReport?.summary?.sourceBytesRead ?? 0
+  );
+  walkState.audit.sourceFilesRead = Math.max(
+    sourceReader.audit.sourceFilesRead,
+    scanReport?.summary?.sourceFilesRead ?? 0
+  );
+  walkState.audit.sourceFilesSkippedBySize = Math.max(
+    sourceReader.audit.skippedLargeFiles,
+    scanReport?.summary?.sourceFilesSkippedBySize ?? 0
+  );
+  walkState.audit.sourceFilesSkippedByBudget = Math.max(
+    sourceReader.audit.skippedBudgetFiles,
+    scanReport?.summary?.sourceFilesSkippedByBudget ?? 0
+  );
+  walkState.audit.sourceByteLimitReached = sourceReader.audit.skippedBudgetFiles > 0
+    || Boolean(scanReport?.summary?.sourceByteLimitReached);
   const implementationReport = await readImplementationReportSummary(root, session);
   return {
     root,
@@ -1136,6 +1198,7 @@ export async function scanProjectUi(root, options = {}) {
   const storybook = await detectStorybook(files, sourceReader);
   const { candidates } = await detectComponents(root, files, namespace, frameworks, storybook, sourceReader);
   walkState.audit.sourceBytesRead = sourceReader.audit.totalSourceBytes;
+  walkState.audit.sourceFilesRead = sourceReader.audit.sourceFilesRead;
   walkState.audit.sourceFilesSkippedBySize = sourceReader.audit.skippedLargeFiles;
   walkState.audit.sourceFilesSkippedByBudget = sourceReader.audit.skippedBudgetFiles;
   walkState.audit.sourceByteLimitReached = sourceReader.audit.skippedBudgetFiles > 0;
@@ -1622,75 +1685,101 @@ function inferFrameworkFromPath(path) {
 
 export async function approveComponentCandidate(root, args = {}) {
   if (!args.id) throw new Error('Provide candidate id.');
-  const doc = await readComponentCandidates(root);
-  const candidate = doc.candidates.find((item) => item.id === args.id);
-  if (!candidate) throw new Error(`Component candidate not found: ${args.id}`);
 
   if (args.action === 'ignore') {
-    candidate.status = 'ignored';
-    candidate.reviewedAt = new Date().toISOString();
-    candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'ignore', reviewedAt: candidate.reviewedAt }];
-    await writeComponentCandidates(root, doc.candidates);
-    return { candidate, registryPath: null };
+    const result = await updateWorkspaceJson(root, COMPONENT_CANDIDATES_PATH, {
+      format: 'aub-component-candidates',
+      format_version: WORKSPACE_LOOP_VERSION,
+      candidates: [],
+    }, (doc) => {
+      const candidate = (doc.candidates ?? []).find((item) => item.id === args.id);
+      if (!candidate) throw new Error(`Component candidate not found: ${args.id}`);
+      candidate.status = 'ignored';
+      candidate.reviewedAt = new Date().toISOString();
+      candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'ignore', reviewedAt: candidate.reviewedAt }];
+      return { ...doc, updatedAt: new Date().toISOString(), candidates: doc.candidates ?? [] };
+    });
+    return { candidate: result.value.candidates.find((item) => item.id === args.id), registryPath: null };
   }
 
   if (args.action === 'map_core') {
-    const normalizedCoreType = normalizeCoreType(args.coreType ?? candidate.suggestedCoreType);
-    if (!normalizedCoreType) {
-      throw new Error(`Invalid core type: ${args.coreType ?? candidate.suggestedCoreType}`);
-    }
-    candidate.status = 'approved';
-    candidate.approvedAs = normalizedCoreType;
-    candidate.reviewedAt = new Date().toISOString();
-    candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'map_core', approvedAs: normalizedCoreType, reviewedAt: candidate.reviewedAt }];
-    await writeComponentCandidates(root, doc.candidates);
-    return { candidate, registryPath: null };
+    const result = await updateWorkspaceJson(root, COMPONENT_CANDIDATES_PATH, {
+      format: 'aub-component-candidates',
+      format_version: WORKSPACE_LOOP_VERSION,
+      candidates: [],
+    }, (doc) => {
+      const candidate = (doc.candidates ?? []).find((item) => item.id === args.id);
+      if (!candidate) throw new Error(`Component candidate not found: ${args.id}`);
+      const normalizedCoreType = normalizeCoreType(args.coreType ?? candidate.suggestedCoreType);
+      if (!normalizedCoreType) {
+        throw new Error(`Invalid core type: ${args.coreType ?? candidate.suggestedCoreType}`);
+      }
+      candidate.status = 'approved';
+      candidate.approvedAs = normalizedCoreType;
+      candidate.reviewedAt = new Date().toISOString();
+      candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'map_core', approvedAs: normalizedCoreType, reviewedAt: candidate.reviewedAt }];
+      return { ...doc, updatedAt: new Date().toISOString(), candidates: doc.candidates ?? [] };
+    });
+    return { candidate: result.value.candidates.find((item) => item.id === args.id), registryPath: null };
   }
 
   if (args.action !== 'create_extension') {
     throw new Error('action must be one of create_extension, map_core, ignore.');
   }
 
+  const doc = await readComponentCandidates(root);
+  const candidate = doc.candidates.find((item) => item.id === args.id);
+  if (!candidate) throw new Error(`Component candidate not found: ${args.id}`);
+
   const inputNamespacedType = args.namespacedType ?? candidate.suggestedType;
   const namespacedType = normalizeExtensionType(inputNamespacedType);
   if (!namespacedType) {
     throw new Error(`Invalid namespaced type: ${inputNamespacedType}`);
   }
-  const registryPath = await prepareWorkspaceWritePath(root, 'aub.registry.json');
-  const registry = await readJsonIfExists(registryPath, {
+  let componentEntry;
+  await updateWorkspaceJson(root, 'aub.registry.json', {
     $schema: 'https://henrylau1103.github.io/AUB/schema/aub.registry.schema.json',
     version: '0.1.0',
     description: 'AUB workspace custom components.',
     components: [],
+  }, (registry) => {
+    if (!Array.isArray(registry.components)) registry.components = [];
+    const existing = registry.components.find((item) => item.name === namespacedType);
+    componentEntry = {
+      name: namespacedType,
+      isContainer: Boolean(args.isContainer ?? candidate.isContainer),
+      description: normalizeText(args.description, `${candidate.componentName} scanned from ${candidate.sourcePath}.`, 240),
+      implementations: [{
+        id: candidate.framework || 'app',
+        framework: normalizeFramework(candidate.framework),
+        module: normalizeText(args.module, candidate.sourcePath, 200),
+        export: normalizeText(args.export, candidate.componentName, 120),
+        importStyle: args.importStyle ?? 'named',
+        sourcePath: candidate.sourcePath,
+        props: Object.fromEntries((candidate.props ?? []).map((prop) => [prop, { from: `content.${prop}`, required: false }])),
+        notes: 'Approved from AUB component candidate review. Preserve production behavior.',
+      }],
+    };
+    if (existing) Object.assign(existing, componentEntry);
+    else registry.components.push(componentEntry);
+    return registry;
   });
-  if (!Array.isArray(registry.components)) registry.components = [];
-  const existing = registry.components.find((item) => item.name === namespacedType);
-  const componentEntry = {
-    name: namespacedType,
-    isContainer: Boolean(args.isContainer ?? candidate.isContainer),
-    description: normalizeText(args.description, `${candidate.componentName} scanned from ${candidate.sourcePath}.`, 240),
-    implementations: [{
-      id: candidate.framework || 'app',
-      framework: normalizeFramework(candidate.framework),
-      module: normalizeText(args.module, candidate.sourcePath, 200),
-      export: normalizeText(args.export, candidate.componentName, 120),
-      importStyle: args.importStyle ?? 'named',
-      sourcePath: candidate.sourcePath,
-      props: Object.fromEntries((candidate.props ?? []).map((prop) => [prop, { from: `content.${prop}`, required: false }])),
-      notes: 'Approved from AUB component candidate review. Preserve production behavior.',
-    }],
-  };
-  if (existing) Object.assign(existing, componentEntry);
-  else registry.components.push(componentEntry);
-  await writeJsonAtomic(registryPath, registry);
 
-  candidate.status = 'approved';
-  candidate.approvedAs = namespacedType;
-  candidate.reviewedAt = new Date().toISOString();
-  candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'create_extension', approvedAs: namespacedType, reviewedAt: candidate.reviewedAt }];
-  await writeComponentCandidates(root, doc.candidates);
+  const candidateResult = await updateWorkspaceJson(root, COMPONENT_CANDIDATES_PATH, {
+    format: 'aub-component-candidates',
+    format_version: WORKSPACE_LOOP_VERSION,
+    candidates: [],
+  }, (currentDoc) => {
+    const currentCandidate = (currentDoc.candidates ?? []).find((item) => item.id === args.id);
+    if (!currentCandidate) throw new Error(`Component candidate not found: ${args.id}`);
+    currentCandidate.status = 'approved';
+    currentCandidate.approvedAs = namespacedType;
+    currentCandidate.reviewedAt = new Date().toISOString();
+    currentCandidate.reviewHistory = [...(currentCandidate.reviewHistory ?? []), { action: 'create_extension', approvedAs: namespacedType, reviewedAt: currentCandidate.reviewedAt }];
+    return { ...currentDoc, updatedAt: new Date().toISOString(), candidates: currentDoc.candidates ?? [] };
+  });
   return {
-    candidate,
+    candidate: candidateResult.value.candidates.find((item) => item.id === args.id),
     registryPath: 'aub.registry.json',
     registryComponent: componentEntry,
   };

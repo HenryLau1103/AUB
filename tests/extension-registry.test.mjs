@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
+import { readFile, mkdtemp, writeFile, mkdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { validateBlueprintSemantics } from '../scripts/validate-blueprint.lib.mjs';
@@ -10,6 +10,7 @@ import {
   parseExtensionRegistry,
   discoverExtensionRegistry,
   discoverWorkspaceExtensionRegistry,
+  resolveKnownTypesForBlueprint,
   EXTENSION_NAME_PATTERN,
 } from '../scripts/registry.lib.mjs';
 
@@ -129,7 +130,46 @@ test('discoverWorkspaceExtensionRegistry does not cross the workspace root', asy
     await writeFile(join(base, 'aub.registry.json'), '{"components":[]}\n');
     assert.equal(discoverWorkspaceExtensionRegistry(workspace, nested), null);
     await writeFile(join(workspace, 'aub.registry.json'), '{"components":[]}\n');
-    assert.equal(discoverWorkspaceExtensionRegistry(workspace, nested), join(workspace, 'aub.registry.json'));
+    assert.ok(discoverWorkspaceExtensionRegistry(workspace, nested)?.endsWith('/workspace/aub.registry.json'));
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test('discoverWorkspaceExtensionRegistry rejects symlinked discovery starts outside the workspace', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'aub-reg-link-'));
+  try {
+    const workspace = join(base, 'workspace');
+    const outside = join(base, 'outside');
+    await mkdir(workspace, { recursive: true });
+    await mkdir(outside, { recursive: true });
+    await writeFile(join(outside, 'aub.registry.json'), '{"components":[]}\n');
+    await symlink(outside, join(workspace, 'linked-outside'));
+
+    assert.throws(
+      () => discoverWorkspaceExtensionRegistry(workspace, join(workspace, 'linked-outside')),
+      /Registry discovery start directory must stay inside workspace/
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test('resolveKnownTypesForBlueprint discovers only registries contained by the workspace', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'aub-reg-helper-'));
+  try {
+    const workspace = join(base, 'workspace');
+    const screens = join(workspace, 'screens');
+    await mkdir(screens, { recursive: true });
+    await writeFile(join(workspace, 'aub.registry.json'), await readFile(EXAMPLE_REGISTRY, 'utf8'));
+    await writeFile(join(screens, 'analytics.ui.json'), await readFile(EXAMPLE, 'utf8'));
+
+    const { knownTypes, extensionPath } = await resolveKnownTypesForBlueprint({
+      workspaceRoot: workspace,
+      blueprintAbsPath: join(screens, 'analytics.ui.json'),
+    });
+    assert.ok(extensionPath.endsWith('/workspace/aub.registry.json'));
+    assert.equal(knownTypes.get('acme:insight_card')?.isContainer, true);
   } finally {
     await rm(base, { recursive: true, force: true });
   }

@@ -7,8 +7,7 @@ import {
   loadProject,
   validateProjectSemantics,
   validateBlueprintSemantics,
-  buildKnownTypes,
-  discoverWorkspaceExtensionRegistry,
+  resolveKnownTypesForBlueprint,
 } from '../aub.js';
 
 export const name = 'validate_project';
@@ -39,19 +38,7 @@ export async function run(ctx: ServerContext, args: { ref?: string }) {
     screensById: loaded.screensById,
   });
 
-  let knownTypes: Awaited<ReturnType<typeof buildKnownTypes>>['knownTypes'] | undefined;
-  let registryError: string | null = null;
-  try {
-    const resolved = await buildKnownTypes({
-      extensionPath: discoverWorkspaceExtensionRegistry(ctx.root, ctx.root),
-      discover: false,
-    });
-    knownTypes = resolved.knownTypes;
-  } catch (err) {
-    registryError = err instanceof Error ? err.message : String(err);
-  }
-
-  const screens = loaded.screens.map((screen) => {
+  const screens = await Promise.all(loaded.screens.map(async (screen) => {
     if (!screen.blueprint) {
       return {
         id: screen.ref?.id ?? '',
@@ -64,18 +51,28 @@ export async function run(ctx: ServerContext, args: { ref?: string }) {
     const memberSchemaErrors = memberSchemaOk
       ? []
       : formatAjvErrors(ctx.validators.validateBlueprint);
-    const memberSemanticErrors =
-      memberSchemaOk && !registryError
-        ? validateBlueprintSemantics(screen.blueprint, { knownTypes })
-        : [];
-    if (registryError) memberSemanticErrors.push(`registry: ${registryError}`);
+    const memberSemanticErrors: string[] = [];
+    if (memberSchemaOk) {
+      try {
+        const resolved = await resolveKnownTypesForBlueprint({
+          workspaceRoot: ctx.root,
+          blueprintAbsPath: screen.path,
+        });
+        memberSemanticErrors.push(
+          ...validateBlueprintSemantics(screen.blueprint, { knownTypes: resolved.knownTypes })
+        );
+      } catch (err) {
+        const registryError = err instanceof Error ? err.message : String(err);
+        memberSemanticErrors.push(`registry: ${registryError}`);
+      }
+    }
     return {
       id: screen.ref?.id ?? '',
-      valid: memberSchemaOk && !registryError && memberSemanticErrors.length === 0,
+      valid: memberSchemaOk && memberSemanticErrors.length === 0,
       schemaErrors: memberSchemaErrors,
       semanticErrors: memberSemanticErrors,
     };
-  });
+  }));
 
   const valid =
     schemaOk &&

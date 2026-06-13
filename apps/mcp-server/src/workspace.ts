@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { access, mkdir, readdir, readFile, realpath, rename, writeFile } from 'node:fs/promises';
+import { link, mkdir, readdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import yaml from 'js-yaml';
@@ -134,15 +134,6 @@ export interface AtomicWriteOptions {
   displayPath?: string;
 }
 
-async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function withWorkspacePathLock<T>(outputPath: string, fn: () => Promise<T>): Promise<T> {
   const previous = writeLocks.get(outputPath) ?? Promise.resolve();
   let release!: () => void;
@@ -171,11 +162,22 @@ export async function writeFileAtomic(
     if (options.root) {
       await assertWorkspaceWriteParent(options.root, outputPath, options.displayPath ?? outputPath);
     }
-    if (!options.overwrite && (await exists(outputPath))) {
-      throw new Error(`Refusing to overwrite existing file: ${options.displayPath ?? outputPath}`);
-    }
     const tempPath = `${outputPath}.${process.pid}.${randomUUID()}.tmp`;
     await writeFile(tempPath, content, { flag: 'wx' });
+    if (!options.overwrite) {
+      try {
+        await link(tempPath, outputPath);
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === 'EEXIST') {
+          throw new Error(`Refusing to overwrite existing file: ${options.displayPath ?? outputPath}`);
+        }
+        throw err;
+      } finally {
+        await rm(tempPath, { force: true });
+      }
+      return;
+    }
     await rename(tempPath, outputPath);
   });
 }

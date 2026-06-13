@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
+import { promisify } from 'node:util';
 import JSZip from 'jszip';
 import { findRepoRoot } from '../dist/repo.js';
 import { loadValidators } from '../dist/schema.js';
@@ -34,6 +36,8 @@ import { registeredToolNames } from '../dist/server.js';
 
 const SCREEN_ID = 'dashboard.overview';
 const ctx = { root: findRepoRoot(), validators: await loadValidators() };
+const execFileAsync = promisify(execFile);
+const MCP_SERVER_ROOT = new URL('..', import.meta.url).pathname;
 
 function passingReport(blueprint) {
   const report = createImplementationReportTemplate(blueprint);
@@ -211,7 +215,7 @@ test('validate_blueprint rejects registry paths outside the workspace', async ()
       registry: join(outside, 'aub.registry.json'),
     });
     assert.equal(result.valid, false);
-    assert.ok(result.semanticErrors.some((error) => /registry: Path must stay inside/.test(error)));
+    assert.ok(result.semanticErrors.some((error) => /registry: Registry path must stay inside workspace/.test(error)));
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(outside, { recursive: true, force: true });
@@ -306,7 +310,7 @@ test('resolve_component rejects registries outside the workspace', async () => {
         type: 'acme:insight_card',
         registry: relative(root, join(outside, 'aub.registry.json')),
       }),
-      /inside the workspace root|relative to the workspace root/
+      /inside workspace|relative to the workspace root/
     );
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -448,6 +452,27 @@ test('write_blueprint concurrent overwrite:false writes allow exactly one creato
     assert.equal(results.filter((result) => result.status === 'rejected').length, 1);
     const stored = JSON.parse(await readFile(join(root, 'specs', 'race.ui.json'), 'utf8'));
     assert.ok(['Create Race First', 'Create Race Second'].includes(stored.screen.name));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('writeFileAtomic overwrite:false is safe across separate processes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-cross-process-create-race-'));
+  try {
+    await mkdir(join(root, 'specs'), { recursive: true });
+    const outputPath = join(root, 'specs', 'race.txt');
+    const script = [
+      "import { writeFileAtomic } from './dist/workspace.js';",
+      "await writeFileAtomic(process.argv[1], `${process.argv[2]}\\n`, { overwrite: false, root: process.argv[3], displayPath: 'specs/race.txt' });",
+    ].join('\n');
+    const results = await Promise.allSettled([
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, outputPath, 'first', root], { cwd: MCP_SERVER_ROOT }),
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, outputPath, 'second', root], { cwd: MCP_SERVER_ROOT }),
+    ]);
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(results.filter((result) => result.status === 'rejected').length, 1);
+    assert.match(await readFile(outputPath, 'utf8'), /^(first|second)\n$/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -669,6 +694,22 @@ test('workspace session tools read and update .aub/session.json', async () => {
   }
 });
 
+test('workspace session concurrent updates preserve independent fields', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-session-race-'));
+  try {
+    const localCtx = { ...ctx, root };
+    await Promise.all([
+      updateAubSession(localCtx, { patch: { activeBlueprint: 'screens/settings.ui.json' } }),
+      updateAubSession(localCtx, { patch: { preview: { route: '/settings' } } }),
+    ]);
+    const stored = JSON.parse(await readFile(join(root, '.aub', 'session.json'), 'utf8'));
+    assert.equal(stored.activeBlueprint, 'screens/settings.ui.json');
+    assert.equal(stored.preview.route, '/settings');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('scan_project_ui writes component candidates without touching aub.registry.json', async () => {
   const root = await createWorkspaceLoopFixture();
   try {
@@ -679,6 +720,18 @@ test('scan_project_ui writes component candidates without touching aub.registry.
     const candidates = JSON.parse(await readFile(join(root, '.aub', 'component-candidates.json'), 'utf8'));
     assert.ok(candidates.candidates.length > 0);
     await assert.rejects(() => readFile(join(root, 'aub.registry.json'), 'utf8'), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('get_workspace_status reports source read accounting after scans', async () => {
+  const root = await createWorkspaceLoopFixture();
+  try {
+    await scanProjectUi({ ...ctx, root }, {});
+    const status = await getWorkspaceStatus({ ...ctx, root });
+    assert.ok(status.scanAudit.sourceBytesRead > 0, JSON.stringify(status.scanAudit));
+    assert.ok(status.scanAudit.sourceFilesRead > 0, JSON.stringify(status.scanAudit));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -775,6 +828,50 @@ test('approve_component_candidate only writes registry for extension approval', 
     assert.equal(extension.registryPath, 'aub.registry.json');
     const registry = JSON.parse(await readFile(join(root, 'aub.registry.json'), 'utf8'));
     assert.equal(registry.components[0].name, 'webapp:insight_card');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('approve_component_candidate concurrent reviews preserve independent decisions', async () => {
+  const root = await createWorkspaceLoopFixture();
+  try {
+    const scan = await scanProjectUi({ ...ctx, root }, {});
+    const first = scan.components.find((component) => component.suggestedType === 'webapp:insight_card');
+    assert.ok(first);
+    const candidatesPath = join(root, '.aub', 'component-candidates.json');
+    const doc = JSON.parse(await readFile(candidatesPath, 'utf8'));
+    const second = {
+      ...first,
+      id: 'src-components-action-bar-tsx-action_bar',
+      componentName: 'ActionBar',
+      sourcePath: 'src/components/ActionBar.tsx',
+      suggestedType: 'webapp:action_bar',
+      suggestedCoreType: 'nav_menu',
+      sourceUsage: [{ path: 'app/settings/page.tsx', line: 3, kind: 'jsx' }],
+      reviewHistory: [],
+    };
+    doc.candidates.push(second);
+    await writeFile(candidatesPath, `${JSON.stringify(doc, null, 2)}\n`, 'utf8');
+
+    await Promise.all([
+      approveComponentCandidate({ ...ctx, root }, {
+        id: first.id,
+        action: 'map_core',
+        coreType: 'card',
+      }),
+      approveComponentCandidate({ ...ctx, root }, {
+        id: second.id,
+        action: 'map_core',
+        coreType: 'nav_menu',
+      }),
+    ]);
+    const stored = JSON.parse(await readFile(candidatesPath, 'utf8'));
+    const byId = new Map(stored.candidates.map((candidate) => [candidate.id, candidate]));
+    assert.equal(byId.get(first.id).approvedAs, 'card');
+    assert.equal(byId.get(second.id).approvedAs, 'nav_menu');
+    assert.equal(byId.get(first.id).reviewHistory.length, 1);
+    assert.equal(byId.get(second.id).reviewHistory.length, 1);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

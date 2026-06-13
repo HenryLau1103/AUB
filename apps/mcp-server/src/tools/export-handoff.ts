@@ -1,20 +1,20 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { dirname, relative, resolve, sep } from 'node:path';
+import { relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
 import {
   buildKnownTypes,
   createHandoffArchive,
   createImplementationReportTemplate,
-  discoverWorkspaceExtensionRegistry,
   exportAgentPrompt,
   exportMarkdown,
+  resolveKnownTypesForBlueprint,
   validateBlueprintSemantics,
 } from '../aub.js';
 import { findRepoRoot } from '../repo.js';
 import { formatAjvErrors } from '../schema.js';
-import { prepareWorkspaceWritePath, resolveBlueprint, resolveWorkspaceRegistryPath, writeFileAtomic } from '../workspace.js';
+import { prepareWorkspaceWritePath, resolveBlueprint, writeFileAtomic } from '../workspace.js';
 
 export const name = 'export_handoff';
 
@@ -53,11 +53,10 @@ export async function run(
   const { blueprint, entry } = await resolveBlueprint(ctx.root, args.ref);
   const schemaOk = ctx.validators.validateBlueprint(blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
-  const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry
-      ? await resolveWorkspaceRegistryPath(ctx.root, args.registry)
-      : discoverWorkspaceExtensionRegistry(ctx.root, dirname(entry.absPath)),
-    discover: false,
+  const knownTypes = await resolveKnownTypesForBlueprint({
+    workspaceRoot: ctx.root,
+    blueprintAbsPath: entry.absPath,
+    explicitRegistry: args.registry,
   });
   const semanticErrors = schemaOk
     ? validateBlueprintSemantics(blueprint, { knownTypes: knownTypes.knownTypes })

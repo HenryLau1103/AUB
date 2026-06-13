@@ -7,7 +7,11 @@ export {
   supportedAgentTasks,
 } from '../../../scripts/export-agent-prompt.lib.mjs';
 export { validateBlueprintSemantics } from '../../../scripts/validate-blueprint.lib.mjs';
-export { buildKnownTypes, discoverWorkspaceExtensionRegistry } from '../../../scripts/registry.lib.mjs';
+export {
+  buildKnownTypes,
+  discoverWorkspaceExtensionRegistry,
+  resolveKnownTypesForBlueprint,
+} from '../../../scripts/registry.lib.mjs';
 export { diffBlueprints } from '../../../scripts/diff-blueprint.lib.mjs';
 export { migrateBlueprint } from '../../../scripts/migrate-blueprint.mjs';
 export { createBlueprintLock } from '../../../scripts/lock-blueprint.lib.mjs';

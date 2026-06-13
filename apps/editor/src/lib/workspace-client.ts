@@ -218,6 +218,15 @@ export function normalizeWorkspaceEndpoint(value: string): WorkspaceConnection {
   };
 }
 
+export function attachWorkspaceTokenIfMissing(endpoint: string, rpcToken?: string): string {
+  if (!rpcToken) return endpoint;
+  const url = new URL(endpoint.trim() || 'http://127.0.0.1:3100/mcp');
+  if (!url.searchParams.has('token') && !url.searchParams.has('rpc-token')) {
+    url.searchParams.set('token', rpcToken);
+  }
+  return url.href;
+}
+
 export async function workspaceRpc<T = unknown>(
   connection: WorkspaceConnection,
   tool: string,

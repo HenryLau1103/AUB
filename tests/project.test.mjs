@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import {
@@ -21,6 +23,8 @@ import { buildCoreKnownTypes } from '../scripts/registry.lib.mjs';
 const PROJECT = new URL('../examples/project/app.aub.project.json', import.meta.url).pathname;
 const PROJECT_SCHEMA = new URL('../schema/ui-project.schema.json', import.meta.url).pathname;
 const BLUEPRINT_SCHEMA = new URL('../schema/ui-blueprint.schema.json', import.meta.url).pathname;
+const PROJECT_CLI = new URL('../scripts/project.mjs', import.meta.url).pathname;
+const execFileAsync = promisify(execFile);
 
 async function compile(schemaPath) {
   const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -203,6 +207,46 @@ test('project schema allows parent segments; runtime workspace containment enfor
 
     const defaultLoaded = await loadProject(join(root, 'flows', 'app.aub.project.json'));
     assert.ok(defaultLoaded.errors.some((error) => /inside workspace/.test(error)), JSON.stringify(defaultLoaded.errors));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('project CLI uses the active workspace root for nested project files', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-project-cli-workspace-'));
+  try {
+    await mkdir(join(root, 'flows'), { recursive: true });
+    await mkdir(join(root, 'screens'), { recursive: true });
+    const blueprint = JSON.parse(await readFile(new URL('../examples/dashboard.ui.json', import.meta.url), 'utf8'));
+    blueprint.screen.id = 'dashboard.overview';
+    await writeFile(join(root, 'screens', 'home.ui.json'), `${JSON.stringify(blueprint, null, 2)}\n`, 'utf8');
+    const project = {
+      version: PROJECT_VERSION,
+      id: 'workspace-layout',
+      name: 'Workspace Layout',
+      screens: [{ id: 'dashboard.overview', path: '../screens/home.ui.json' }],
+      entry_screen: 'dashboard.overview',
+      navigation: [],
+    };
+    await writeFile(join(root, 'flows', 'app.aub.project.json'), `${JSON.stringify(project, null, 2)}\n`, 'utf8');
+
+    await execFileAsync(process.execPath, [PROJECT_CLI, 'validate', 'flows/app.aub.project.json'], { cwd: root });
+    await execFileAsync(process.execPath, [PROJECT_CLI, 'export-md', 'flows/app.aub.project.json', 'out'], { cwd: root });
+    assert.match(await readFile(join(root, 'out', 'dashboard.overview.ui.md'), 'utf8'), /Dashboard Overview/);
+
+    await assert.rejects(
+      execFileAsync(process.execPath, [PROJECT_CLI, 'validate', 'app.aub.project.json'], { cwd: join(root, 'flows') }),
+      (error) => {
+        assert.equal(error.code, 1);
+        assert.match(error.stderr, /inside workspace/);
+        return true;
+      }
+    );
+    await execFileAsync(
+      process.execPath,
+      [PROJECT_CLI, 'validate', 'app.aub.project.json', '--workspace', root],
+      { cwd: join(root, 'flows') }
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
