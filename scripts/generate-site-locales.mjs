@@ -12,23 +12,23 @@ const locales = {
     shortLabel: 'EN',
     htmlLang: 'en',
     ogLocale: 'en_US',
-    title: 'AUB — UI Contracts for Coding Agents',
+    title: 'AUB — Safe Existing UI Changes for Coding Agents',
     description:
-      'Define a versioned UI implementation contract, map it to production components, hand it to any coding agent, and gate the pull request on acceptance evidence.',
+      'Let coding agents safely modify existing product UI without rebuilding your components from scratch.',
     ogDescription:
-      'From design intent to verified implementation: semantic Blueprints, production components, MCP, and PR acceptance gates.',
+      'Scan an existing route, edit an AUB contract, reuse production components, and gate the pull request on evidence.',
     navEditor: 'Editor',
     navWorkflow: 'Workflow',
     navIntegrations: 'Integrations',
     navGitHub: 'GitHub',
     languageNav: 'Language',
-    eyebrow: 'UI implementation contracts',
-    headline: ['Define the intent.', 'Reuse real components.', 'Gate the PR on evidence.'],
+    eyebrow: 'Existing product UI changes',
+    headline: ['Let agents change UI.', 'Keep real components.', 'Verify the PR.'],
     lede:
-      'AUB is the open contract layer between product intent and coding agents. Compose a semantic Blueprint, map it to production components, hand the same source of truth to Codex, Claude Code, Copilot, or another agent, then verify every acceptance id in CI.',
-    openEditor: 'Open the live editor',
-    viewGitHub: 'View on GitHub',
-    note: 'Apache-2.0 · local-first · agent-neutral · the editor uploads nothing',
+      'AUB is the local-first workbench for coding agents working on real apps. Scan an existing route, turn it into an editable Blueprint, review custom component candidates, then hand Codex, Claude Code, Copilot, or another agent a contract it can implement and prove.',
+    openEditor: 'Use with an existing app',
+    viewGitHub: 'Open demo mode',
+    note: 'Apache-2.0 · local-first · agent-neutral · demo mode keeps MCP setup separate',
     editorAria: 'Open the AUB editor',
     editorAlt: 'AUB visual editor composing a responsive screen',
     capabilitiesAria: 'Product capabilities',
@@ -39,26 +39,39 @@ const locales = {
       ['4', 'acceptance categories'],
     ],
     workflowKicker: 'Golden path',
-    workflowTitle: 'One contract from intent to pull request',
+    workflowTitle: 'Five minutes from existing route to agent-ready PR',
     steps: [
-      ['Compose or import', 'Build one screen, import a Figma/Penpot bridge, or compose a navigable multi-screen project.'],
-      ['Bind real components', 'Resolve custom types to production modules, exports, source files, Storybook, and props.'],
-      ['Hand off once', 'Use a portable package or MCP. The core contract stays identical across agents.'],
-      ['Return evidence', 'The agent maps every node and reports pass, fail, or needs-review for every acceptance id.'],
+      ['Start in your app', 'Run npx aub-workspace from the existing project root. No AUB clone is required.'],
+      ['Scan and template', 'Detect routes, components, layout hints, and custom component candidates.'],
+      ['Review the contract', 'Open the candidate template, approve mappings, and adjust the Blueprint.'],
+      ['Hand off to an agent', 'Copy one instruction with the active Blueprint, route, preview URL, and MCP tools.'],
       ['Gate the PR', 'The AUB GitHub Action rejects drift, missing mappings, failed criteria, and unresolved work.'],
     ],
     whyKicker: 'Designed for implementation',
-    whyTitle: 'Not another design canvas or one-shot code generator',
+    whyTitle: 'Not another app builder. A control layer for real codebases.',
     whyLede:
-      'Design tools optimize creation. Code generators optimize speed. AUB protects intent across tools, agents, revisions, and reviews with a format that Git and CI can understand.',
+      'AI app builders optimize speed. AUB protects existing product UI when agents edit a real repository with real components, existing routes, and reviewable acceptance evidence.',
     whyCards: [
       ['Versioned source of truth', 'JSON Schema, semantic validation, migration, diff, and lock snapshots.'],
       ['Production reuse', 'Map semantic types to existing framework components instead of recreating them.'],
       ['Agent-neutral execution', 'Codex, Claude Code, Copilot, and generic agents receive the same contract.'],
       ['Evidence, not confidence', 'Implementation reports and PR checks make incomplete work visible.'],
     ],
+    beforeAfterKicker: 'Before and after',
+    beforeAfterTitle: 'The difference shows up in pull request review',
+    beforeAfterCards: [
+      ['Without AUB', 'A vague issue asks an agent to improve a page. The PR may look plausible, but reviewers still have to guess whether the agent reused real components, preserved responsive behavior, or broke interactions.'],
+      ['With AUB', 'The issue references a Blueprint, approved component mappings, preview URL, acceptance ids, evidence, and a PR Safety Score comment with an evidence matrix. Review shifts from taste to verifiable risk.'],
+    ],
+    comparisonKicker: 'Competitive focus',
+    comparisonTitle: 'AUB should not compete as another app builder',
+    comparisonCards: [
+      ['App builders are faster at new apps', 'v0, Lovable, and Bolt are better for blank-canvas generation. AUB wins only when an existing repository must preserve real routes and components.'],
+      ['Coding agents still need contracts', 'Codex, Copilot, and Claude Code can edit code, but prose alone does not prove reuse, responsive safety, or acceptance coverage.'],
+      ['Design tools do not close the PR loop', 'Figma is excellent for design collaboration. AUB is the source-controlled bridge from UI intent to implementation evidence.'],
+    ],
     integrationKicker: 'Integration contract',
-    integrationTitle: 'Point agents at the component you already ship',
+    integrationTitle: 'Do not let agents invent your design system',
     integrationBody:
       'Custom registry entries can identify a production package, exported symbol, source file, Storybook story, documentation, and the exact Blueprint-to-prop mapping.',
     integrationList: [
@@ -67,12 +80,12 @@ const locales = {
       'Support multiple framework implementations',
     ],
     handoffKicker: 'Connect and verify',
-    handoffTitle: 'Files when you need portability. MCP when agents need live access.',
+    handoffTitle: 'GitHub issues become agent-ready UI work orders',
     handoffBody:
-      'Export an <code>.aub.zip</code>, or let MCP-capable agents over stdio or HTTP import, write, package, resolve, validate, scaffold, diff, migrate, lock, and report against Blueprints and multi-screen projects. Add the bundled GitHub Action to turn those contracts into a pull-request gate.',
+      'Use AUB issue templates to define the route, Blueprint, component reuse rules, preview URL, and acceptance criteria. Copilot, Codex, or another agent can implement against the same contract and return evidence in the PR Safety Score comment.',
     commandNote: 'Validates contracts and implementation evidence',
-    links: ['Agent handoff guide', 'MCP server', 'GitHub CI gate', 'Production mappings', 'Figma/Penpot bridge', 'Blueprint schema'],
-    footer: 'UI contracts for coding agents',
+    links: ['Workspace loop guide', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', 'Production mappings', 'GitHub CI gate', 'Blueprint schema'],
+    footer: 'safe existing UI changes for coding agents',
   },
   'zh-hant': {
     path: 'zh-hant',
@@ -80,21 +93,21 @@ const locales = {
     shortLabel: '繁中',
     htmlLang: 'zh-Hant',
     ogLocale: 'zh_TW',
-    title: 'AUB — 編碼 Agent 的 UI 實作合約',
-    description: '定義可版本化的 UI 實作合約、對應正式元件、交付給任何編碼 Agent，並以驗收證據把關 Pull Request。',
-    ogDescription: '從設計意圖到可驗證實作：語意化 Blueprint、正式元件、MCP 與 PR 驗收閘門。',
+    title: 'AUB — 讓編碼 Agent 安全修改既有 UI',
+    description: '讓編碼 Agent 安全修改既有產品畫面，不重做正式元件，並用驗收證據把關 Pull Request。',
+    ogDescription: '掃描既有 route、編輯 AUB 合約、重用正式元件，並以證據驗收 PR。',
     navEditor: '編輯器',
     navWorkflow: '流程',
     navIntegrations: '整合',
     navGitHub: 'GitHub',
     languageNav: '語言',
-    eyebrow: 'UI 實作合約',
-    headline: ['定義產品意圖。', '重用正式元件。', '以證據把關 PR。'],
+    eyebrow: '既有產品 UI 修改',
+    headline: ['讓 Agent 改 UI。', '保留正式元件。', '用證據驗收 PR。'],
     lede:
-      'AUB 是產品意圖與編碼 Agent 之間的開放合約層。建立語意化 Blueprint、對應正式元件，將同一份唯一真實來源交給 Codex、Claude Code、Copilot 或其他 Agent，再於 CI 逐項驗證 acceptance id。',
-    openEditor: '開啟線上編輯器',
-    viewGitHub: '前往 GitHub',
-    note: 'Apache-2.0 · local-first · agent-neutral · 編輯器不會上傳資料',
+      'AUB 是給 coding agent 修改真實 app 的 local-first 工作台。掃描既有 route、轉成可編輯 Blueprint、審核自訂元件候選，再把可實作且可驗證的合約交給 Codex、Claude Code、Copilot 或其他 Agent。',
+    openEditor: '用在既有專案',
+    viewGitHub: '開啟 demo mode',
+    note: 'Apache-2.0 · local-first · agent-neutral · demo mode 會把 MCP 設定分開',
     editorAria: '開啟 AUB 編輯器',
     editorAlt: 'AUB 視覺編輯器正在組合響應式畫面',
     capabilitiesAria: '產品能力',
@@ -105,34 +118,47 @@ const locales = {
       ['4', '類驗收條件'],
     ],
     workflowKicker: '黃金流程',
-    workflowTitle: '從產品意圖到 Pull Request，只用一份合約',
+    workflowTitle: '五分鐘從既有 route 到可交給 Agent 的 PR 工作',
     steps: [
-      ['組合或匯入', '建立單一畫面、匯入 Figma／Penpot bridge，或組成可導覽的多畫面專案。'],
-      ['綁定正式元件', '將自訂類型對應到正式 module、export、source、Storybook 與 props。'],
-      ['一次交付', '使用可攜式交付包或 MCP；不同 Agent 仍共享同一份核心合約。'],
-      ['回報證據', 'Agent 對應每個節點，並為每個 acceptance id 回報 pass、fail 或 needs-review。'],
+      ['從你的 app 啟動', '在既有專案根目錄執行 npx aub-workspace，不需要 clone AUB。'],
+      ['掃描並產範本', '偵測 routes、components、layout 線索與自訂元件候選。'],
+      ['審核合約', '打開 candidate template，確認 mapping，調整 Blueprint。'],
+      ['交給 Agent', '複製包含 active Blueprint、route、preview URL 與 MCP tools 的指令。'],
       ['把關 PR', 'AUB GitHub Action 會拒絕漂移、遺漏 mapping、驗收失敗與未解決事項。'],
     ],
     whyKicker: '為實作而設計',
-    whyTitle: '不是另一套設計畫布，也不是一次性程式碼生成器',
-    whyLede: '設計工具最佳化創作，程式碼生成器最佳化速度；AUB 用 Git 與 CI 能理解的格式，跨工具、Agent、版本與審查保護產品意圖。',
+    whyTitle: '不是另一套 app builder，而是真實 codebase 的控制層',
+    whyLede: 'AI app builder 最佳化速度；AUB 保護既有產品 UI，讓 Agent 在真實 repo、正式元件、既有 route 與可審查驗收證據之間工作。',
     whyCards: [
       ['可版本化的唯一真實來源', 'JSON Schema、語意驗證、migration、diff 與 lock snapshot。'],
       ['重用正式元件', '將語意類型對應到既有 framework 元件，而不是重新製作相似品。'],
       ['Agent-neutral 執行', 'Codex、Claude Code、Copilot 與通用 Agent 取得相同合約。'],
       ['需要證據，不靠信心', 'Implementation report 與 PR check 會讓未完成工作清楚可見。'],
     ],
+    beforeAfterKicker: 'Before / After',
+    beforeAfterTitle: '差異會直接出現在 PR review',
+    beforeAfterCards: [
+      ['沒有 AUB', 'Issue 只叫 Agent 改善某個頁面。PR 也許看起來合理，但 reviewer 仍要猜它有沒有重用正式元件、有沒有保留響應式行為、有沒有破壞互動。'],
+      ['有 AUB', 'Issue 會引用 Blueprint、已核准 component mapping、preview URL、acceptance id、evidence，以及含 evidence matrix 的 PR Safety Score comment。Review 從主觀喜好變成可驗證風險。'],
+    ],
+    comparisonKicker: '競品定位',
+    comparisonTitle: 'AUB 不應該去當另一套 app builder',
+    comparisonCards: [
+      ['App builder 更適合新專案', 'v0、Lovable、Bolt 更適合空白生成。AUB 只有在既有 repo 需要保留正式 route 與元件時才有優勢。'],
+      ['Coding agent 仍需要合約', 'Codex、Copilot、Claude Code 能改程式，但純文字無法證明元件重用、響應式安全與驗收覆蓋。'],
+      ['設計工具不會關閉 PR loop', 'Figma 很適合設計協作。AUB 的位置是把 UI 意圖帶到 source control 與實作證據。'],
+    ],
     integrationKicker: '整合合約',
-    integrationTitle: '讓 Agent 使用你已經上線的正式元件',
+    integrationTitle: '不要讓 Agent 發明你的 design system',
     integrationBody: '自訂 registry 可指定正式 package、export symbol、source file、Storybook、文件，以及精確的 Blueprint-to-prop mapping。',
     integrationList: ['避免建立相似但不同的元件', '保留 repository 原生 token 與行為', '支援多種 framework 實作'],
     handoffKicker: '連接並驗證',
-    handoffTitle: '需要可攜性時用檔案；Agent 需要即時存取時用 MCP。',
+    handoffTitle: 'GitHub issue 變成可交給 Agent 的 UI 工單',
     handoffBody:
-      '匯出 <code>.aub.zip</code>，或讓支援 MCP 的 Agent 透過 stdio／HTTP 匯入、寫入、打包、解析、驗證、補全、diff、migrate、lock 與回報 Blueprint 和多畫面專案。再加入內建 GitHub Action，將合約變成 Pull Request 驗收閘門。',
+      '使用 AUB issue template 定義 route、Blueprint、元件重用規則、preview URL 與 acceptance criteria。Copilot、Codex 或其他 Agent 依同一份合約實作，並把 evidence 回寫到 PR Safety Score comment。',
     commandNote: '驗證合約與實作證據',
-    links: ['Agent 交付指南', 'MCP server', 'GitHub CI 閘門', '正式元件對應', 'Figma／Penpot bridge', 'Blueprint schema'],
-    footer: '編碼 Agent 的 UI 實作合約',
+    links: ['Workspace loop 指南', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '正式元件對應', 'GitHub CI 閘門', 'Blueprint schema'],
+    footer: '讓編碼 Agent 安全修改既有 UI',
   },
   'zh-hans': {
     path: 'zh-hans',
@@ -140,21 +166,21 @@ const locales = {
     shortLabel: '简中',
     htmlLang: 'zh-Hans',
     ogLocale: 'zh_CN',
-    title: 'AUB — 编码 Agent 的 UI 实现契约',
-    description: '定义可版本化的 UI 实现契约、映射生产组件、交付给任意编码 Agent，并用验收证据管控 Pull Request。',
-    ogDescription: '从设计意图到可验证实现：语义化 Blueprint、生产组件、MCP 与 PR 验收门禁。',
+    title: 'AUB — 让编码 Agent 安全修改既有 UI',
+    description: '让编码 Agent 安全修改既有产品界面，不重做生产组件，并用验收证据管控 Pull Request。',
+    ogDescription: '扫描既有 route、编辑 AUB 契约、复用生产组件，并用证据验收 PR。',
     navEditor: '编辑器',
     navWorkflow: '流程',
     navIntegrations: '集成',
     navGitHub: 'GitHub',
     languageNav: '语言',
-    eyebrow: 'UI 实现契约',
-    headline: ['定义产品意图。', '复用生产组件。', '用证据管控 PR。'],
+    eyebrow: '既有产品 UI 修改',
+    headline: ['让 Agent 改 UI。', '保留生产组件。', '用证据验收 PR。'],
     lede:
-      'AUB 是产品意图与编码 Agent 之间的开放契约层。创建语义化 Blueprint、映射生产组件，把同一份唯一事实来源交给 Codex、Claude Code、Copilot 或其他 Agent，再在 CI 中逐项验证 acceptance id。',
-    openEditor: '打开在线编辑器',
-    viewGitHub: '前往 GitHub',
-    note: 'Apache-2.0 · local-first · agent-neutral · 编辑器不会上传数据',
+      'AUB 是给 coding agent 修改真实 app 的 local-first 工作台。扫描既有 route、转换成可编辑 Blueprint、审核自定义组件候选，再把可实现且可验证的契约交给 Codex、Claude Code、Copilot 或其他 Agent。',
+    openEditor: '用于既有项目',
+    viewGitHub: '打开 demo mode',
+    note: 'Apache-2.0 · local-first · agent-neutral · demo mode 会把 MCP 设置分开',
     editorAria: '打开 AUB 编辑器',
     editorAlt: 'AUB 可视化编辑器正在编排响应式页面',
     capabilitiesAria: '产品能力',
@@ -165,34 +191,47 @@ const locales = {
       ['4', '类验收条件'],
     ],
     workflowKicker: '黄金路径',
-    workflowTitle: '从产品意图到 Pull Request，只使用一份契约',
+    workflowTitle: '五分钟从既有 route 到可交给 Agent 的 PR 工作',
     steps: [
-      ['编排或导入', '创建单个页面、导入 Figma／Penpot bridge，或组成可导航的多页面项目。'],
-      ['绑定生产组件', '把自定义类型映射到生产 module、export、source、Storybook 与 props。'],
-      ['一次交付', '使用便携交付包或 MCP；不同 Agent 始终共享同一份核心契约。'],
-      ['返回证据', 'Agent 映射每个节点，并为每个 acceptance id 报告 pass、fail 或 needs-review。'],
+      ['从你的 app 启动', '在既有项目根目录执行 npx aub-workspace，不需要 clone AUB。'],
+      ['扫描并生成模板', '检测 routes、components、layout 线索与自定义组件候选。'],
+      ['审核契约', '打开 candidate template，确认 mapping，调整 Blueprint。'],
+      ['交给 Agent', '复制包含 active Blueprint、route、preview URL 与 MCP tools 的指令。'],
       ['管控 PR', 'AUB GitHub Action 会拒绝漂移、缺失 mapping、验收失败和未解决事项。'],
     ],
     whyKicker: '为实现而设计',
-    whyTitle: '不是另一套设计画布，也不是一次性代码生成器',
-    whyLede: '设计工具优化创作，代码生成器优化速度；AUB 使用 Git 与 CI 能理解的格式，跨工具、Agent、版本和评审保护产品意图。',
+    whyTitle: '不是另一套 app builder，而是真实 codebase 的控制层',
+    whyLede: 'AI app builder 优化速度；AUB 保护既有产品 UI，让 Agent 在真实 repo、生产组件、既有 route 与可评审验收证据之间工作。',
     whyCards: [
       ['可版本化的唯一事实来源', 'JSON Schema、语义验证、migration、diff 与 lock snapshot。'],
       ['复用生产组件', '把语义类型映射到现有 framework 组件，而不是重新创建相似组件。'],
       ['Agent-neutral 执行', 'Codex、Claude Code、Copilot 与通用 Agent 获得相同契约。'],
       ['需要证据，而非信心', 'Implementation report 与 PR check 会让未完成工作清晰可见。'],
     ],
+    beforeAfterKicker: 'Before / After',
+    beforeAfterTitle: '差异会直接出现在 PR review',
+    beforeAfterCards: [
+      ['没有 AUB', 'Issue 只让 Agent 改善某个页面。PR 也许看起来合理，但 reviewer 仍要猜它有没有复用生产组件、保留响应式行为、或破坏交互。'],
+      ['有 AUB', 'Issue 会引用 Blueprint、已批准 component mapping、preview URL、acceptance id、evidence，以及包含 evidence matrix 的 PR Safety Score comment。Review 从主观喜好变成可验证风险。'],
+    ],
+    comparisonKicker: '竞品定位',
+    comparisonTitle: 'AUB 不应该去做另一套 app builder',
+    comparisonCards: [
+      ['App builder 更适合新项目', 'v0、Lovable、Bolt 更适合空白生成。AUB 只有在既有 repo 需要保留真实 route 与组件时才有优势。'],
+      ['Coding agent 仍需要契约', 'Codex、Copilot、Claude Code 能改代码，但纯文字无法证明组件复用、响应式安全和验收覆盖。'],
+      ['设计工具不会关闭 PR loop', 'Figma 很适合设计协作。AUB 的位置是把 UI 意图带到 source control 和实现证据。'],
+    ],
     integrationKicker: '集成契约',
-    integrationTitle: '让 Agent 使用你已经上线的生产组件',
+    integrationTitle: '不要让 Agent 发明你的 design system',
     integrationBody: '自定义 registry 可以指定生产 package、export symbol、source file、Storybook、文档，以及精确的 Blueprint-to-prop mapping。',
     integrationList: ['避免创建相似但不一致的组件', '保留 repository 原生 token 与行为', '支持多种 framework 实现'],
     handoffKicker: '连接并验证',
-    handoffTitle: '需要便携性时使用文件；Agent 需要实时访问时使用 MCP。',
+    handoffTitle: 'GitHub issue 变成可交给 Agent 的 UI 工单',
     handoffBody:
-      '导出 <code>.aub.zip</code>，或让支持 MCP 的 Agent 通过 stdio／HTTP 导入、写入、打包、解析、验证、补全、diff、migrate、lock 并报告 Blueprint 和多页面项目。再加入内置 GitHub Action，把契约转为 Pull Request 验收门禁。',
+      '使用 AUB issue template 定义 route、Blueprint、组件复用规则、preview URL 与 acceptance criteria。Copilot、Codex 或其他 Agent 根据同一份契约实现，并把 evidence 写回 PR Safety Score comment。',
     commandNote: '验证契约与实现证据',
-    links: ['Agent 交付指南', 'MCP server', 'GitHub CI 门禁', '生产组件映射', 'Figma／Penpot bridge', 'Blueprint schema'],
-    footer: '编码 Agent 的 UI 实现契约',
+    links: ['Workspace loop 指南', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '生产组件映射', 'GitHub CI 门禁', 'Blueprint schema'],
+    footer: '让编码 Agent 安全修改既有 UI',
   },
   ja: {
     path: 'ja',
@@ -200,21 +239,21 @@ const locales = {
     shortLabel: '日本語',
     htmlLang: 'ja',
     ogLocale: 'ja_JP',
-    title: 'AUB — コーディング Agent のための UI 実装契約',
-    description: 'バージョン管理可能な UI 実装契約を定義し、本番コンポーネントへ紐付け、任意のコーディング Agent に渡して、受け入れ証拠で Pull Request を検証します。',
-    ogDescription: 'デザイン意図から検証可能な実装へ。セマンティック Blueprint、本番コンポーネント、MCP、PR 受け入れゲート。',
+    title: 'AUB — コーディング Agent に既存 UI を安全に変更させる',
+    description: 'コーディング Agent が既存プロダクト UI を安全に変更し、本番コンポーネントを作り直さず、証拠で Pull Request を検証できるようにします。',
+    ogDescription: '既存 route をスキャンし、AUB 契約を編集し、本番コンポーネントを再利用し、証拠で PR を検証します。',
     navEditor: 'エディター',
     navWorkflow: 'ワークフロー',
     navIntegrations: '連携',
     navGitHub: 'GitHub',
     languageNav: '言語',
-    eyebrow: 'UI 実装契約',
-    headline: ['意図を定義する。', '本番コンポーネントを再利用する。', '証拠で PR を検証する。'],
+    eyebrow: '既存プロダクト UI の変更',
+    headline: ['Agent に UI を変更させる。', '本番コンポーネントを守る。', '証拠で PR を検証する。'],
     lede:
-      'AUB は、プロダクト意図とコーディング Agent をつなぐオープンな契約レイヤーです。セマンティック Blueprint を作成し、本番コンポーネントに紐付け、同じ信頼できる情報源を Codex、Claude Code、Copilot などへ渡し、CI で各 acceptance id を検証します。',
-    openEditor: 'オンラインエディターを開く',
-    viewGitHub: 'GitHub を見る',
-    note: 'Apache-2.0 · local-first · agent-neutral · エディターはデータを送信しません',
+      'AUB は、コーディング Agent が実際の app を変更するための local-first ワークベンチです。既存 route をスキャンし、編集可能な Blueprint に変換し、カスタムコンポーネント候補を確認して、実装可能で検証可能な契約を Codex、Claude Code、Copilot などに渡します。',
+    openEditor: '既存プロジェクトで使う',
+    viewGitHub: 'demo mode を開く',
+    note: 'Apache-2.0 · local-first · agent-neutral · demo mode は MCP 設定を分離します',
     editorAria: 'AUB エディターを開く',
     editorAlt: 'レスポンシブ画面を構成する AUB ビジュアルエディター',
     capabilitiesAria: '製品機能',
@@ -225,34 +264,47 @@ const locales = {
       ['4', '種類の受け入れカテゴリ'],
     ],
     workflowKicker: 'ゴールデンパス',
-    workflowTitle: '意図から Pull Request まで、一つの契約でつなぐ',
+    workflowTitle: '既存 route から Agent-ready PR まで 5 分で進める',
     steps: [
-      ['作成またはインポート', '単一画面、Figma／Penpot bridge、または遷移可能な複数画面プロジェクトを作成します。'],
-      ['本番コンポーネントを紐付け', 'カスタム型を本番 module、export、source、Storybook、props に解決します。'],
-      ['一度だけ引き渡す', 'ポータブルパッケージまたは MCP を使用し、どの Agent にも同じ契約を渡します。'],
-      ['証拠を返す', 'Agent は全ノードを対応付け、各 acceptance id を pass、fail、needs-review で報告します。'],
+      ['自分の app から開始', '既存プロジェクトの root で npx aub-workspace を実行します。AUB の clone は不要です。'],
+      ['スキャンしてテンプレート化', 'routes、components、layout の手がかり、カスタムコンポーネント候補を検出します。'],
+      ['契約をレビュー', 'candidate template を開き、mapping を確認し、Blueprint を調整します。'],
+      ['Agent に渡す', 'active Blueprint、route、preview URL、MCP tools を含む指示をコピーします。'],
       ['PR をゲートする', 'AUB GitHub Action が差異、mapping 漏れ、受け入れ失敗、未解決項目を拒否します。'],
     ],
     whyKicker: '実装のための設計',
-    whyTitle: '新しいデザインキャンバスでも、一回限りのコード生成器でもありません',
-    whyLede: 'デザインツールは制作を、コード生成器は速度を最適化します。AUB は Git と CI が理解できる形式で、ツール、Agent、リビジョン、レビューをまたいで意図を守ります。',
+    whyTitle: '別の app builder ではなく、実コードベースの制御レイヤーです',
+    whyLede: 'AI app builder は速度を最適化します。AUB は既存プロダクト UI を守り、Agent が実 repo、本番コンポーネント、既存 route、レビュー可能な受け入れ証拠の中で作業できるようにします。',
     whyCards: [
       ['バージョン管理できる信頼できる情報源', 'JSON Schema、セマンティック検証、migration、diff、lock snapshot。'],
       ['本番資産の再利用', 'セマンティック型を既存 framework コンポーネントへ紐付けます。'],
       ['Agent-neutral な実行', 'Codex、Claude Code、Copilot、汎用 Agent が同じ契約を受け取ります。'],
       ['信頼ではなく証拠', 'Implementation report と PR check が未完了作業を可視化します。'],
     ],
+    beforeAfterKicker: 'Before / After',
+    beforeAfterTitle: '違いは PR review に現れます',
+    beforeAfterCards: [
+      ['AUB なし', 'Issue が Agent にページ改善を曖昧に依頼します。PR はもっともらしく見えても、本番コンポーネント再利用、レスポンシブ挙動、既存インタラクションを reviewer が確認し直す必要があります。'],
+      ['AUB あり', 'Issue は Blueprint、承認済み component mapping、preview URL、acceptance id、evidence、evidence matrix 付き PR Safety Score comment を参照します。Review は好みではなく検証可能なリスクになります。'],
+    ],
+    comparisonKicker: '競合上の焦点',
+    comparisonTitle: 'AUB は別の app builder として戦うべきではありません',
+    comparisonCards: [
+      ['App builder は新規作成が速い', 'v0、Lovable、Bolt は blank canvas 生成に強いです。AUB が勝てるのは既存 repo の route と component を守る場面です。'],
+      ['Coding agent には契約が必要', 'Codex、Copilot、Claude Code はコードを編集できますが、prose だけでは再利用、responsive safety、acceptance coverage を証明できません。'],
+      ['Design tool は PR loop を閉じない', 'Figma は設計協業に優れています。AUB は UI intent を source control と実装証拠へつなぐ役割です。'],
+    ],
     integrationKicker: '連携契約',
-    integrationTitle: 'すでに提供中の本番コンポーネントを Agent に使わせる',
+    integrationTitle: 'Agent に design system を発明させない',
     integrationBody: 'カスタム registry で、本番 package、export symbol、source file、Storybook、ドキュメント、正確な Blueprint-to-prop mapping を指定できます。',
     integrationList: ['似ているだけの独自コンポーネントを防ぐ', 'repository 固有の token と動作を維持する', '複数 framework の実装を支援する'],
     handoffKicker: '接続して検証',
-    handoffTitle: '持ち運びにはファイルを、Agent のライブアクセスには MCP を。',
+    handoffTitle: 'GitHub issue を Agent-ready な UI 作業票にする',
     handoffBody:
-      '<code>.aub.zip</code> を書き出すか、MCP 対応 Agent に stdio／HTTP 経由で Blueprint と複数画面プロジェクトの import、write、package、resolve、validate、scaffold、diff、migrate、lock、report を実行させます。付属の GitHub Action で契約を Pull Request ゲートにできます。',
+      'AUB issue template で route、Blueprint、コンポーネント再利用ルール、preview URL、acceptance criteria を定義します。Copilot、Codex、その他の Agent は同じ契約に沿って実装し、evidence を PR Safety Score comment に返します。',
     commandNote: '契約と実装証拠を検証',
-    links: ['Agent 引き渡しガイド', 'MCP server', 'GitHub CI ゲート', '本番 mapping', 'Figma／Penpot bridge', 'Blueprint schema'],
-    footer: 'コーディング Agent のための UI 実装契約',
+    links: ['Workspace loop ガイド', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '本番 mapping', 'GitHub CI ゲート', 'Blueprint schema'],
+    footer: 'コーディング Agent に既存 UI を安全に変更させる',
   },
   ko: {
     path: 'ko',
@@ -260,21 +312,21 @@ const locales = {
     shortLabel: '한국어',
     htmlLang: 'ko',
     ogLocale: 'ko_KR',
-    title: 'AUB — 코딩 Agent를 위한 UI 구현 계약',
-    description: '버전 관리 가능한 UI 구현 계약을 정의하고, 프로덕션 컴포넌트에 연결해 어떤 코딩 Agent에도 전달한 뒤 인수 증거로 Pull Request를 검증합니다.',
-    ogDescription: '디자인 의도에서 검증 가능한 구현까지: 시맨틱 Blueprint, 프로덕션 컴포넌트, MCP, PR 인수 게이트.',
+    title: 'AUB — 코딩 Agent가 기존 UI를 안전하게 바꾸도록 돕기',
+    description: '코딩 Agent가 기존 제품 UI를 안전하게 수정하고, 프로덕션 컴포넌트를 다시 만들지 않으며, 인수 증거로 Pull Request를 검증하게 합니다.',
+    ogDescription: '기존 route를 스캔하고, AUB 계약을 편집하고, 프로덕션 컴포넌트를 재사용하며, 증거로 PR을 검증합니다.',
     navEditor: '에디터',
     navWorkflow: '워크플로',
     navIntegrations: '통합',
     navGitHub: 'GitHub',
     languageNav: '언어',
-    eyebrow: 'UI 구현 계약',
-    headline: ['의도를 정의합니다.', '프로덕션 컴포넌트를 재사용합니다.', '증거로 PR을 검증합니다.'],
+    eyebrow: '기존 제품 UI 변경',
+    headline: ['Agent가 UI를 바꿉니다.', '프로덕션 컴포넌트를 지킵니다.', '증거로 PR을 검증합니다.'],
     lede:
-      'AUB는 제품 의도와 코딩 Agent 사이의 개방형 계약 계층입니다. 시맨틱 Blueprint를 만들고 프로덕션 컴포넌트에 연결한 뒤, 동일한 단일 기준을 Codex, Claude Code, Copilot 또는 다른 Agent에 전달하고 CI에서 모든 acceptance id를 검증합니다.',
-    openEditor: '온라인 에디터 열기',
-    viewGitHub: 'GitHub 보기',
-    note: 'Apache-2.0 · local-first · agent-neutral · 에디터는 데이터를 업로드하지 않습니다',
+      'AUB는 코딩 Agent가 실제 app을 수정할 때 쓰는 local-first 워크벤치입니다. 기존 route를 스캔해 편집 가능한 Blueprint로 만들고, 사용자 정의 컴포넌트 후보를 검토한 뒤, 구현 가능하고 검증 가능한 계약을 Codex, Claude Code, Copilot 또는 다른 Agent에 전달합니다.',
+    openEditor: '기존 프로젝트에서 사용',
+    viewGitHub: 'demo mode 열기',
+    note: 'Apache-2.0 · local-first · agent-neutral · demo mode 는 MCP 설정을 분리합니다',
     editorAria: 'AUB 에디터 열기',
     editorAlt: '반응형 화면을 구성하는 AUB 비주얼 에디터',
     capabilitiesAria: '제품 기능',
@@ -285,43 +337,57 @@ const locales = {
       ['4', '가지 인수 카테고리'],
     ],
     workflowKicker: '골든 패스',
-    workflowTitle: '제품 의도부터 Pull Request까지 하나의 계약으로',
+    workflowTitle: '기존 route에서 Agent-ready PR까지 5분',
     steps: [
-      ['구성 또는 가져오기', '단일 화면, Figma／Penpot bridge 또는 탐색 가능한 다중 화면 프로젝트를 만듭니다.'],
-      ['프로덕션 컴포넌트 연결', '사용자 정의 유형을 프로덕션 module, export, source, Storybook, props에 연결합니다.'],
-      ['한 번만 전달', '휴대 가능한 패키지나 MCP를 사용하며 모든 Agent가 동일한 핵심 계약을 공유합니다.'],
-      ['증거 반환', 'Agent가 모든 노드를 매핑하고 각 acceptance id를 pass, fail, needs-review로 보고합니다.'],
+      ['내 app에서 시작', '기존 프로젝트 root에서 npx aub-workspace를 실행합니다. AUB clone은 필요 없습니다.'],
+      ['스캔하고 템플릿 생성', 'routes, components, layout 단서와 사용자 정의 컴포넌트 후보를 감지합니다.'],
+      ['계약 검토', 'candidate template을 열고 mapping을 확인한 뒤 Blueprint를 조정합니다.'],
+      ['Agent에게 전달', 'active Blueprint, route, preview URL, MCP tools가 포함된 지시를 복사합니다.'],
       ['PR 게이트', 'AUB GitHub Action이 드리프트, 누락된 mapping, 인수 실패와 미해결 작업을 거부합니다.'],
     ],
     whyKicker: '구현을 위한 설계',
-    whyTitle: '또 하나의 디자인 캔버스나 일회성 코드 생성기가 아닙니다',
-    whyLede: '디자인 도구는 제작을, 코드 생성기는 속도를 최적화합니다. AUB는 Git과 CI가 이해하는 형식으로 도구, Agent, 리비전과 리뷰 전반에서 의도를 보호합니다.',
+    whyTitle: '또 하나의 app builder가 아니라 실제 codebase의 제어 계층입니다',
+    whyLede: 'AI app builder는 속도를 최적화합니다. AUB는 기존 제품 UI를 보호하고, Agent가 실제 repo, 프로덕션 컴포넌트, 기존 route, 검토 가능한 인수 증거 안에서 작업하게 합니다.',
     whyCards: [
       ['버전 관리 가능한 단일 기준', 'JSON Schema, 시맨틱 검증, migration, diff, lock snapshot.'],
       ['프로덕션 자산 재사용', '시맨틱 유형을 기존 framework 컴포넌트에 연결해 재구현을 방지합니다.'],
       ['Agent-neutral 실행', 'Codex, Claude Code, Copilot과 범용 Agent가 동일한 계약을 받습니다.'],
       ['신뢰가 아닌 증거', 'Implementation report와 PR check가 미완료 작업을 드러냅니다.'],
     ],
+    beforeAfterKicker: 'Before / After',
+    beforeAfterTitle: '차이는 PR review에서 드러납니다',
+    beforeAfterCards: [
+      ['AUB 없음', 'Issue가 Agent에게 페이지 개선을 모호하게 요청합니다. PR이 그럴듯해 보여도 reviewer는 프로덕션 컴포넌트 재사용, 반응형 동작, 기존 인터랙션 보존을 다시 확인해야 합니다.'],
+      ['AUB 있음', 'Issue는 Blueprint, 승인된 component mapping, preview URL, acceptance id, evidence, evidence matrix가 있는 PR Safety Score comment를 참조합니다. Review는 취향이 아니라 검증 가능한 위험 평가가 됩니다.'],
+    ],
+    comparisonKicker: '경쟁 포지션',
+    comparisonTitle: 'AUB는 또 하나의 app builder로 경쟁하면 안 됩니다',
+    comparisonCards: [
+      ['App builder는 새 앱 생성이 빠릅니다', 'v0, Lovable, Bolt는 빈 화면 생성에 강합니다. AUB는 기존 repo의 route와 component를 보존해야 할 때만 이깁니다.'],
+      ['Coding agent에는 계약이 필요합니다', 'Codex, Copilot, Claude Code는 코드를 편집할 수 있지만 prose만으로는 재사용, responsive safety, acceptance coverage를 증명할 수 없습니다.'],
+      ['Design tool은 PR loop를 닫지 않습니다', 'Figma는 디자인 협업에 뛰어납니다. AUB는 UI intent를 source control과 구현 증거로 연결합니다.'],
+    ],
     integrationKicker: '통합 계약',
-    integrationTitle: '이미 배포 중인 프로덕션 컴포넌트를 Agent가 사용하게 합니다',
+    integrationTitle: 'Agent가 design system을 발명하지 못하게 합니다',
     integrationBody: '사용자 정의 registry에 프로덕션 package, export symbol, source file, Storybook, 문서와 정확한 Blueprint-to-prop mapping을 지정할 수 있습니다.',
     integrationList: ['비슷하게만 생긴 별도 컴포넌트 방지', 'repository 고유 token과 동작 유지', '여러 framework 구현 지원'],
     handoffKicker: '연결 및 검증',
-    handoffTitle: '이식성이 필요하면 파일을, Agent의 실시간 접근에는 MCP를 사용합니다.',
+    handoffTitle: 'GitHub issue를 Agent-ready UI 작업표로 만듭니다',
     handoffBody:
-      '<code>.aub.zip</code>을 내보내거나 MCP 지원 Agent가 stdio／HTTP를 통해 Blueprint와 다중 화면 프로젝트를 import, write, package, resolve, validate, scaffold, diff, migrate, lock, report하도록 합니다. 번들 GitHub Action을 추가하면 이 계약이 Pull Request 게이트가 됩니다.',
+      'AUB issue template으로 route, Blueprint, 컴포넌트 재사용 규칙, preview URL, acceptance criteria를 정의합니다. Copilot, Codex 또는 다른 Agent가 같은 계약에 맞춰 구현하고 evidence를 PR Safety Score comment로 반환할 수 있습니다.',
     commandNote: '계약과 구현 증거 검증',
-    links: ['Agent 전달 가이드', 'MCP server', 'GitHub CI 게이트', '프로덕션 mapping', 'Figma／Penpot bridge', 'Blueprint schema'],
-    footer: '코딩 Agent를 위한 UI 구현 계약',
+    links: ['Workspace loop 가이드', 'AUB vs app builders', 'GitHub agent workflow', 'MCP server', '프로덕션 mapping', 'GitHub CI 게이트', 'Blueprint schema'],
+    footer: '코딩 Agent가 기존 UI를 안전하게 바꾸도록 돕기',
   },
 };
 
 const linkTargets = [
-  'docs/agent-handoff.md',
+  'docs/workspace-loop-user-manual.md',
+  'docs/comparison-app-builders.md',
+  'docs/github-agent-workflow.md',
   'apps/mcp-server/README.md',
-  'docs/github-ci.md',
   'docs/custom-components.md',
-  'docs/design-tool-bridge.md',
+  'docs/github-ci.md',
   'schema/ui-blueprint.schema.json',
 ];
 
@@ -369,6 +435,22 @@ function renderPage(id, locale) {
     )
     .join('\n');
   const cards = locale.whyCards
+    .map(
+      ([title, body]) => `          <div class="card">
+            <h3>${title}</h3>
+            <p>${body}</p>
+          </div>`
+    )
+    .join('\n');
+  const beforeAfterCards = locale.beforeAfterCards
+    .map(
+      ([title, body]) => `          <div class="card">
+            <h3>${title}</h3>
+            <p>${body}</p>
+          </div>`
+    )
+    .join('\n');
+  const comparisonCards = locale.comparisonCards
     .map(
       ([title, body]) => `          <div class="card">
             <h3>${title}</h3>
@@ -436,8 +518,8 @@ ${ogAlternates}
           <h1>${locale.headline.join('<br />')}</h1>
           <p class="lede">${locale.lede}</p>
           <div class="cta-row">
-            <a class="btn btn-primary" href="${base}editor/">${locale.openEditor}</a>
-            <a class="btn btn-ghost" href="https://github.com/HenryLau1103/AUB">${locale.viewGitHub}</a>
+            <a class="btn btn-primary" href="https://github.com/HenryLau1103/AUB#fastest-path-for-an-existing-project">${locale.openEditor}</a>
+            <a class="btn btn-ghost" href="${base}editor/">${locale.viewGitHub}</a>
           </div>
           <p class="note">${locale.note}</p>
         </div>
@@ -464,6 +546,22 @@ ${steps}
         <p class="why-lede">${locale.whyLede}</p>
         <div class="why-grid">
 ${cards}
+        </div>
+      </section>
+
+      <section class="before-after">
+        <p class="section-kicker">${locale.beforeAfterKicker}</p>
+        <h2>${locale.beforeAfterTitle}</h2>
+        <div class="why-grid">
+${beforeAfterCards}
+        </div>
+      </section>
+
+      <section class="why">
+        <p class="section-kicker">${locale.comparisonKicker}</p>
+        <h2>${locale.comparisonTitle}</h2>
+        <div class="why-grid">
+${comparisonCards}
         </div>
       </section>
 

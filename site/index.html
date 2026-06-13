@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AUB — UI Contracts for Coding Agents</title>
-    <meta name="description" content="Define a versioned UI implementation contract, map it to production components, hand it to any coding agent, and gate the pull request on acceptance evidence." />
+    <title>AUB — Safe Existing UI Changes for Coding Agents</title>
+    <meta name="description" content="Let coding agents safely modify existing product UI without rebuilding your components from scratch." />
     <link rel="canonical" href="https://henrylau1103.github.io/AUB/" />
     <link rel="alternate" hreflang="en" href="https://henrylau1103.github.io/AUB/" />
     <link rel="alternate" hreflang="zh-Hant" href="https://henrylau1103.github.io/AUB/zh-hant/" />
@@ -12,8 +12,8 @@
     <link rel="alternate" hreflang="ja" href="https://henrylau1103.github.io/AUB/ja/" />
     <link rel="alternate" hreflang="ko" href="https://henrylau1103.github.io/AUB/ko/" />
     <link rel="alternate" hreflang="x-default" href="https://henrylau1103.github.io/AUB/" />
-    <meta property="og:title" content="AUB — UI Contracts for Coding Agents" />
-    <meta property="og:description" content="From design intent to verified implementation: semantic Blueprints, production components, MCP, and PR acceptance gates." />
+    <meta property="og:title" content="AUB — Safe Existing UI Changes for Coding Agents" />
+    <meta property="og:description" content="Scan an existing route, edit an AUB contract, reuse production components, and gate the pull request on evidence." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://henrylau1103.github.io/AUB/" />
     <meta property="og:locale" content="en_US" />
@@ -57,14 +57,14 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">UI implementation contracts</p>
-          <h1>Define the intent.<br />Reuse real components.<br />Gate the PR on evidence.</h1>
-          <p class="lede">AUB is the open contract layer between product intent and coding agents. Compose a semantic Blueprint, map it to production components, hand the same source of truth to Codex, Claude Code, Copilot, or another agent, then verify every acceptance id in CI.</p>
+          <p class="eyebrow">Existing product UI changes</p>
+          <h1>Let agents change UI.<br />Keep real components.<br />Verify the PR.</h1>
+          <p class="lede">AUB is the local-first workbench for coding agents working on real apps. Scan an existing route, turn it into an editable Blueprint, review custom component candidates, then hand Codex, Claude Code, Copilot, or another agent a contract it can implement and prove.</p>
           <div class="cta-row">
-            <a class="btn btn-primary" href="./editor/">Open the live editor</a>
-            <a class="btn btn-ghost" href="https://github.com/HenryLau1103/AUB">View on GitHub</a>
+            <a class="btn btn-primary" href="https://github.com/HenryLau1103/AUB#fastest-path-for-an-existing-project">Use with an existing app</a>
+            <a class="btn btn-ghost" href="./editor/">Open demo mode</a>
           </div>
-          <p class="note">Apache-2.0 · local-first · agent-neutral · the editor uploads nothing</p>
+          <p class="note">Apache-2.0 · local-first · agent-neutral · demo mode keeps MCP setup separate</p>
         </div>
         <a class="hero-shot" href="./editor/" aria-label="Open the AUB editor">
           <img src="./assets/aub-editor-en.jpg" alt="AUB visual editor composing a responsive screen" loading="lazy" />
@@ -80,27 +80,27 @@
 
       <section class="steps" id="workflow">
         <p class="section-kicker">Golden path</p>
-        <h2>One contract from intent to pull request</h2>
+        <h2>Five minutes from existing route to agent-ready PR</h2>
         <ol class="step-grid step-grid-five">
           <li>
             <span class="step-num">1</span>
-            <h3>Compose or import</h3>
-            <p>Build one screen, import a Figma/Penpot bridge, or compose a navigable multi-screen project.</p>
+            <h3>Start in your app</h3>
+            <p>Run npx aub-workspace from the existing project root. No AUB clone is required.</p>
           </li>
           <li>
             <span class="step-num">2</span>
-            <h3>Bind real components</h3>
-            <p>Resolve custom types to production modules, exports, source files, Storybook, and props.</p>
+            <h3>Scan and template</h3>
+            <p>Detect routes, components, layout hints, and custom component candidates.</p>
           </li>
           <li>
             <span class="step-num">3</span>
-            <h3>Hand off once</h3>
-            <p>Use a portable package or MCP. The core contract stays identical across agents.</p>
+            <h3>Review the contract</h3>
+            <p>Open the candidate template, approve mappings, and adjust the Blueprint.</p>
           </li>
           <li>
             <span class="step-num">4</span>
-            <h3>Return evidence</h3>
-            <p>The agent maps every node and reports pass, fail, or needs-review for every acceptance id.</p>
+            <h3>Hand off to an agent</h3>
+            <p>Copy one instruction with the active Blueprint, route, preview URL, and MCP tools.</p>
           </li>
           <li>
             <span class="step-num">5</span>
@@ -112,8 +112,8 @@
 
       <section class="why">
         <p class="section-kicker">Designed for implementation</p>
-        <h2>Not another design canvas or one-shot code generator</h2>
-        <p class="why-lede">Design tools optimize creation. Code generators optimize speed. AUB protects intent across tools, agents, revisions, and reviews with a format that Git and CI can understand.</p>
+        <h2>Not another app builder. A control layer for real codebases.</h2>
+        <p class="why-lede">AI app builders optimize speed. AUB protects existing product UI when agents edit a real repository with real components, existing routes, and reviewable acceptance evidence.</p>
         <div class="why-grid">
           <div class="card">
             <h3>Versioned source of truth</h3>
@@ -134,9 +134,43 @@
         </div>
       </section>
 
+      <section class="before-after">
+        <p class="section-kicker">Before and after</p>
+        <h2>The difference shows up in pull request review</h2>
+        <div class="why-grid">
+          <div class="card">
+            <h3>Without AUB</h3>
+            <p>A vague issue asks an agent to improve a page. The PR may look plausible, but reviewers still have to guess whether the agent reused real components, preserved responsive behavior, or broke interactions.</p>
+          </div>
+          <div class="card">
+            <h3>With AUB</h3>
+            <p>The issue references a Blueprint, approved component mappings, preview URL, acceptance ids, evidence, and a PR Safety Score comment with an evidence matrix. Review shifts from taste to verifiable risk.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="why">
+        <p class="section-kicker">Competitive focus</p>
+        <h2>AUB should not compete as another app builder</h2>
+        <div class="why-grid">
+          <div class="card">
+            <h3>App builders are faster at new apps</h3>
+            <p>v0, Lovable, and Bolt are better for blank-canvas generation. AUB wins only when an existing repository must preserve real routes and components.</p>
+          </div>
+          <div class="card">
+            <h3>Coding agents still need contracts</h3>
+            <p>Codex, Copilot, and Claude Code can edit code, but prose alone does not prove reuse, responsive safety, or acceptance coverage.</p>
+          </div>
+          <div class="card">
+            <h3>Design tools do not close the PR loop</h3>
+            <p>Figma is excellent for design collaboration. AUB is the source-controlled bridge from UI intent to implementation evidence.</p>
+          </div>
+        </div>
+      </section>
+
       <section class="integrations" id="integrations">
         <p class="section-kicker">Integration contract</p>
-        <h2>Point agents at the component you already ship</h2>
+        <h2>Do not let agents invent your design system</h2>
         <div class="integration-grid">
           <div>
             <p>Custom registry entries can identify a production package, exported symbol, source file, Storybook story, documentation, and the exact Blueprint-to-prop mapping.</p>
@@ -164,18 +198,19 @@
 
       <section class="handoff">
         <p class="section-kicker">Connect and verify</p>
-        <h2>Files when you need portability. MCP when agents need live access.</h2>
-        <p>Export an <code>.aub.zip</code>, or let MCP-capable agents over stdio or HTTP import, write, package, resolve, validate, scaffold, diff, migrate, lock, and report against Blueprints and multi-screen projects. Add the bundled GitHub Action to turn those contracts into a pull-request gate.</p>
+        <h2>GitHub issues become agent-ready UI work orders</h2>
+        <p>Use AUB issue templates to define the route, Blueprint, component reuse rules, preview URL, and acceptance criteria. Copilot, Codex, or another agent can implement against the same contract and return evidence in the PR Safety Score comment.</p>
         <div class="command-card">
           <code>uses: HenryLau1103/AUB@main</code>
           <span>Validates contracts and implementation evidence</span>
         </div>
         <div class="link-row">
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/agent-handoff.md">Agent handoff guide</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/workspace-loop-user-manual.md">Workspace loop guide</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/comparison-app-builders.md">AUB vs app builders</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-agent-workflow.md">GitHub agent workflow</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/apps/mcp-server/README.md">MCP server</a>
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-ci.md">GitHub CI gate</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/custom-components.md">Production mappings</a>
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/design-tool-bridge.md">Figma/Penpot bridge</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-ci.md">GitHub CI gate</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/schema/ui-blueprint.schema.json">Blueprint schema</a>
         </div>
       </section>
@@ -183,7 +218,7 @@
 
     <footer class="site-footer">
       <p>
-        AUB · UI contracts for coding agents ·
+        AUB · safe existing UI changes for coding agents ·
         <a href="https://github.com/HenryLau1103/AUB">github.com/HenryLau1103/AUB</a> ·
         Apache-2.0
       </p>

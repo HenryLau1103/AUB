@@ -11,6 +11,32 @@ export interface WorkspaceTemplate {
   source: { kind?: string; path?: string; route?: string };
   blueprint: Blueprint;
   registryRefs?: string[];
+  missingMappings?: Array<{
+    candidateId?: string;
+    componentName?: string;
+    suggestedType?: string;
+    suggestedCoreType?: string;
+    sourcePath?: string;
+    confidence?: number;
+    reason?: string;
+  }>;
+  sourceReferences?: Array<{
+    nodeId?: string;
+    file: string;
+    line?: number;
+    selector?: string;
+  }>;
+  trustBreakdown?: {
+    routeResolved: boolean;
+    nodeCount: number;
+    sourceBackedNodes: number;
+    sourceReferenceCoverage: number;
+    semanticTagsMapped: number;
+    interactionCount: number;
+    missingMappings: number;
+    unresolvedCustomComponents: number;
+    reasons?: string[];
+  };
   confidence?: number;
   status: 'candidate' | 'approved';
   createdAt?: string;
@@ -28,9 +54,15 @@ export interface ComponentCandidate {
   isContainer?: boolean;
   props?: string[];
   usageCount?: number;
+  sourceUsage?: Array<{ file: string; line?: number }>;
+  storybookStories?: Array<{ path: string; title?: string | null }>;
   confidence?: number;
+  confidenceReason?: string;
+  mappingReason?: string;
   reason?: string;
   approvedAs?: string;
+  reviewedAt?: string;
+  reviewHistory?: Array<{ action: string; approvedAs?: string; reviewedAt?: string }>;
 }
 
 export interface AubSession {
@@ -50,10 +82,112 @@ export interface WorkspaceStatus {
   root: string;
   packageName: string | null;
   frameworks: string[];
+  storybook?: {
+    detected: boolean;
+    configPath?: string | null;
+    storyCount: number;
+    stories?: Array<{ path: string; title?: string | null; component?: string | null }>;
+  };
+  scanAudit?: {
+    filesScanned: number;
+    filesSkipped: number;
+    directoriesSkipped: number;
+    ignoredPatterns: string[];
+    limitReached: boolean;
+  };
+  scanReport?: {
+    path: string;
+    format: 'aub-scan-report';
+    format_version: string;
+    updatedAt: string;
+    packageName: string | null;
+    namespace: string;
+    frameworks: string[];
+    summary: {
+      routes: number;
+      componentCandidates: number;
+      unresolvedCandidates: number;
+      filesScanned: number;
+      filesSkipped: number;
+      directoriesSkipped: number;
+      limitReached: boolean;
+      trustScore: number;
+    };
+    trust: {
+      score: number;
+      grade: 'high' | 'medium' | 'low';
+      reasons: string[];
+      warnings: string[];
+      confidenceInputs: {
+        frameworkDetected: boolean;
+        routeCount: number;
+        componentCandidateCount: number;
+        storybookDetected: boolean;
+        scanLimitReached: boolean;
+      };
+      breakdown?: {
+        frameworkDetected: boolean;
+        routeResolved: boolean;
+        routeCount: number;
+        componentCandidateCount: number;
+        storybookDetected: boolean;
+        filesScanned: number;
+        filesSkipped: number;
+        directoriesSkipped: number;
+        scanLimitReached: boolean;
+      };
+    };
+    storybook: {
+      detected: boolean;
+      configPath?: string | null;
+      storyCount: number;
+    };
+    routes: Array<{ id: string; route: string; path: string; kind: string }>;
+    componentCandidates: Array<{
+      id: string;
+      componentName: string;
+      sourcePath: string;
+      suggestedType: string;
+      suggestedCoreType?: string;
+      status: string;
+      confidence?: number;
+      usageCount?: number;
+    }>;
+    scanAudit: {
+      filesScanned: number;
+      filesSkipped: number;
+      directoriesSkipped: number;
+      ignoredPatterns: string[];
+      limitReached: boolean;
+    };
+  } | null;
   routeCount: number;
   componentCandidateCount: number;
   templateCount: number;
   session: AubSession;
+  implementationReport?: {
+    path: string;
+    screenId?: string | null;
+    route?: string | null;
+    pass?: number;
+    fail?: number;
+    needsReview?: number;
+    evidence?: number;
+    safetyScore?: {
+      overall: number;
+      grade: 'pass' | 'review' | 'risk' | 'fail';
+      sourceCoverageScore: number;
+      acceptanceEvidenceScore: number;
+      viewportEvidenceScore: number;
+      overflowSafety: number;
+      componentReuseScore: number;
+      unresolvedMappingCount: number;
+      lookalikePreventionCount: number;
+      evidenceItems: number;
+      expectedViewports: string[];
+    } | null;
+    error?: string;
+  } | null;
   blueprints?: Array<{ path: string; screenId: string; screenName: string; version: string }>;
   projects?: Array<{ path: string; id: string; name: string; screenCount: number }>;
   routes: Array<{ id: string; path: string; route: string; kind: string }>;

@@ -36,6 +36,7 @@
 
 ```bash
 cd /your-path/your-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -51,6 +52,8 @@ Stop:      Ctrl+C
 
 瀏覽器會自動打開 AUB Editor，並且已經連到你的 workspace。
 
+`init` 會建立 AUB 設定、GitHub issue templates、Copilot instructions 與 PR workflow。它不會修改你的 app source。若產生目標已存在，預設不覆蓋，除非你加上 `--force`。
+
 ---
 
 ## 3. AUB 會在你的專案裡建立哪些檔案
@@ -61,6 +64,8 @@ Stop:      Ctrl+C
 .aub/session.json
 .aub/component-candidates.json
 .aub/templates/*.aub.template.json
+.aub/ci.json
+.github/workflows/aub-contracts.yml
 aub.registry.json
 screens/*.ui.json
 ```
@@ -331,6 +336,15 @@ Agent 不應該只看截圖或口頭描述猜畫面。
 
 它應該以 `.ui.json` 為 source of truth。
 
+實作完成後，可針對真實 route 擷取本機驗證證據：
+
+```bash
+pnpm report:capture -- --workspace /your-path/your-app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
+pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+```
+
+這會把 viewport 截圖、DOM 檢查、overflow 檢查與 acceptance evidence 寫入 implementation report，避免 PR gate 只依賴 Agent 自述。
+
 ---
 
 ## 11. 在 AUB Editor 預覽真實 app route
@@ -391,6 +405,7 @@ http://localhost:3000/settings
 
 ```bash
 cd /your-path/your-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -437,6 +452,7 @@ pnpm workspace:start -- --workspace /your-path/your-app
 請在既有專案根目錄執行：
 
 ```bash
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -459,7 +475,7 @@ npx aub-workspace
 
 需要本機 AUB + 本機 MCP server。
 
-一般使用者可以用 `npx aub-workspace` 一次啟動這兩者，不需要手動 clone AUB。
+一般使用者可以先執行 `npx aub-workspace init` 建立設定，再用 `npx aub-workspace` 啟動這兩者，不需要手動 clone AUB。
 
 ---
 

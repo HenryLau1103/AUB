@@ -414,7 +414,7 @@ function classifyElement({ tag, attrs, classes, text, astNode, forms }) {
     const iconOnly = !text && !attrs.title;
     return { type: iconOnly ? 'icon_button' : 'button', label, role: 'Imported action control.', content: { label, action: normalizeAction(eventFromAttrs(attrs)?.handler || label) } };
   }
-  if (tag === 'sfap-datepicker') return { type: 'date_picker', label: '', role: 'Imported date picker.', content: {} };
+  if (tag === 'demo-datepicker') return { type: 'date_picker', label: '', role: 'Imported date picker.', content: {} };
   if (tag === 'a' && (text || eventFromAttrs(attrs))) {
     return { type: 'link', label: text || 'Link', role: 'Imported link.', content: { text: text || 'Link', action: normalizeAction(eventFromAttrs(attrs)?.handler || attrs.href || 'navigate') } };
   }
@@ -706,7 +706,7 @@ function customType(tag) {
 }
 
 function isKnownCustomTag(tag) {
-  return ['sfap-datepicker', 'app-auth-button'].includes(tag);
+  return ['demo-datepicker', 'app-auth-button'].includes(tag);
 }
 
 function selectEntry(components, requested) {
@@ -938,7 +938,7 @@ function stripExpression(value) {
 
 function humanize(value) {
   return String(value || '')
-    .replace(/^app-|^sfap-/, '')
+    .replace(/^app-|^demo-/, '')
     .replace(/\.component\.(html|ts)$/i, '')
     .replace(/[-_.]+/g, ' ')
     .replace(/\b\w/g, (character) => character.toUpperCase())

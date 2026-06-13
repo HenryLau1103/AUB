@@ -15,6 +15,22 @@ inputs:
     description: Fail when a configured Blueprint has no implementation report.
     required: false
     default: "true"
+  require-evidence:
+    description: Fail implementation reports that do not include machine-checkable evidence.
+    required: false
+    default: "false"
+  min-safety-score:
+    description: Optional minimum PR safety score for implementation reports.
+    required: false
+    default: ""
+  comment-pr:
+    description: Post or update a PR comment with the AUB PR Safety Score summary.
+    required: false
+    default: "false"
+  github-token:
+    description: GitHub token used when comment-pr is true.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -37,9 +53,47 @@ runs:
       env:
         AUB_CONFIG_INPUT: ${{ inputs.config }}
         AUB_REQUIRE_REPORTS: ${{ inputs.require-reports }}
+        AUB_REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
       run: |
         args=(--workspace "$GITHUB_WORKSPACE" --config "$AUB_CONFIG_INPUT")
         if [[ "$AUB_REQUIRE_REPORTS" == "true" ]]; then
           args+=(--require-reports)
         fi
+        if [[ "$AUB_REQUIRE_EVIDENCE" == "true" ]]; then
+          args+=(--require-evidence)
+        fi
+        if [[ -n "${{ inputs.min-safety-score }}" ]]; then
+          args+=(--min-safety-score "${{ inputs.min-safety-score }}")
+        fi
         node "$GITHUB_ACTION_PATH/scripts/ci-verify.mjs" "${args[@]}"
+
+    - name: Comment PR Safety Score
+      if: ${{ always() && inputs.comment-pr == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        AUB_REQUIRE_REPORTS: ${{ inputs.require-reports }}
+        AUB_REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
+        AUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        if [[ -z "$GH_TOKEN" ]]; then
+          echo "AUB PR Safety Score comment skipped because github-token is empty."
+          exit 0
+        fi
+        args=(--workspace "$GITHUB_WORKSPACE" --config "${{ inputs.config }}" --output "$RUNNER_TEMP/aub-pr-safety-comment.md")
+        if [[ "$AUB_REQUIRE_REPORTS" == "true" ]]; then
+          args+=(--require-reports)
+        fi
+        if [[ "$AUB_REQUIRE_EVIDENCE" == "true" ]]; then
+          args+=(--require-evidence)
+        fi
+        if [[ -n "${{ inputs.min-safety-score }}" ]]; then
+          args+=(--min-safety-score "${{ inputs.min-safety-score }}")
+        fi
+        node "$GITHUB_ACTION_PATH/scripts/create-pr-safety-comment.mjs" "${args[@]}"
+        existing_comment_id="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${AUB_PR_NUMBER}/comments" --jq '.[] | select(.body | contains("<!-- aub-pr-safety-comment -->")) | .id' | tail -n 1)"
+        if [[ -n "$existing_comment_id" ]]; then
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${existing_comment_id}" -f body="$(cat "$RUNNER_TEMP/aub-pr-safety-comment.md")" >/dev/null
+        else
+          gh pr comment "$AUB_PR_NUMBER" --body-file "$RUNNER_TEMP/aub-pr-safety-comment.md"
+        fi

@@ -8,6 +8,10 @@
   "properties": {
     "$schema": { "type": "string" },
     "version": { "const": "1.0.0" },
+    "discover": {
+      "type": "boolean",
+      "description": "When true, merge discovered .ui.json/.ui.yaml/*.aub.project files with the explicit lists."
+    },
     "blueprints": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
@@ -29,6 +33,12 @@
           "report": { "type": "string", "minLength": 1 }
         }
       }
+    },
+    "min_safety_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Optional minimum implementation safety score required for configured reports."
     }
   }
 }

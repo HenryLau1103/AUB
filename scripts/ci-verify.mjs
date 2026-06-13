@@ -7,11 +7,14 @@ const args = process.argv.slice(2);
 const workspace = valueAfter(args, '--workspace') ?? process.cwd();
 const configPath = valueAfter(args, '--config') ?? '.aub/ci.json';
 const requireReports = args.includes('--require-reports');
+const requireEvidence = args.includes('--require-evidence');
+const minSafetyScore = valueAfter(args, '--min-safety-score') ?? null;
 
-const result = await verifyWorkspace({ workspace, configPath, requireReports });
+const result = await verifyWorkspace({ workspace, configPath, requireReports, requireEvidence, minSafetyScore });
 
 for (const check of result.checks) {
-  console.log(`${check.passed ? '✓' : '✗'} ${check.kind}: ${check.path}`);
+  const score = check.safetyScore ? ` safety=${check.safetyScore.overall}/${check.safetyScore.grade}` : '';
+  console.log(`${check.passed ? '✓' : '✗'} ${check.kind}: ${check.path}${score}`);
 }
 for (const failure of result.failures) {
   console.error(`  ${failure.path}: ${failure.message}`);
@@ -25,11 +28,11 @@ console.log(
 
 if (process.env.GITHUB_STEP_SUMMARY) {
   const rows = result.checks
-    .map((check) => `| ${check.passed ? 'Pass' : 'Fail'} | ${check.kind} | \`${check.path}\` |`)
+    .map((check) => `| ${check.passed ? 'Pass' : 'Fail'} | ${check.kind} | \`${check.path}\` | ${check.safetyScore ? `${check.safetyScore.overall} / ${check.safetyScore.grade}` : ''} |`)
     .join('\n');
   await appendFile(
     process.env.GITHUB_STEP_SUMMARY,
-    `## AUB contract verification\n\n| Status | Check | File |\n|---|---|---|\n${rows || '| Fail | configuration | No checks found |'}\n\n**${result.summary.failures} failure(s)**\n`
+    `## AUB contract verification\n\n| Status | Check | File | Safety score |\n|---|---|---|---|\n${rows || '| Fail | configuration | No checks found | |'}\n\n**${result.summary.failures} failure(s)**\n`
   );
 }
 

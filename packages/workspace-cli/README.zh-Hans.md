@@ -6,18 +6,59 @@
 
 ```bash
 cd /path/to/your-existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
-这个指令会启动本机 AUB MCP HTTP server、提供 bundled AUB editor、把 editor 连接到 MCP endpoint，并打开浏览器。
+`init` 会创建 AUB 配置、`.aubignore`、`AGENTS.md`、GitHub issue templates、Copilot instructions 和 PR workflow。`aub-workspace` 会启动本机 AUB MCP HTTP server、提供 bundled AUB editor、把 editor 连接到 MCP endpoint，并打开浏览器。
+
+成功时会看到类似输出：
+
+```text
+AUB Workspace is running
+Workspace: /path/to/your-existing-app
+Editor:    http://127.0.0.1:3110/?mcp=...
+MCP:       http://127.0.0.1:3100/mcp
+Stop:      Ctrl+C
+```
+
+进入 editor 后按 workspace loop：
+
+1. 扫描既有 app。
+2. 从 route 生成 candidate template。
+3. 审核自定义组件候选。
+4. 保存 Blueprint/session。
+5. 复制给 Copilot、Codex 或其他 coding agent 的指令。
+
+AUB 可能会在既有项目创建：
+
+```text
+.aub/session.json
+.aub/scan-report.json
+.aub/component-candidates.json
+.aub/templates/*.aub.template.json
+.aub/ci.json
+.aubignore
+AGENTS.md
+.github/workflows/aub-contracts.yml
+aub.registry.json
+screens/*.ui.json
+```
 
 Options:
 
 ```bash
+npx aub-workspace init
+npx aub-workspace init --force
+npx aub-workspace init --no-github
+npx aub-workspace init --ci-only
+npx aub-workspace demo
 npx aub-workspace --workspace /path/to/app
 npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open
 ```
+
+`demo` 会创建一个合成 workspace，用来证明安全流程，不需要使用真实项目。它包含 scan report、generated template、Blueprint、会失败的 implementation report、可通过的 implementation report，以及 fail/pass PR safety comment。
 
 Requirements:
 

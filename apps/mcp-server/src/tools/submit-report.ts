@@ -43,11 +43,15 @@ export async function run(
 
   let savedPath: string | undefined;
   if (accepted && args.persist !== false) {
+    const persistedReport = {
+      ...report,
+      safety_score: verification.summary?.safety_score,
+    };
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const screenId = safeFileStem(entry.screenId || 'blueprint', 'blueprint');
     const outputRef = `.aub/reports/${screenId}-${timestamp}.json`;
     const absPath = await prepareWorkspaceWritePath(ctx.root, outputRef);
-    await writeFile(absPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+    await writeFile(absPath, `${JSON.stringify(persistedReport, null, 2)}\n`, 'utf8');
     savedPath = relative(ctx.root, absPath).split(sep).join('/');
   }
 

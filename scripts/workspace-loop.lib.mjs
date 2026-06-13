@@ -1,12 +1,15 @@
 import { access, mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { defaultDesignSystem } from './migrate-blueprint.mjs';
+import { scoreImplementationSafety } from './implementation-report.lib.mjs';
 import { EXTENSION_NAME_PATTERN } from './registry.lib.mjs';
 
 export const WORKSPACE_LOOP_VERSION = '0.1.0';
 export const AUB_DIR = '.aub';
+export const AUBIGNORE_PATH = '.aubignore';
 export const SESSION_PATH = '.aub/session.json';
 export const COMPONENT_CANDIDATES_PATH = '.aub/component-candidates.json';
+export const SCAN_REPORT_PATH = '.aub/scan-report.json';
 export const TEMPLATE_DIR = '.aub/templates';
 export const TEMPLATE_FORMAT = 'aub-workspace-template';
 export const TEMPLATE_FORMAT_VERSION = '0.1.0';
@@ -23,6 +26,29 @@ const IGNORE_DIRS = new Set([
   'node_modules',
   '.pnpm-store',
 ]);
+const DEFAULT_IGNORE_PATTERNS = [
+  '.git/',
+  '.aub/',
+  '.next/',
+  '.nuxt/',
+  '.output/',
+  'coverage/',
+  'dist/',
+  'build/',
+  'node_modules/',
+  '.pnpm-store/',
+  '.env',
+  '.env.*',
+  '*.pem',
+  '*.key',
+  '*.p12',
+  '*.cert',
+  '*.crt',
+  '*.sqlite',
+  '*.db',
+  '*.log',
+];
+const HIDDEN_DIR_ALLOWLIST = new Set(['.storybook']);
 
 const SOURCE_EXTENSIONS = new Set(['.tsx', '.jsx', '.ts', '.js', '.vue', '.html']);
 const SOURCE_TEXT_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -37,6 +63,7 @@ const MAX_SOURCE_KIND_LENGTH = 32;
 const MAX_FRAMEWORK_LENGTH = 32;
 const CORE_TYPE_PATTERN = /^[a-z][a-z0-9_]*$/;
 const CORE_KIND_BY_NAME = [
+  [/badge|status|pill/i, 'badge'],
   [/button|cta|action/i, 'button'],
   [/sidebar|nav/i, 'sidebar'],
   [/header|topbar|toolbar/i, 'top_bar'],
@@ -50,6 +77,38 @@ const CORE_KIND_BY_NAME = [
   [/tabs?/i, 'tabs'],
   [/list|feed/i, 'list'],
 ];
+const CONTAINER_TYPES = new Set([
+  'app_shell', 'page', 'section', 'header', 'sidebar', 'top_bar', 'bottom_nav',
+  'stack', 'grid', 'split_pane', 'scroll_area', 'card', 'list', 'detail_panel',
+  'timeline', 'activity_feed', 'kanban_board', 'kanban_column', 'form',
+  'field_group', 'rich_text_editor', 'button_group', 'menu', 'toolbar',
+  'command_palette', 'modal', 'drawer', 'tabs', 'stepper',
+]);
+const TAG_TYPE_MAP = new Map([
+  ['main', 'section'],
+  ['section', 'section'],
+  ['article', 'card'],
+  ['header', 'header'],
+  ['aside', 'sidebar'],
+  ['nav', 'sidebar'],
+  ['form', 'form'],
+  ['table', 'data_table'],
+  ['ul', 'list'],
+  ['ol', 'list'],
+  ['h1', 'heading'],
+  ['h2', 'heading'],
+  ['h3', 'heading'],
+  ['h4', 'heading'],
+  ['p', 'text'],
+  ['span', 'text'],
+  ['label', 'text'],
+  ['button', 'button'],
+  ['a', 'link'],
+  ['input', 'text_input'],
+  ['textarea', 'textarea'],
+  ['select', 'select'],
+  ['img', 'image'],
+]);
 
 export function resolveWorkspacePath(root, filePath) {
   const absRoot = resolve(root);
@@ -296,6 +355,10 @@ function inferNamespace(root, packageJson) {
 }
 
 async function walk(root, dir, out, limit = 2000) {
+  return walkWithState(root, dir, out, limit, await createWalkState(root));
+}
+
+async function walkWithState(root, dir, out, limit = 2000, state) {
   if (out.length >= limit) return;
   let dirents;
   try {
@@ -304,15 +367,91 @@ async function walk(root, dir, out, limit = 2000) {
     return;
   }
   for (const dirent of dirents) {
-    if (out.length >= limit) return;
+    if (out.length >= limit) {
+      state.audit.limitReached = true;
+      return;
+    }
     const full = join(dir, dirent.name);
+    const relPath = toWorkspacePath(root, full);
+    if (shouldIgnoreWorkspaceEntry(relPath, dirent, state)) {
+      if (dirent.isDirectory()) state.audit.directoriesSkipped += 1;
+      else state.audit.filesSkipped += 1;
+      continue;
+    }
     if (dirent.isDirectory()) {
-      if (IGNORE_DIRS.has(dirent.name) || dirent.name.startsWith('.')) continue;
-      await walk(root, full, out, limit);
+      await walkWithState(root, full, out, limit, state);
     } else if (dirent.isFile()) {
-      out.push({ path: toWorkspacePath(root, full), absPath: full, name: dirent.name });
+      out.push({ path: relPath, absPath: full, name: dirent.name });
+      state.audit.filesScanned += 1;
     }
   }
+}
+
+async function createWalkState(root) {
+  const customPatterns = await readAubIgnore(root);
+  const ignoredPatterns = [...DEFAULT_IGNORE_PATTERNS, ...customPatterns];
+  return {
+    ignoredPatterns,
+    matchers: ignoredPatterns.map(compileIgnorePattern).filter(Boolean),
+    audit: {
+      filesScanned: 0,
+      filesSkipped: 0,
+      directoriesSkipped: 0,
+      ignoredPatterns,
+      limitReached: false,
+    },
+  };
+}
+
+async function readAubIgnore(root) {
+  try {
+    const text = await readFile(join(root, AUBIGNORE_PATH), 'utf8');
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#') && !line.startsWith('!'));
+  } catch {
+    return [];
+  }
+}
+
+function shouldIgnoreWorkspaceEntry(relPath, dirent, state) {
+  if (dirent.isDirectory()) {
+    if (IGNORE_DIRS.has(dirent.name)) return true;
+    if (dirent.name.startsWith('.') && !HIDDEN_DIR_ALLOWLIST.has(dirent.name)) return true;
+  }
+  return state.matchers.some((matcher) => matcher(relPath, dirent));
+}
+
+function compileIgnorePattern(pattern) {
+  const original = String(pattern ?? '').trim().replaceAll('\\', '/');
+  if (!original) return null;
+  const directoryOnly = original.endsWith('/');
+  const normalized = original.replace(/^\/+/, '').replace(/\/+$/, '');
+  const hasSlash = normalized.includes('/');
+  const hasGlob = /[*?]/.test(normalized);
+  if (!hasGlob) {
+    return (relPath, dirent) => {
+      if (directoryOnly && !dirent.isDirectory()) return false;
+      if (relPath === normalized || relPath.startsWith(`${normalized}/`)) return true;
+      return !hasSlash && dirent.name === normalized;
+    };
+  }
+  const regex = new RegExp(`^${globToRegex(normalized)}${directoryOnly ? '(?:/.*)?' : '$'}`);
+  const nameRegex = hasSlash ? null : new RegExp(`^${globToRegex(normalized)}$`);
+  return (relPath, dirent) => {
+    if (directoryOnly && !dirent.isDirectory()) return false;
+    return regex.test(relPath) || Boolean(nameRegex?.test(dirent.name));
+  };
+}
+
+function globToRegex(pattern) {
+  return pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*/g, '\u0000')
+    .replace(/\*/g, '[^/]*')
+    .replace(/\?/g, '[^/]')
+    .replace(/\u0000/g, '.*');
 }
 
 async function readPackage(root) {
@@ -357,21 +496,145 @@ function routeFromPath(path) {
   return route === '/index' || route === '/app' ? '/' : route;
 }
 
-function detectRoutes(files) {
-  return files
+async function detectRoutes(files) {
+  const webRoutes = files
     .filter((file) => {
       const path = file.path;
       return /^app\/(?:.+\/)?page\.[tj]sx?$/.test(path)
         || /^pages\/.+\.(tsx|jsx|ts|js|vue)$/.test(path)
-        || /^src\/pages\/.+\.(tsx|jsx|ts|js|vue)$/.test(path)
-        || /\.component\.html$/.test(path);
+        || /^src\/pages\/.+\.(tsx|jsx|ts|js|vue)$/.test(path);
     })
     .map((file) => ({
       id: slugify(routeFromPath(file.path), 'route'),
       path: file.path,
       route: routeFromPath(file.path),
-      kind: /\.vue$/.test(file.path) ? 'vue-route' : /\.component\.html$/.test(file.path) ? 'angular-template' : 'route',
+      kind: /\.vue$/.test(file.path) ? 'vue-route' : 'route',
     }));
+
+  const angularRoutes = await detectAngularRoutes(files);
+  const fallbackAngularTemplates = angularRoutes.length > 0
+    ? []
+    : files
+        .filter((file) => /\.component\.html$/.test(file.path))
+        .map((file) => ({
+          id: slugify(routeFromPath(file.path), 'route'),
+          path: file.path,
+          route: routeFromPath(file.path),
+          kind: 'angular-template',
+        }));
+
+  const byKey = new Map();
+  for (const route of [...webRoutes, ...angularRoutes, ...fallbackAngularTemplates]) {
+    byKey.set(`${route.route}:${route.path}`, route);
+  }
+  return [...byKey.values()];
+}
+
+async function detectAngularRoutes(files) {
+  const routingFiles = files.filter((file) => /\.routing\.ts$/.test(file.path) || /app\.routing\.ts$/.test(file.path));
+  if (routingFiles.length === 0) return [];
+  const fileByPath = new Map(files.map((file) => [file.path, file]));
+  const { contents: sourceTexts } = await readSourceTexts(routingFiles.concat(files.filter((file) => /app-route-paths\.const\.ts$/.test(file.path))));
+  const constants = extractAngularRouteConstants(sourceTexts);
+  const routes = [];
+
+  for (const file of routingFiles) {
+    const content = sourceTexts.get(file.absPath) ?? '';
+    const imports = extractAngularImports(file.path, content);
+    const routePattern = /\{[^{}]*path\s*:\s*([^,\n}]+)[^{}]*component\s*:\s*([A-Za-z_$][A-Za-z0-9_$]*)[^{}]*}/g;
+    for (const match of content.matchAll(routePattern)) {
+      const route = resolveAngularRouteExpression(match[1], constants);
+      const componentName = match[2];
+      if (!route || componentName === 'undefined') continue;
+      const componentPath = imports.get(componentName);
+      const componentFile = componentPath ? fileByPath.get(componentPath) : null;
+      const componentContent = componentFile ? (await readSourceText(componentFile)).text : '';
+      const htmlPath = componentPath
+        ? resolveAngularTemplatePath(componentPath, componentContent, fileByPath)
+        : null;
+      const routePath = htmlPath && fileByPath.has(htmlPath)
+        ? htmlPath
+        : componentPath && fileByPath.has(componentPath)
+          ? componentPath
+          : file.path;
+      routes.push({
+        id: slugify(`${route}-${componentName}`, 'route'),
+        path: routePath,
+        route,
+        kind: 'angular-route',
+      });
+    }
+  }
+
+  const byRoute = new Map();
+  for (const route of routes) byRoute.set(`${route.route}:${route.path}`, route);
+  return [...byRoute.values()];
+}
+
+function resolveAngularTemplatePath(componentPath, content, fileByPath) {
+  const templateUrl = content.match(/templateUrl\s*:\s*['"`]([^'"`]+)['"`]/)?.[1];
+  if (templateUrl) {
+    const normalized = join(dirname(componentPath), templateUrl).split(sep).join('/');
+    if (fileByPath.has(normalized)) return normalized;
+  }
+  const inferred = componentPath.replace(/\.component\.ts$/, '.component.html');
+  return fileByPath.has(inferred) ? inferred : null;
+}
+
+function extractAngularRouteConstants(sourceTexts) {
+  const constants = new Map();
+  for (const text of sourceTexts.values()) {
+    for (const match of text.matchAll(/([A-Za-z_$][A-Za-z0-9_$]*)\s*:\s*['"`]([^'"`]*)['"`]/g)) {
+      constants.set(`appRoutePaths.${match[1]}`, match[2]);
+    }
+  }
+  return constants;
+}
+
+function extractAngularImports(routingPath, content) {
+  const imports = new Map();
+  for (const match of content.matchAll(/import\s*{\s*([^}]+)\s*}\s*from\s*['"`]([^'"`]+)['"`]/g)) {
+    const spec = match[2];
+    const importedPath = resolveAngularImportPath(dirname(routingPath), spec);
+    if (!importedPath) continue;
+    for (const name of match[1].split(',').map((part) => part.trim()).filter(Boolean)) {
+      imports.set(name, importedPath);
+    }
+  }
+  return imports;
+}
+
+function resolveAngularImportPath(fromDir, spec) {
+  if (spec.startsWith('.')) {
+    const normalized = join(fromDir, spec).split(sep).join('/');
+    return normalized.endsWith('.ts') ? normalized : `${normalized}.ts`;
+  }
+  if (spec.startsWith('app/')) {
+    const normalized = `src/${spec}`;
+    return normalized.endsWith('.ts') ? normalized : `${normalized}.ts`;
+  }
+  return null;
+}
+
+function resolveAngularRouteExpression(expression, constants) {
+  const parts = String(expression)
+    .trim()
+    .split('+')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  let route = '';
+  for (const part of parts) {
+    const quoted = part.match(/^['"`]([^'"`]*)['"`]$/)?.[1];
+    if (quoted !== undefined) {
+      route += quoted;
+      continue;
+    }
+    if (constants.has(part)) {
+      route += constants.get(part);
+    }
+  }
+  if (!route && !parts.some((part) => constants.has(part))) return null;
+  return normalizeRoute(route || '/', '/');
 }
 
 function extractReactExports(content) {
@@ -409,7 +672,27 @@ function inferCoreType(name) {
   return CORE_KIND_BY_NAME.find(([regex]) => regex.test(name))?.[1] ?? 'card';
 }
 
-async function detectComponents(root, files, namespace, frameworks) {
+async function detectStorybook(files) {
+  const config = files.find((file) => /^\.storybook\/main\.(js|cjs|mjs|ts)$/.test(file.path));
+  const storyFiles = files.filter((file) => /\.stories\.(jsx?|tsx?|mdx|vue)$/.test(file.path));
+  const stories = [];
+  for (const file of storyFiles.slice(0, 100)) {
+    const content = (await readSourceText(file)).text;
+    stories.push({
+      path: file.path,
+      title: content.match(/title:\s*['"`]([^'"`]+)['"`]/)?.[1] ?? null,
+      component: content.match(/component:\s*([A-Za-z_$][A-Za-z0-9_$]*)/)?.[1] ?? null,
+    });
+  }
+  return {
+    detected: Boolean(config || storyFiles.length > 0),
+    configPath: config?.path ?? null,
+    storyCount: storyFiles.length,
+    stories,
+  };
+}
+
+async function detectComponents(root, files, namespace, frameworks, storybook = null) {
   const candidates = [];
   const { contents: sourceTexts, skippedLargeFiles } = await readSourceTexts(files);
   for (const file of files) {
@@ -421,12 +704,18 @@ async function detectComponents(root, files, namespace, frameworks) {
       ? [extractVueName(content, file.path)]
       : ext === '.ts' && /\.component\.ts$/.test(file.path)
         ? [title(basename(file.path).replace(/\.component\.ts$/, ''), 'AngularComponent').replace(/\s+/g, '')]
-        : extractReactExports(content);
+        : frameworks.includes('angular') && ext === '.ts'
+          ? []
+          : extractReactExports(content);
     const selector = extractAngularSelector(content);
     for (const componentName of names.filter(Boolean)) {
       const baseName = selector ?? componentName;
       const suggestedComponent = snake(baseName.replace(/^[a-z]+-/, ''), 'component');
       if (!suggestedComponent || ['page', 'index', 'app'].includes(suggestedComponent)) continue;
+      const sourceUsage = findUsageLocations(baseName, sourceTexts);
+      const suggestedCoreType = inferCoreType(componentName);
+      const storybookStories = findStorybookStoriesForComponent(componentName, selector, storybook);
+      const confidence = Math.min(0.92, (selector ? 0.82 : 0.72) + (storybookStories.length > 0 ? 0.05 : 0));
       candidates.push({
         id: `${slugify(file.path)}-${suggestedComponent}`,
         status: 'candidate',
@@ -435,11 +724,18 @@ async function detectComponents(root, files, namespace, frameworks) {
         componentName,
         selector,
         suggestedType: `${namespace}:${suggestedComponent}`,
-        suggestedCoreType: inferCoreType(componentName),
+        suggestedCoreType,
         isContainer: /card|panel|layout|section|list|table|form|shell|modal|drawer/i.test(componentName),
         props: extractProps(content),
-        usageCount: countUsage(baseName, sourceTexts),
-        confidence: selector ? 0.82 : 0.72,
+        usageCount: Math.max(1, sourceUsage.length),
+        sourceUsage,
+        storybookStories,
+        confidence,
+        confidenceReason: selector
+          ? `Angular selector and component metadata were found${storybookStories.length ? ', plus Storybook usage.' : '.'}`
+          : `Static export/import scan found a reusable project component${storybookStories.length ? ' with Storybook usage.' : '.'}`,
+        mappingReason: `Name suggests AUB core type "${suggestedCoreType}" until a user approves a project-specific mapping.`,
+        reviewHistory: [],
         reason: 'Static scan found a reusable project component. Approve before adding it to aub.registry.json.',
       });
     }
@@ -449,13 +745,41 @@ async function detectComponents(root, files, namespace, frameworks) {
   return { candidates: [...byId.values()].slice(0, 100), skippedLargeFiles };
 }
 
+function findStorybookStoriesForComponent(componentName, selector, storybook) {
+  const stories = Array.isArray(storybook?.stories) ? storybook.stories : [];
+  return stories
+    .filter((story) => {
+      const haystack = [story.component, story.title, story.path].filter(Boolean).join(' ');
+      return haystack.includes(componentName) || (selector && haystack.includes(selector));
+    })
+    .map((story) => ({
+      path: story.path,
+      title: story.title,
+    }))
+    .slice(0, 10);
+}
+
+
 function countUsage(name, sourceTexts) {
+  return Math.max(1, findUsageLocations(name, sourceTexts).length);
+}
+
+function findUsageLocations(name, sourceTexts) {
   const tag = String(name).replace(/^[a-z]+-/, '');
-  let count = 0;
-  for (const text of sourceTexts.values()) {
-    if (text.includes(`<${name}`) || text.includes(`<${tag}`) || text.includes(name)) count += 1;
+  const usages = [];
+  for (const [absPath, text] of sourceTexts.entries()) {
+    if (text.includes(`<${name}`) || text.includes(`<${tag}`) || text.includes(name)) {
+      usages.push({
+        file: toWorkspacePath(sourceTextCacheRoot, absPath),
+        line: lineNumberAt(text, text.indexOf(name) >= 0 ? text.indexOf(name) : 0),
+      });
+    }
   }
-  return Math.max(1, count);
+  return usages.slice(0, 20);
+}
+
+function lineNumberAt(text, index) {
+  return text.slice(0, Math.max(0, index)).split('\n').length;
 }
 
 export async function readAubSession(root) {
@@ -511,6 +835,113 @@ async function writeComponentCandidates(root, candidates) {
   return doc;
 }
 
+export async function readScanReport(root) {
+  return readJsonIfExists(join(root, SCAN_REPORT_PATH), null);
+}
+
+function buildScanReport({ packageJson, namespace, frameworks, routes, candidates, storybook, scanAudit }) {
+  const warnings = [];
+  if (frameworks.includes('unknown')) warnings.push('No supported UI framework was detected.');
+  if (routes.length === 0) warnings.push('No route entry files were detected.');
+  if (candidates.length === 0) warnings.push('No reusable project components were detected.');
+  if (scanAudit.limitReached) warnings.push('Scan file limit was reached; results may be incomplete.');
+
+  const confidenceInputs = {
+    frameworkDetected: !frameworks.includes('unknown'),
+    routeCount: routes.length,
+    componentCandidateCount: candidates.length,
+    storybookDetected: Boolean(storybook?.detected),
+    scanLimitReached: Boolean(scanAudit.limitReached),
+  };
+  const trustScore = clampScanScore(
+    30
+    + (confidenceInputs.frameworkDetected ? 20 : 0)
+    + Math.min(20, routes.length * 4)
+    + Math.min(20, candidates.length * 2)
+    + (confidenceInputs.storybookDetected ? 10 : 0)
+    - (confidenceInputs.scanLimitReached ? 20 : 0)
+  );
+
+  return {
+    format: 'aub-scan-report',
+    format_version: WORKSPACE_LOOP_VERSION,
+    updatedAt: new Date().toISOString(),
+    packageName: packageJson?.name ?? null,
+    namespace,
+    frameworks,
+    summary: {
+      routes: routes.length,
+      componentCandidates: candidates.length,
+      unresolvedCandidates: candidates.filter((candidate) => candidate.status === 'candidate').length,
+      filesScanned: scanAudit.filesScanned,
+      filesSkipped: scanAudit.filesSkipped,
+      directoriesSkipped: scanAudit.directoriesSkipped,
+      limitReached: scanAudit.limitReached,
+      trustScore,
+    },
+    trust: {
+      score: trustScore,
+      grade: trustScore >= 80 ? 'high' : trustScore >= 60 ? 'medium' : 'low',
+      breakdown: {
+        frameworkDetected: confidenceInputs.frameworkDetected,
+        routeResolved: routes.length > 0,
+        routeCount: routes.length,
+        componentCandidateCount: candidates.length,
+        storybookDetected: Boolean(storybook?.detected),
+        filesScanned: scanAudit.filesScanned,
+        filesSkipped: scanAudit.filesSkipped,
+        directoriesSkipped: scanAudit.directoriesSkipped,
+        scanLimitReached: Boolean(scanAudit.limitReached),
+      },
+      reasons: [
+        confidenceInputs.frameworkDetected ? 'Supported framework detected.' : 'Framework fallback only.',
+        routes.length > 0 ? 'Route entries were found.' : 'No route entries were found.',
+        candidates.length > 0 ? 'Reusable project components were extracted as candidates.' : 'No component candidates were extracted.',
+        storybook?.detected ? 'Storybook stories can help component review.' : 'No Storybook metadata was detected.',
+      ],
+      warnings,
+      confidenceInputs,
+    },
+    storybook: {
+      detected: Boolean(storybook?.detected),
+      configPath: storybook?.configPath ?? null,
+      storyCount: storybook?.storyCount ?? 0,
+    },
+    routes: routes.map((route) => ({
+      id: route.id,
+      route: route.route,
+      path: route.path,
+      kind: route.kind,
+    })),
+    componentCandidates: candidates.map((candidate) => ({
+      id: candidate.id,
+      componentName: candidate.componentName,
+      sourcePath: candidate.sourcePath,
+      suggestedType: candidate.suggestedType,
+      suggestedCoreType: candidate.suggestedCoreType,
+      status: candidate.status,
+      confidence: candidate.confidence,
+      usageCount: candidate.usageCount,
+    })),
+    scanAudit: {
+      filesScanned: scanAudit.filesScanned,
+      filesSkipped: scanAudit.filesSkipped,
+      directoriesSkipped: scanAudit.directoriesSkipped,
+      ignoredPatterns: scanAudit.ignoredPatterns,
+      limitReached: scanAudit.limitReached,
+    },
+  };
+}
+
+function clampScanScore(value) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+async function writeScanReport(root, report) {
+  await writeWorkspaceJsonAtomic(root, SCAN_REPORT_PATH, report);
+  return report;
+}
+
 export async function listWorkspaceTemplates(root) {
   const dir = join(root, TEMPLATE_DIR);
   if (!(await exists(dir))) return [];
@@ -535,44 +966,104 @@ export async function listWorkspaceTemplates(root) {
 export async function getWorkspaceStatus(root) {
   clearSourceTextCacheIfRootChanged(root);
   const files = [];
-  await walk(root, root, files, 1500);
+  const walkState = await createWalkState(root);
+  await walkWithState(root, root, files, 1500, walkState);
   const packageJson = await readPackage(root);
   const frameworks = detectFrameworks(packageJson, files);
-  const routes = detectRoutes(files);
+  const routes = await detectRoutes(files);
+  const storybook = await detectStorybook(files);
   const session = await readAubSession(root);
   const candidates = await readComponentCandidates(root);
   const templates = await listWorkspaceTemplates(root);
+  const scanReport = await readScanReport(root);
+  const implementationReport = await readImplementationReportSummary(root, session);
   return {
     root,
     aubDir: AUB_DIR,
     packageName: packageJson?.name ?? null,
     frameworks,
+    storybook,
+    scanAudit: walkState.audit,
+    scanReport: scanReport ? { path: SCAN_REPORT_PATH, ...scanReport } : null,
     routeCount: routes.length,
     componentCandidateCount: candidates.candidates.length,
     templateCount: templates.length,
     session,
+    implementationReport,
     routes,
     componentCandidates: candidates.candidates,
     templates,
   };
 }
 
+async function readImplementationReportSummary(root, session) {
+  const reportPath = session?.preview?.lastImplementationReport;
+  if (!reportPath) return null;
+  try {
+    const absPath = resolveWorkspacePath(root, reportPath);
+    const report = JSON.parse(await readFile(absPath, 'utf8'));
+    const safetyScore = report.safety_score ?? await readSafetyScoreForSession(root, session, report);
+    const acceptance = Array.isArray(report.acceptance_results) ? report.acceptance_results : [];
+    return {
+      path: toWorkspacePath(root, absPath),
+      screenId: report.blueprint?.screen_id ?? null,
+      route: report.implementation?.route ?? null,
+      pass: acceptance.filter((item) => item.status === 'pass').length,
+      fail: acceptance.filter((item) => item.status === 'fail').length,
+      needsReview: acceptance.filter((item) => item.status === 'needs-review').length,
+      evidence: acceptance.reduce((count, item) => count + (Array.isArray(item.evidence) ? item.evidence.length : 0), 0),
+      safetyScore,
+    };
+  } catch {
+    return {
+      path: reportPath,
+      error: 'Unable to read implementation report.',
+    };
+  }
+}
+
+async function readSafetyScoreForSession(root, session, report) {
+  const blueprintPath = session?.activeBlueprint;
+  if (!blueprintPath) return null;
+  try {
+    const blueprint = JSON.parse(await readFile(resolveWorkspacePath(root, blueprintPath), 'utf8'));
+    return scoreImplementationSafety(blueprint, report);
+  } catch {
+    return null;
+  }
+}
+
 export async function scanProjectUi(root, options = {}) {
   clearSourceTextCacheIfRootChanged(root);
   const files = [];
   const limit = normalizeScanLimit(options.limit);
-  await walk(root, root, files, limit);
+  const walkState = await createWalkState(root);
+  await walkWithState(root, root, files, limit, walkState);
   const packageJson = await readPackage(root);
   const namespace = normalizeNamespace(options.namespace ?? inferNamespace(root, packageJson), 'app');
   const frameworks = detectFrameworks(packageJson, files);
-  const routes = detectRoutes(files);
-  const { candidates, skippedLargeFiles } = await detectComponents(root, files, namespace, frameworks);
+  const routes = await detectRoutes(files);
+  const storybook = await detectStorybook(files);
+  const { candidates, skippedLargeFiles } = await detectComponents(root, files, namespace, frameworks, storybook);
   const doc = await writeComponentCandidates(root, candidates);
+  const scanReport = await writeScanReport(root, buildScanReport({
+    packageJson,
+    namespace,
+    frameworks,
+    routes,
+    candidates,
+    storybook,
+    scanAudit: walkState.audit,
+  }));
   return {
     root,
     packageName: packageJson?.name ?? null,
     namespace,
     frameworks,
+    storybook,
+    scanAudit: walkState.audit,
+    scanReportPath: SCAN_REPORT_PATH,
+    scanReport,
     routes,
     components: candidates,
     skippedSourceFiles: skippedLargeFiles,
@@ -581,126 +1072,393 @@ export async function scanProjectUi(root, options = {}) {
   };
 }
 
-function makeBlueprint({ id, name, framework, source, route, componentRefs = [] }) {
+async function makeBlueprint({ id, name, framework, source, route, root, files, candidates = [] }) {
+  const sourceFile = files.find((file) => file.path === source.path);
+  const sourceText = sourceFile ? (await readSourceText(sourceFile)).text : '';
+  const extracted = extractBlueprintStructure({
+    sourcePath: source.path,
+    sourceText,
+    framework,
+    candidates,
+  });
   const screenId = `workspace.${slugify(id, 'screen').replace(/-/g, '.')}`;
-  const rootChildren = ['hero_section', ...componentRefs.map((ref, index) => `component_${index + 1}`)];
-  const nodes = [
-    {
-      id: 'root',
-      type: 'page',
-      name,
-      role: `Workspace-derived screen from ${source.path}.`,
-      parent_id: null,
-      children: rootChildren,
-      layout: { mode: 'freeform' },
-    },
-    {
-      id: 'hero_section',
-      type: 'section',
-      name: 'Imported structure',
-      role: 'Represents the source route or component at a reviewable level before implementation.',
-      parent_id: 'root',
-      children: ['source_heading', 'source_summary'],
-      layout: { mode: 'auto', display: 'flex', direction: 'column', gap: { x: 12, y: 12 }, padding: { top: 32, right: 32, bottom: 32, left: 32 } },
-      placements: {
-        desktop: { x: 64, y: 64, width: 760, height: 220, z_index: 1 },
-        tablet: { x: 48, y: 56, width: 640, height: 220, z_index: 1 },
-        mobile: { x: 16, y: 48, width: 358, height: 240, z_index: 1 },
-      },
-      source: { file: source.path },
-    },
-    {
-      id: 'source_heading',
-      type: 'heading',
-      name: `${name} heading`,
-      role: 'Visible heading inferred from the source entry.',
-      parent_id: 'hero_section',
-      children: [],
-      content: { text: name },
-    },
-    {
+  const rootChildren = extracted.nodes.filter((node) => node.parent_id === 'root').map((node) => node.id);
+  const nodes = [{
+    id: 'root',
+    type: 'page',
+    name,
+    role: `Workspace-derived screen from ${source.path}.`,
+    parent_id: null,
+    children: rootChildren,
+    layout: { mode: 'freeform' },
+  }, ...extracted.nodes];
+  if (extracted.nodes.length === 0) {
+    nodes[0].children = ['source_summary'];
+    nodes.push({
       id: 'source_summary',
-      type: 'text',
+      type: 'section',
       name: 'Source summary',
-      role: 'Records where the candidate template came from.',
-      parent_id: 'hero_section',
+      role: 'Fallback node because no semantic source structure could be extracted.',
+      parent_id: 'root',
+      children: ['source_summary_text'],
+      layout: { mode: 'auto', display: 'flex', direction: 'column', gap: { x: 12, y: 12 }, padding: { top: 24, right: 24, bottom: 24, left: 24 } },
+      placements: placementForRootChild(0),
+      source: { file: source.path },
+    }, {
+      id: 'source_summary_text',
+      type: 'text',
+      name: 'Source summary text',
+      role: 'Records where this low-confidence candidate came from.',
+      parent_id: 'source_summary',
       children: [],
       content: { text: `Generated from ${framework} source ${source.path}${route ? ` (${route})` : ''}. Review before approving.` },
-    },
-    ...componentRefs.map((ref, index) => {
-      const label = ref.suggestedType ?? ref.coreType ?? 'component';
-      return {
-        id: `component_${index + 1}`,
-        type: ref.coreType ?? 'card',
-        name: normalizeBlueprintName(ref.name, `Component ${index + 1}`),
-        role: `Placeholder for project component ${label}. Approve the component candidate before implementation reuse.`,
-        parent_id: 'root',
-        children: [],
-        layout: { mode: 'auto' },
-        content: { label },
-        placements: {
-          desktop: { x: 64 + index * 280, y: 330, width: 240, height: 140, z_index: 1 },
-          tablet: { x: 48 + index * 220, y: 320, width: 200, height: 140, z_index: 1 },
-          mobile: { x: 16, y: 320 + index * 156, width: 358, height: 140, z_index: 1 },
-        },
-        source: { file: ref.sourcePath },
-      };
-    }),
-  ];
+      source: { file: source.path },
+    });
+  }
   return {
-    version: '0.3.0',
-    screen: {
-      id: screenId,
-      name,
-      type: route === '/' ? 'landing' : 'workspace',
-      platform: 'web',
-      primary_user_goal: `Review and implement the ${name} screen using the existing project source as context.`,
-      notes: 'Generated by AUB workspace scanner. Candidate custom components require approval before registry writes.',
+    blueprint: {
+      version: '0.3.0',
+      screen: {
+        id: screenId,
+        name,
+        type: inferScreenType(route, extracted.nodes),
+        platform: 'web',
+        primary_user_goal: `Review and implement the ${name} screen using the existing project source as context.`,
+        notes: 'Generated by AUB workspace scanner. Candidate custom components require approval before registry writes.',
+      },
+      viewports: [
+        { id: 'desktop', width: 1440, height: 900 },
+        { id: 'tablet', width: 1024, height: 768 },
+        { id: 'mobile', width: 390, height: 844 },
+      ],
+      design_system: defaultDesignSystem(),
+      provenance: {
+        source_kind: 'other',
+        framework,
+        importer_version: `workspace-loop-${WORKSPACE_LOOP_VERSION}`,
+        entry_file: source.path,
+        source_files: [...new Set([source.path, ...extracted.sourceFiles])],
+      },
+      nodes,
+      interactions: extracted.interactions,
+      responsive: extracted.responsive,
+      acceptance: [
+        { id: 'acc_workspace_source_structure', type: 'layout', statement: 'The implementation preserves the reviewed Blueprint hierarchy and source route intent.', target: 'root', priority: 'must', verification_method: 'manual_ia_review' },
+        { id: 'acc_workspace_component_reuse', type: 'content', statement: 'Approved custom components are reused through aub.registry.json mappings instead of recreated as lookalikes.', target: '*', priority: 'must', verification_method: 'code_diff' },
+        { id: 'acc_workspace_responsive', type: 'responsive', statement: 'Desktop, tablet, and mobile layouts remain readable with no horizontal overflow.', target: 'desktop,tablet,mobile', priority: 'must', verification_method: 'screenshot_diff' },
+        { id: 'acc_workspace_interactions', type: 'interaction', statement: 'Visible controls keep their original route/component behavior.', target: '*', priority: 'must', verification_method: 'manual_ia_review' },
+        { id: 'acc_workspace_a11y', type: 'a11y', statement: 'Interactive elements expose accessible labels and focus states.', target: '*', priority: 'should', verification_method: 'axe_audit' },
+      ],
     },
-    viewports: [
-      { id: 'desktop', width: 1440, height: 900 },
-      { id: 'tablet', width: 1024, height: 768 },
-      { id: 'mobile', width: 390, height: 844 },
-    ],
-    design_system: defaultDesignSystem(),
-    provenance: {
-      source_kind: 'other',
-      framework,
-      importer_version: `workspace-loop-${WORKSPACE_LOOP_VERSION}`,
-      entry_file: source.path,
-      source_files: [source.path, ...componentRefs.map((ref) => ref.sourcePath)],
-    },
-    nodes,
-    interactions: [],
-    responsive: [],
-    acceptance: [
-      { id: 'acc_workspace_source_structure', type: 'layout', statement: 'The implementation preserves the reviewed Blueprint hierarchy and source route intent.', target: 'root', priority: 'must', verification_method: 'manual_ia_review' },
-      { id: 'acc_workspace_component_reuse', type: 'content', statement: 'Approved custom components are reused through aub.registry.json mappings instead of recreated as lookalikes.', target: '*', priority: 'must', verification_method: 'code_diff' },
-      { id: 'acc_workspace_responsive', type: 'responsive', statement: 'Desktop, tablet, and mobile layouts remain readable with no horizontal overflow.', target: 'desktop,tablet,mobile', priority: 'must', verification_method: 'screenshot_diff' },
-      { id: 'acc_workspace_interactions', type: 'interaction', statement: 'Visible controls keep their original route/component behavior.', target: '*', priority: 'must', verification_method: 'manual_ia_review' },
-      { id: 'acc_workspace_a11y', type: 'a11y', statement: 'Interactive elements expose accessible labels and focus states.', target: '*', priority: 'should', verification_method: 'axe_audit' },
-    ],
+    missingMappings: extracted.missingMappings,
+    sourceReferences: extracted.sourceReferences,
+    trustBreakdown: buildTemplateTrustBreakdown(extracted, Boolean(route)),
+    confidence: calculateTemplateConfidence(extracted, Boolean(route)),
   };
+}
+
+function buildTemplateTrustBreakdown(extracted, hasRoute) {
+  const nodeCount = extracted.nodes.length;
+  const sourceBackedNodes = extracted.sourceReferences.length;
+  const sourceReferenceCoverage = nodeCount === 0
+    ? 0
+    : Math.round((sourceBackedNodes / nodeCount) * 100);
+  const reasons = [];
+  if (hasRoute) reasons.push('Source route was resolved.');
+  else reasons.push('No route was resolved; template is source-file only.');
+  if (nodeCount >= 4) reasons.push('Scanner extracted a non-placeholder node tree.');
+  else reasons.push('Scanner extracted only a shallow node tree.');
+  if (sourceReferenceCoverage >= 90) reasons.push('Most nodes have source references.');
+  else reasons.push('Some nodes lack source references.');
+  if (extracted.missingMappings.length > 0) reasons.push('Custom component mappings need user review.');
+  else reasons.push('No unresolved custom component mappings were detected.');
+
+  return {
+    routeResolved: hasRoute,
+    nodeCount,
+    sourceBackedNodes,
+    sourceReferenceCoverage,
+    semanticTagsMapped: extracted.metrics.semanticNodes,
+    interactionCount: extracted.metrics.interactions,
+    missingMappings: extracted.metrics.missingMappings,
+    unresolvedCustomComponents: extracted.missingMappings.length,
+    reasons,
+  };
+}
+
+function extractBlueprintStructure({ sourcePath, sourceText, framework, candidates }) {
+  const candidateByTag = buildCandidateLookup(candidates);
+  const nodes = [];
+  const interactions = [];
+  const missingMappings = [];
+  const sourceReferences = [];
+  const sourceFiles = [];
+  const stack = [{ tag: 'root', nodeId: 'root', isContainer: true }];
+  const seenMappings = new Set();
+  const idCounts = new Map();
+  const sourceFileSet = new Set();
+  const tagPattern = /<\/?([A-Za-z][A-Za-z0-9_.:-]*)([^<>]*?)(\/?)>/g;
+  let match;
+  while ((match = tagPattern.exec(sourceText)) !== null) {
+    const [raw, tag, rawAttrs = '', selfClosing = ''] = match;
+    const closing = raw.startsWith('</');
+    if (closing) {
+      while (stack.length > 1) {
+        const current = stack.pop();
+        if (current.tag === tag) break;
+      }
+      continue;
+    }
+    const attrs = parseAttributes(rawAttrs);
+    const info = nodeInfoForTag({ tag, attrs, sourceText, index: match.index, sourcePath, candidateByTag });
+    if (!info) continue;
+    const parent = nearestContainer(stack);
+    const id = uniqueNodeId(`${info.type}_${slugify(info.name, info.type)}`, idCounts);
+    const isContainer = CONTAINER_TYPES.has(info.type);
+    const node = {
+      id,
+      type: info.type,
+      name: normalizeBlueprintName(info.name, title(tag, info.type)),
+      role: info.role,
+      parent_id: parent.nodeId,
+      children: isContainer ? [] : [],
+      source: {
+        file: info.sourceFile,
+        line: lineNumberAt(sourceText, match.index),
+        selector: info.selector,
+      },
+    };
+    if (parent.nodeId === 'root') node.placements = placementForRootChild(nodes.filter((item) => item.parent_id === 'root').length);
+    if (isContainer) node.layout = layoutForType(info.type);
+    if (info.content) node.content = info.content;
+    nodes.push(node);
+    const parentNode = nodes.find((item) => item.id === parent.nodeId);
+    if (parentNode && Array.isArray(parentNode.children)) parentNode.children.push(id);
+    sourceReferences.push({ nodeId: id, file: node.source.file, line: node.source.line, selector: node.source.selector });
+    sourceFileSet.add(info.sourceFile);
+    if (info.customCandidate?.sourcePath) sourceFileSet.add(info.customCandidate.sourcePath);
+    if (info.customCandidate) {
+      const key = info.customCandidate.suggestedType ?? info.customCandidate.id;
+      if (!seenMappings.has(key)) {
+        seenMappings.add(key);
+        missingMappings.push({
+          candidateId: info.customCandidate.id,
+          componentName: info.customCandidate.componentName,
+          suggestedType: info.customCandidate.suggestedType,
+          suggestedCoreType: info.customCandidate.suggestedCoreType,
+          sourcePath: info.customCandidate.sourcePath,
+          confidence: info.customCandidate.confidence,
+          reason: info.customCandidate.mappingReason ?? info.customCandidate.reason,
+        });
+      }
+    }
+    if (info.interaction) {
+      interactions.push({
+        id: uniqueNodeId(`ix_${id}`, idCounts),
+        trigger: info.interaction.trigger,
+        source_node_id: id,
+        action: info.interaction.action,
+        result_state: info.interaction.result_state,
+      });
+    }
+    if (isContainer && !selfClosing && !isVoidTag(tag)) stack.push({ tag, nodeId: id, isContainer });
+  }
+  for (const file of sourceFileSet) sourceFiles.push(file);
+  return {
+    nodes: pruneEmptyChildren(nodes),
+    interactions: interactions.slice(0, 20),
+    responsive: [
+      { viewport: 'mobile', rule: 'stack', target_node_id: 'root', changes: { source: 'workspace-scan' } },
+    ],
+    missingMappings,
+    sourceReferences,
+    sourceFiles,
+    metrics: {
+      nodes: nodes.length,
+      semanticNodes: nodes.filter((node) => node.source?.selector).length,
+      missingMappings: missingMappings.length,
+      interactions: interactions.length,
+      framework,
+    },
+  };
+}
+
+function buildCandidateLookup(candidates) {
+  const lookup = new Map();
+  for (const candidate of candidates) {
+    if (candidate.componentName) lookup.set(candidate.componentName, candidate);
+    if (candidate.selector) lookup.set(candidate.selector, candidate);
+    if (candidate.suggestedType) lookup.set(candidate.suggestedType, candidate);
+  }
+  return lookup;
+}
+
+function nodeInfoForTag({ tag, attrs, sourceText, index, sourcePath, candidateByTag }) {
+  if (shouldSkipTag(tag)) return null;
+  const candidate = candidateByTag.get(tag);
+  const lower = tag.toLowerCase();
+  const className = attrs.className ?? attrs.class ?? '';
+  const candidateType = candidate?.suggestedCoreType && CORE_TYPE_PATTERN.test(candidate.suggestedCoreType)
+    ? candidate.suggestedCoreType
+    : null;
+  const type = candidateType
+    ?? TAG_TYPE_MAP.get(lower)
+    ?? typeFromClassName(className)
+    ?? (isCustomTag(tag) ? 'card' : null);
+  if (!type) return null;
+  const text = extractInlineText(sourceText, index);
+  const selector = className ? `${tag}.${String(className).split(/\s+/).filter(Boolean).join('.')}` : tag;
+  const name = candidate?.componentName
+    ?? readableName(attrs['aria-label'] ?? attrs.title ?? attrs.name ?? text ?? className ?? tag, tag);
+  return {
+    type,
+    name,
+    selector,
+    sourceFile: sourcePath,
+    customCandidate: candidate ?? (isCustomTag(tag) ? { componentName: tag, suggestedCoreType: type, sourcePath, confidence: 0.45, reason: 'Capitalized or namespaced tag needs review.' } : null),
+    role: roleForNode({ tag, type, candidate, className }),
+    content: contentForNode({ type, tag, attrs, text, className }),
+    interaction: interactionForNode({ type, tag, attrs, text }),
+  };
+}
+
+function shouldSkipTag(tag) {
+  return ['Fragment', 'React.Fragment', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th', 'option', 'svg', 'path', 'g', 'ng-container', 'ng-template'].includes(tag);
+}
+
+function isVoidTag(tag) {
+  return ['input', 'img', 'br', 'hr', 'meta', 'link'].includes(tag.toLowerCase());
+}
+
+function isCustomTag(tag) {
+  return /^[A-Z]/.test(tag) || tag.includes('-');
+}
+
+function typeFromClassName(className) {
+  if (!className) return null;
+  return inferCoreType(className);
+}
+
+function parseAttributes(rawAttrs) {
+  const attrs = {};
+  const attrPattern = /([:@*()[\]A-Za-z_$][:@*()[\]A-Za-z0-9_$.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|{([^}]*)})/g;
+  for (const match of rawAttrs.matchAll(attrPattern)) {
+    attrs[match[1]] = match[2] ?? match[3] ?? match[4] ?? '';
+  }
+  return attrs;
+}
+
+function readableName(value, fallback) {
+  return title(String(value || fallback).replace(/[{}()[\].:'"`]/g, ' '), title(fallback, 'Node'));
+}
+
+function roleForNode({ tag, type, candidate, className }) {
+  if (candidate) {
+    return `Project component ${candidate.componentName} scanned from ${candidate.sourcePath}; review mapping before implementation reuse.`;
+  }
+  if (className) return `${type} inferred from <${tag}> with class "${className}".`;
+  return `${type} inferred from <${tag}> in the source route.`;
+}
+
+function contentForNode({ type, tag, attrs, text, className }) {
+  if (type === 'heading' || type === 'text') return { text: text || readableName(className || tag, tag) };
+  if (type === 'button' || type === 'link') return { text: text || attrs['aria-label'] || readableName(className || tag, tag), action: attrs.href ? `navigate:${attrs.href}` : 'trigger:source-action' };
+  if (type === 'text_input' || type === 'textarea' || type === 'select') return { label: attrs['aria-label'] || attrs.name || readableName(className || tag, tag), placeholder: attrs.placeholder ?? '' };
+  if (type === 'image') return { src: attrs.src ?? 'source-image', alt: attrs.alt ?? readableName(className || tag, tag) };
+  if (type === 'data_table') return { columns: [{ id: 'primary', header: 'Primary' }, { id: 'status', header: 'Status' }] };
+  if (type === 'badge' || type === 'tag') return { label: text || readableName(className || tag, tag) };
+  return undefined;
+}
+
+function interactionForNode({ type, attrs, text }) {
+  if (attrs['(click)'] || attrs.onClick || type === 'button') {
+    return {
+      trigger: 'click',
+      action: attrs['(click)'] ? `invoke:${attrs['(click)']}` : 'invoke:source-action',
+      result_state: `Source control${text ? ` "${text}"` : ''} keeps its existing behavior.`,
+    };
+  }
+  if (type === 'form') {
+    return {
+      trigger: 'submit',
+      action: 'submit:source-form',
+      result_state: 'Form submission keeps its existing behavior.',
+    };
+  }
+  return null;
+}
+
+function extractInlineText(sourceText, index) {
+  const after = sourceText.slice(index).replace(/^<[^>]+>/, '');
+  const raw = after.match(/^([^<{]{1,80})/)?.[1]?.trim();
+  return raw ? raw.replace(/\s+/g, ' ') : '';
+}
+
+function nearestContainer(stack) {
+  for (let index = stack.length - 1; index >= 0; index -= 1) {
+    if (stack[index].isContainer) return stack[index];
+  }
+  return stack[0];
+}
+
+function uniqueNodeId(base, counts) {
+  const normalized = slugify(base, 'node').replace(/-/g, '_').slice(0, 96);
+  const count = (counts.get(normalized) ?? 0) + 1;
+  counts.set(normalized, count);
+  return count === 1 ? normalized : `${normalized}_${count}`;
+}
+
+function pruneEmptyChildren(nodes) {
+  return nodes.map((node) => {
+    if (!CONTAINER_TYPES.has(node.type)) return { ...node, children: [] };
+    return node;
+  });
+}
+
+function layoutForType(type) {
+  if (type === 'grid') return { mode: 'auto', display: 'grid', grid: { columns: 2 }, gap: { x: 16, y: 16 }, padding: { top: 16, right: 16, bottom: 16, left: 16 } };
+  if (type === 'header' || type === 'top_bar') return { mode: 'auto', display: 'flex', direction: 'row', justify: 'space-between', align: 'center', gap: { x: 16, y: 16 }, padding: { top: 16, right: 16, bottom: 16, left: 16 } };
+  return { mode: 'auto', display: 'flex', direction: 'column', gap: { x: 12, y: 12 }, padding: { top: 16, right: 16, bottom: 16, left: 16 } };
+}
+
+function placementForRootChild(index) {
+  const row = Math.floor(index / 2);
+  const column = index % 2;
+  return {
+    desktop: { x: 64 + column * 460, y: 64 + row * 240, width: column === 0 ? 420 : 560, height: 200, z_index: 1 },
+    tablet: { x: 48, y: 56 + index * 220, width: 640, height: 200, z_index: 1 },
+    mobile: { x: 16, y: 48 + index * 180, width: 358, height: 160, z_index: 1 },
+  };
+}
+
+function inferScreenType(route, nodes) {
+  if (route === '/') return 'landing';
+  if (nodes.some((node) => node.type === 'data_table')) return 'admin_table';
+  if (nodes.some((node) => node.type === 'form')) return 'form';
+  return 'workspace';
+}
+
+function calculateTemplateConfidence(extracted, hasRoute) {
+  let score = 0.35;
+  if (hasRoute) score += 0.12;
+  if (extracted.nodes.length >= 4) score += 0.18;
+  if (extracted.sourceReferences.length >= extracted.nodes.length && extracted.nodes.length > 0) score += 0.12;
+  if (extracted.interactions.length > 0) score += 0.08;
+  if (extracted.missingMappings.length > 0) score += 0.08;
+  if (extracted.missingMappings.length > 4) score -= 0.08;
+  return Math.max(0.2, Math.min(0.92, Number(score.toFixed(2))));
 }
 
 export async function generateTemplateFromSource(root, args = {}) {
   if (!args.sourcePath) throw new Error('Provide sourcePath.');
   if (typeof args.sourcePath !== 'string') throw new Error('sourcePath must be a string.');
+  clearSourceTextCacheIfRootChanged(root);
   const sourcePath = resolveWorkspacePath(root, args.sourcePath);
   const relPath = toWorkspacePath(root, sourcePath);
+  const files = [];
+  const walkState = await createWalkState(root);
+  await walkWithState(root, root, files, 2000, walkState);
   const candidates = (await readComponentCandidates(root)).candidates;
-  const nearbyCandidates = candidates
-    .filter((candidate) => candidate.sourcePath === relPath || dirname(candidate.sourcePath) === dirname(relPath))
-    .slice(0, 4);
-  const selectedCandidates = (nearbyCandidates.length ? nearbyCandidates : candidates.slice(0, 4))
-    .map((candidate) => ({
-      name: normalizeBlueprintName(candidate.componentName, 'Component'),
-      suggestedType: normalizeExtensionType(candidate.suggestedType),
-      sourcePath: candidate.sourcePath,
-      coreType: normalizeCoreType(candidate.suggestedCoreType),
-    }))
-    .filter((candidate) => candidate.suggestedType || candidate.coreType)
-    .slice(0, 4);
   const framework = normalizeFrameworkLabel(
     typeof args.framework === 'string' ? args.framework : inferFrameworkFromPath(relPath),
     'web'
@@ -711,13 +1469,15 @@ export async function generateTemplateFromSource(root, args = {}) {
   );
   const templateId = sanitizeTemplateId(args.id, `${framework}-${name}`);
   const route = normalizeRoute(typeof args.route === 'string' ? args.route : routeFromPath(relPath), routeFromPath(relPath));
-  const blueprint = makeBlueprint({
+  const built = await makeBlueprint({
     id: templateId,
     name,
     framework,
     route,
+    root,
+    files,
     source: { path: relPath },
-    componentRefs: selectedCandidates,
+    candidates,
   });
   const template = {
     format: TEMPLATE_FORMAT,
@@ -731,11 +1491,14 @@ export async function generateTemplateFromSource(root, args = {}) {
       path: relPath,
       route,
     },
-    blueprint,
-    registryRefs: selectedCandidates
-      .map((candidate) => candidate.suggestedType ?? candidate.coreType)
+    blueprint: built.blueprint,
+    registryRefs: built.missingMappings
+      .map((candidate) => candidate.suggestedType ?? candidate.suggestedCoreType)
       .filter((value) => typeof value === 'string' && value.length > 0),
-    confidence: selectedCandidates.length ? 0.72 : 0.62,
+    missingMappings: built.missingMappings,
+    sourceReferences: built.sourceReferences,
+    trustBreakdown: built.trustBreakdown,
+    confidence: built.confidence,
     status: args.status === 'approved' ? 'approved' : 'candidate',
     createdAt: new Date().toISOString(),
   };
@@ -750,6 +1513,7 @@ export async function generateTemplateFromSource(root, args = {}) {
   return {
     savedPath: toWorkspacePath(root, outputPath),
     template,
+    scanAudit: walkState.audit,
   };
 }
 
@@ -769,6 +1533,7 @@ export async function approveComponentCandidate(root, args = {}) {
   if (args.action === 'ignore') {
     candidate.status = 'ignored';
     candidate.reviewedAt = new Date().toISOString();
+    candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'ignore', reviewedAt: candidate.reviewedAt }];
     await writeComponentCandidates(root, doc.candidates);
     return { candidate, registryPath: null };
   }
@@ -781,6 +1546,7 @@ export async function approveComponentCandidate(root, args = {}) {
     candidate.status = 'approved';
     candidate.approvedAs = normalizedCoreType;
     candidate.reviewedAt = new Date().toISOString();
+    candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'map_core', approvedAs: normalizedCoreType, reviewedAt: candidate.reviewedAt }];
     await writeComponentCandidates(root, doc.candidates);
     return { candidate, registryPath: null };
   }
@@ -825,6 +1591,7 @@ export async function approveComponentCandidate(root, args = {}) {
   candidate.status = 'approved';
   candidate.approvedAs = namespacedType;
   candidate.reviewedAt = new Date().toISOString();
+  candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'create_extension', approvedAs: namespacedType, reviewedAt: candidate.reviewedAt }];
   await writeComponentCandidates(root, doc.candidates);
   return {
     candidate,

@@ -1,0 +1,16 @@
+<main class="operations-page">
+  <header class="operations-header">
+    <h1>Operations dashboard</h1>
+    <app-health-badge status="Ready"></app-health-badge>
+  </header>
+  <section class="operations-grid">
+    <app-domain-card title="Queue depth" value="42"></app-domain-card>
+    <app-domain-card title="Review SLA" value="96%"></app-domain-card>
+  </section>
+  <form class="operations-filter">
+    <label for="owner">Owner</label>
+    <input id="owner" name="owner" placeholder="Search owner" />
+    <button type="button" (click)="rows">Apply</button>
+  </form>
+  <app-operations-table [rows]="rows"></app-operations-table>
+</main>

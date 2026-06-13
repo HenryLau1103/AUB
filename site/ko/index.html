@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AUB — 코딩 Agent를 위한 UI 구현 계약</title>
-    <meta name="description" content="버전 관리 가능한 UI 구현 계약을 정의하고, 프로덕션 컴포넌트에 연결해 어떤 코딩 Agent에도 전달한 뒤 인수 증거로 Pull Request를 검증합니다." />
+    <title>AUB — 코딩 Agent가 기존 UI를 안전하게 바꾸도록 돕기</title>
+    <meta name="description" content="코딩 Agent가 기존 제품 UI를 안전하게 수정하고, 프로덕션 컴포넌트를 다시 만들지 않으며, 인수 증거로 Pull Request를 검증하게 합니다." />
     <link rel="canonical" href="https://henrylau1103.github.io/AUB/ko/" />
     <link rel="alternate" hreflang="en" href="https://henrylau1103.github.io/AUB/" />
     <link rel="alternate" hreflang="zh-Hant" href="https://henrylau1103.github.io/AUB/zh-hant/" />
@@ -12,8 +12,8 @@
     <link rel="alternate" hreflang="ja" href="https://henrylau1103.github.io/AUB/ja/" />
     <link rel="alternate" hreflang="ko" href="https://henrylau1103.github.io/AUB/ko/" />
     <link rel="alternate" hreflang="x-default" href="https://henrylau1103.github.io/AUB/" />
-    <meta property="og:title" content="AUB — 코딩 Agent를 위한 UI 구현 계약" />
-    <meta property="og:description" content="디자인 의도에서 검증 가능한 구현까지: 시맨틱 Blueprint, 프로덕션 컴포넌트, MCP, PR 인수 게이트." />
+    <meta property="og:title" content="AUB — 코딩 Agent가 기존 UI를 안전하게 바꾸도록 돕기" />
+    <meta property="og:description" content="기존 route를 스캔하고, AUB 계약을 편집하고, 프로덕션 컴포넌트를 재사용하며, 증거로 PR을 검증합니다." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://henrylau1103.github.io/AUB/ko/" />
     <meta property="og:locale" content="ko_KR" />
@@ -57,14 +57,14 @@
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">UI 구현 계약</p>
-          <h1>의도를 정의합니다.<br />프로덕션 컴포넌트를 재사용합니다.<br />증거로 PR을 검증합니다.</h1>
-          <p class="lede">AUB는 제품 의도와 코딩 Agent 사이의 개방형 계약 계층입니다. 시맨틱 Blueprint를 만들고 프로덕션 컴포넌트에 연결한 뒤, 동일한 단일 기준을 Codex, Claude Code, Copilot 또는 다른 Agent에 전달하고 CI에서 모든 acceptance id를 검증합니다.</p>
+          <p class="eyebrow">기존 제품 UI 변경</p>
+          <h1>Agent가 UI를 바꿉니다.<br />프로덕션 컴포넌트를 지킵니다.<br />증거로 PR을 검증합니다.</h1>
+          <p class="lede">AUB는 코딩 Agent가 실제 app을 수정할 때 쓰는 local-first 워크벤치입니다. 기존 route를 스캔해 편집 가능한 Blueprint로 만들고, 사용자 정의 컴포넌트 후보를 검토한 뒤, 구현 가능하고 검증 가능한 계약을 Codex, Claude Code, Copilot 또는 다른 Agent에 전달합니다.</p>
           <div class="cta-row">
-            <a class="btn btn-primary" href="../editor/">온라인 에디터 열기</a>
-            <a class="btn btn-ghost" href="https://github.com/HenryLau1103/AUB">GitHub 보기</a>
+            <a class="btn btn-primary" href="https://github.com/HenryLau1103/AUB#fastest-path-for-an-existing-project">기존 프로젝트에서 사용</a>
+            <a class="btn btn-ghost" href="../editor/">demo mode 열기</a>
           </div>
-          <p class="note">Apache-2.0 · local-first · agent-neutral · 에디터는 데이터를 업로드하지 않습니다</p>
+          <p class="note">Apache-2.0 · local-first · agent-neutral · demo mode 는 MCP 설정을 분리합니다</p>
         </div>
         <a class="hero-shot" href="../editor/" aria-label="AUB 에디터 열기">
           <img src="../assets/aub-editor-en.jpg" alt="반응형 화면을 구성하는 AUB 비주얼 에디터" loading="lazy" />
@@ -80,27 +80,27 @@
 
       <section class="steps" id="workflow">
         <p class="section-kicker">골든 패스</p>
-        <h2>제품 의도부터 Pull Request까지 하나의 계약으로</h2>
+        <h2>기존 route에서 Agent-ready PR까지 5분</h2>
         <ol class="step-grid step-grid-five">
           <li>
             <span class="step-num">1</span>
-            <h3>구성 또는 가져오기</h3>
-            <p>단일 화면, Figma／Penpot bridge 또는 탐색 가능한 다중 화면 프로젝트를 만듭니다.</p>
+            <h3>내 app에서 시작</h3>
+            <p>기존 프로젝트 root에서 npx aub-workspace를 실행합니다. AUB clone은 필요 없습니다.</p>
           </li>
           <li>
             <span class="step-num">2</span>
-            <h3>프로덕션 컴포넌트 연결</h3>
-            <p>사용자 정의 유형을 프로덕션 module, export, source, Storybook, props에 연결합니다.</p>
+            <h3>스캔하고 템플릿 생성</h3>
+            <p>routes, components, layout 단서와 사용자 정의 컴포넌트 후보를 감지합니다.</p>
           </li>
           <li>
             <span class="step-num">3</span>
-            <h3>한 번만 전달</h3>
-            <p>휴대 가능한 패키지나 MCP를 사용하며 모든 Agent가 동일한 핵심 계약을 공유합니다.</p>
+            <h3>계약 검토</h3>
+            <p>candidate template을 열고 mapping을 확인한 뒤 Blueprint를 조정합니다.</p>
           </li>
           <li>
             <span class="step-num">4</span>
-            <h3>증거 반환</h3>
-            <p>Agent가 모든 노드를 매핑하고 각 acceptance id를 pass, fail, needs-review로 보고합니다.</p>
+            <h3>Agent에게 전달</h3>
+            <p>active Blueprint, route, preview URL, MCP tools가 포함된 지시를 복사합니다.</p>
           </li>
           <li>
             <span class="step-num">5</span>
@@ -112,8 +112,8 @@
 
       <section class="why">
         <p class="section-kicker">구현을 위한 설계</p>
-        <h2>또 하나의 디자인 캔버스나 일회성 코드 생성기가 아닙니다</h2>
-        <p class="why-lede">디자인 도구는 제작을, 코드 생성기는 속도를 최적화합니다. AUB는 Git과 CI가 이해하는 형식으로 도구, Agent, 리비전과 리뷰 전반에서 의도를 보호합니다.</p>
+        <h2>또 하나의 app builder가 아니라 실제 codebase의 제어 계층입니다</h2>
+        <p class="why-lede">AI app builder는 속도를 최적화합니다. AUB는 기존 제품 UI를 보호하고, Agent가 실제 repo, 프로덕션 컴포넌트, 기존 route, 검토 가능한 인수 증거 안에서 작업하게 합니다.</p>
         <div class="why-grid">
           <div class="card">
             <h3>버전 관리 가능한 단일 기준</h3>
@@ -134,9 +134,43 @@
         </div>
       </section>
 
+      <section class="before-after">
+        <p class="section-kicker">Before / After</p>
+        <h2>차이는 PR review에서 드러납니다</h2>
+        <div class="why-grid">
+          <div class="card">
+            <h3>AUB 없음</h3>
+            <p>Issue가 Agent에게 페이지 개선을 모호하게 요청합니다. PR이 그럴듯해 보여도 reviewer는 프로덕션 컴포넌트 재사용, 반응형 동작, 기존 인터랙션 보존을 다시 확인해야 합니다.</p>
+          </div>
+          <div class="card">
+            <h3>AUB 있음</h3>
+            <p>Issue는 Blueprint, 승인된 component mapping, preview URL, acceptance id, evidence, evidence matrix가 있는 PR Safety Score comment를 참조합니다. Review는 취향이 아니라 검증 가능한 위험 평가가 됩니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="why">
+        <p class="section-kicker">경쟁 포지션</p>
+        <h2>AUB는 또 하나의 app builder로 경쟁하면 안 됩니다</h2>
+        <div class="why-grid">
+          <div class="card">
+            <h3>App builder는 새 앱 생성이 빠릅니다</h3>
+            <p>v0, Lovable, Bolt는 빈 화면 생성에 강합니다. AUB는 기존 repo의 route와 component를 보존해야 할 때만 이깁니다.</p>
+          </div>
+          <div class="card">
+            <h3>Coding agent에는 계약이 필요합니다</h3>
+            <p>Codex, Copilot, Claude Code는 코드를 편집할 수 있지만 prose만으로는 재사용, responsive safety, acceptance coverage를 증명할 수 없습니다.</p>
+          </div>
+          <div class="card">
+            <h3>Design tool은 PR loop를 닫지 않습니다</h3>
+            <p>Figma는 디자인 협업에 뛰어납니다. AUB는 UI intent를 source control과 구현 증거로 연결합니다.</p>
+          </div>
+        </div>
+      </section>
+
       <section class="integrations" id="integrations">
         <p class="section-kicker">통합 계약</p>
-        <h2>이미 배포 중인 프로덕션 컴포넌트를 Agent가 사용하게 합니다</h2>
+        <h2>Agent가 design system을 발명하지 못하게 합니다</h2>
         <div class="integration-grid">
           <div>
             <p>사용자 정의 registry에 프로덕션 package, export symbol, source file, Storybook, 문서와 정확한 Blueprint-to-prop mapping을 지정할 수 있습니다.</p>
@@ -164,18 +198,19 @@
 
       <section class="handoff">
         <p class="section-kicker">연결 및 검증</p>
-        <h2>이식성이 필요하면 파일을, Agent의 실시간 접근에는 MCP를 사용합니다.</h2>
-        <p><code>.aub.zip</code>을 내보내거나 MCP 지원 Agent가 stdio／HTTP를 통해 Blueprint와 다중 화면 프로젝트를 import, write, package, resolve, validate, scaffold, diff, migrate, lock, report하도록 합니다. 번들 GitHub Action을 추가하면 이 계약이 Pull Request 게이트가 됩니다.</p>
+        <h2>GitHub issue를 Agent-ready UI 작업표로 만듭니다</h2>
+        <p>AUB issue template으로 route, Blueprint, 컴포넌트 재사용 규칙, preview URL, acceptance criteria를 정의합니다. Copilot, Codex 또는 다른 Agent가 같은 계약에 맞춰 구현하고 evidence를 PR Safety Score comment로 반환할 수 있습니다.</p>
         <div class="command-card">
           <code>uses: HenryLau1103/AUB@main</code>
           <span>계약과 구현 증거 검증</span>
         </div>
         <div class="link-row">
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/agent-handoff.md">Agent 전달 가이드</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/workspace-loop-user-manual.md">Workspace loop 가이드</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/comparison-app-builders.md">AUB vs app builders</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-agent-workflow.md">GitHub agent workflow</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/apps/mcp-server/README.md">MCP server</a>
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-ci.md">GitHub CI 게이트</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/custom-components.md">프로덕션 mapping</a>
-          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/design-tool-bridge.md">Figma／Penpot bridge</a>
+          <a href="https://github.com/HenryLau1103/AUB/blob/main/docs/github-ci.md">GitHub CI 게이트</a>
           <a href="https://github.com/HenryLau1103/AUB/blob/main/schema/ui-blueprint.schema.json">Blueprint schema</a>
         </div>
       </section>
@@ -183,7 +218,7 @@
 
     <footer class="site-footer">
       <p>
-        AUB · 코딩 Agent를 위한 UI 구현 계약 ·
+        AUB · 코딩 Agent가 기존 UI를 안전하게 바꾸도록 돕기 ·
         <a href="https://github.com/HenryLau1103/AUB">github.com/HenryLau1103/AUB</a> ·
         Apache-2.0
       </p>

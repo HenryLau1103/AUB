@@ -26,7 +26,8 @@ test('L10N1: five localized Pages outputs declare language, alternates, and safe
     assert.equal((html.match(/rel="alternate" hreflang=/g) ?? []).length, 6, page.path);
     assert.equal((html.match(/aria-current="page"/g) ?? []).length, 1, page.path);
     assert.match(html, /<strong>23<\/strong>/, page.path);
-    assert.match(html, /Figma[／/]Penpot/, page.path);
+    assert.match(html, /npx aub-workspace/, page.path);
+    assert.match(html, /docs\/github-agent-workflow\.md/, page.path);
   }
 });
 

@@ -343,6 +343,14 @@ section h2 {
   font-size: 14px;
 }
 
+.before-after .why-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.before-after .card {
+  min-height: 150px;
+}
+
 /* Handoff */
 .handoff p {
   color: var(--muted);

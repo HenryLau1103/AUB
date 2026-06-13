@@ -2,9 +2,9 @@
   <img src="./brand/aub-logo-mark.svg" width="96" height="96" alt="AUB logo" />
 </p>
 
-# AUB — UI Blueprint Agent
+# AUB — Safe Existing UI Changes for Coding Agents
 
-**Define the UI contract. Reuse production components. Gate implementation on evidence.**
+**Let coding agents safely modify existing product UI without rebuilding your components from scratch.**
 
 [![CI](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml/badge.svg)](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
@@ -13,11 +13,11 @@
 
 **English** · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · [日本語](./README.ja.md) · [한국어](./README.ko.md)
 
-[Agent handoff guide](./docs/agent-handoff.md) · [Canonical example](./examples/dashboard.ui.json)
+[Workspace loop guide](./docs/workspace-loop-user-manual.md) · [10-minute demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Security and data safety](./docs/security-and-data-safety.md) · [Canonical example](./examples/dashboard.ui.json)
 
 ![AUB visual editor showing a responsive onboarding screen](./docs/assets/aub-editor-en.jpg)
 
-AUB is the open, agent-neutral contract layer between product intent and implementation. Build a semantic screen or multi-screen project, map custom types to production components, hand the same versioned contract to Codex, Claude Code, GitHub Copilot, or another coding agent, then verify every acceptance id in CI.
+AUB is the local-first workbench for coding agents working on real apps. Scan an existing route, turn it into an editable Blueprint, review custom component candidates, then hand Codex, Claude Code, GitHub Copilot, or another coding agent a contract it can implement and prove.
 
 > **Live demo:** [henrylau1103.github.io/AUB](https://henrylau1103.github.io/AUB/) — the editor runs entirely in your browser.
 
@@ -25,20 +25,22 @@ AUB is the open, agent-neutral contract layer between product intent and impleme
 
 ```mermaid
 flowchart LR
-  A["1. Compose the UI<br/>on a visual artboard"] --> B["2. Export structure, behavior,<br/>responsive rules, and acceptance"]
-  B --> C["3. Give the package<br/>to a coding agent"]
-  C --> D["4. Implement, test,<br/>and report evidence"]
+  A["1. Run npx aub-workspace init<br/>inside an existing app"] --> B["2. Scan a route and generate<br/>a candidate template"]
+  B --> C["3. Review mappings,<br/>edit, and save the Blueprint"]
+  C --> D["4. Hand the instruction to<br/>Copilot, Codex, or another agent"]
+  D --> E["5. Gate the PR<br/>on implementation evidence"]
 ```
 
-1. **Compose or import** — start from one of 18 templates, arrange registered components, or import Angular and Figma/Penpot Design Bridge sources.
-2. **Bind production components** — map custom semantic types to framework modules, exports, source files, Storybook, docs, and props.
-3. **Hand off one contract** — use an `.aub.zip` or MCP without changing schema or acceptance semantics between agents.
-4. **Verify the implementation** — require node mappings and evidence for every acceptance id, then enforce them with the bundled GitHub Action.
+1. **Start in your app** — run `npx aub-workspace init`, then `npx aub-workspace` from the existing project root; no AUB clone is required.
+2. **Scan and template** — detect routes, components, layout hints, and custom component candidates.
+3. **Review the contract** — open the candidate template, approve mappings, and adjust the Blueprint.
+4. **Hand off to an agent** — copy one instruction with the active Blueprint, route, preview URL, and MCP tools.
+5. **Verify the implementation** — require node mappings and evidence for every acceptance id, then enforce them with the bundled GitHub Action.
 
 ## Who AUB is for
 
-- Product designers and developers who need more precision than a screenshot or prose prompt.
-- Teams using coding agents to implement dashboards, forms, content products, commerce flows, and application shells.
+- Product designers and developers who want coding agents to modify existing app screens without drifting from product intent.
+- Teams using coding agents to implement dashboards, forms, content products, commerce flows, and application shells in real repositories.
 - Agent and tooling developers who need a schema-valid, testable UI interchange format.
 - Design-system teams that want agents to reuse production components instead of creating lookalikes.
 - Teams converting existing Angular screens into reusable UI Blueprints.
@@ -49,10 +51,27 @@ If you already have an app and want AUB to scan, template, edit, and preview it 
 
 ```bash
 cd /path/to/your-existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
 This starts the local AUB MCP server, opens the bundled editor, and connects the editor to your workspace automatically. You do not need to clone the AUB repo for this path.
+
+`init` installs the AUB CI config, `.aubignore`, `AGENTS.md`, GitHub issue templates, Copilot instructions, and PR workflow. In the editor, follow the workspace loop: **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction**. Paste that instruction into Copilot, Codex, or another coding agent so it can implement the real app change and report evidence.
+
+For a terminal-only handoff prompt, run:
+
+```bash
+pnpm agent:instructions -- --target codex
+```
+
+To see the full safety loop without using a real project, run:
+
+```bash
+npx aub-workspace demo
+```
+
+This creates a synthetic workspace with `.aub/scan-report.json`, a generated candidate template, a Blueprint, one failing implementation report, one passing report, and fail/pass PR safety comments. It is the fastest way to see the PR gate reject low-evidence agent work and then approve evidence-backed work for review.
 
 ## The problem AUB solves
 
@@ -155,12 +174,14 @@ For most users, start inside the existing app you want AUB to work on:
 
 ```bash
 cd /path/to/existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
 This starts the local MCP HTTP server, serves the bundled AUB editor, connects
 the editor to the workspace, and opens the browser. No AUB clone is required for
-this path once `aub-workspace` is published to npm.
+this path. `init` creates AUB config, GitHub issue templates, Copilot
+instructions, and a pull-request workflow without editing app source files.
 
 For AUB repo development, run from the AUB repo root:
 
@@ -188,6 +209,7 @@ For an existing app, the one-command path is:
 
 ```bash
 cd /path/to/existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
@@ -309,6 +331,12 @@ pnpm diff before.ui.json after.ui.json
 # Create and verify an implementation report
 pnpm report:init examples/dashboard.ui.json implementation-report.json
 pnpm report:verify examples/dashboard.ui.json implementation-report.json
+
+# Capture preview screenshots, overflow checks, and report evidence
+pnpm report:capture -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
+pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+pnpm report:score screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json
+pnpm report:playwright -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings --output tests/aub-ui.spec.ts
 ```
 
 ### Scaffold spec sections
@@ -412,6 +440,7 @@ The `$schema` key is optional and ignored by AUB tooling — it only drives edit
 
 ## Project status
 
+- Product/package release: `0.4.0` focused on the workspace safety demo, PR evidence review, scanner trust breakdown, and demo-mode separation. The Blueprint format remains `0.3.0`.
 - Blueprint schema and semantic validation: implemented.
 - WYSIWYG editor with freeform/auto layout, drag, resize, multi-select, zoom, localization, and templates: implemented.
 - JSON, Markdown, screenshots, hashes, and `.aub.zip` handoff: implemented.
@@ -420,8 +449,9 @@ The `$schema` key is optional and ignored by AUB tooling — it only drives edit
 - Blueprint diff and implementation report verification: implemented.
 - MCP server (stdio + Streamable HTTP) exposing 23 tools including Design Bridge import, validated writes, handoff packaging, discovery, validation, component resolution, scaffolding, diff, migration, locks, workspace sessions, app scanning, template generation, candidate review, and reports: implemented.
 - Workspace-connected editor loop for local MCP HTTP, session state, scanner-generated templates, component candidate review, direct Blueprint save, and implementation preview: implemented.
+- One-command workspace initialization (`aub-workspace init`) and evidence capture (`pnpm report:capture`): implemented.
 - Production component mappings in `aub.registry.json`: implemented.
-- GitHub Action and local CI verifier for contracts plus implementation evidence: implemented.
+- GitHub Action and local CI verifier for contracts plus implementation evidence, PR Safety Score comments, and evidence matrix output: implemented.
 - Multi-screen projects (reference-based `.aub.project.json`, CLI, MCP tools, editor screen switcher + navigation): implemented.
 - Configurable canvas resolution (presets + custom width/height): implemented.
 - Localized GitHub Pages and README files in English, Traditional Chinese, Simplified Chinese, Japanese, and Korean: implemented.

@@ -2,9 +2,9 @@
   <img src="./brand/aub-logo-mark.svg" width="96" height="96" alt="AUB ロゴ" />
 </p>
 
-# AUB — UI Blueprint Agent
+# AUB — コーディング Agent に既存 UI を安全に変更させる
 
-**UI 契約を定義し、本番コンポーネントを再利用し、証拠で実装を検証します。**
+**コーディング Agent が既存プロダクト UI を安全に変更し、本番コンポーネントを作り直さず、証拠で PR を検証できるようにします。**
 
 [![CI](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml/badge.svg)](https://github.com/HenryLau1103/AUB/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
@@ -13,11 +13,11 @@
 
 [English](./README.md) · [繁體中文](./README.zh-Hant.md) · [简体中文](./README.zh-Hans.md) · **日本語** · [한국어](./README.ko.md)
 
-[Agent 引き渡しガイド](./docs/agent-handoff.md) · [標準サンプル](./examples/dashboard.ui.json)
+[Workspace loop ガイド](./docs/workspace-loop-user-manual.ja.md) · [10 分 demo](./docs/workspace-loop-10-minute-demo.md) · [AUB vs app builders](./docs/comparison-app-builders.md) · [No AUB vs AUB demo](./docs/demo-no-aub-vs-aub.md) · [GitHub agent workflow](./docs/github-agent-workflow.md) · [Security and data safety](./docs/security-and-data-safety.md) · [標準サンプル](./examples/dashboard.ui.json)
 
 ![レスポンシブ画面を編集する AUB ビジュアルエディター](./docs/assets/aub-editor-en.jpg)
 
-AUB は、プロダクト意図とコーディング Agent の間に置くオープンで agent-neutral な契約レイヤーです。セマンティックな単一画面または複数画面プロジェクトを作成し、カスタム型を本番コンポーネントへ紐付け、同じバージョン管理可能な契約を Codex、Claude Code、GitHub Copilot などへ渡し、CI で各 acceptance id を検証します。
+AUB は、コーディング Agent が実際の app を変更するための local-first ワークベンチです。既存 route をスキャンし、編集可能な Blueprint に変換し、カスタムコンポーネント候補を確認して、実装可能で検証可能な契約を Codex、Claude Code、GitHub Copilot などに渡します。
 
 > **ライブ Demo：** [henrylau1103.github.io/AUB/ja](https://henrylau1103.github.io/AUB/ja/) — エディターはブラウザー内だけで動作します。
 
@@ -25,15 +25,17 @@ AUB は、プロダクト意図とコーディング Agent の間に置くオー
 
 ```mermaid
 flowchart LR
-  A["1. ビジュアルアートボードで<br/>UI を構成"] --> B["2. 構造、動作、レスポンシブ規則、<br/>受け入れ条件を書き出す"]
-  B --> C["3. パッケージを<br/>コーディング Agent へ渡す"]
-  C --> D["4. Agent が実装、テストし、<br/>証拠を報告する"]
+  A["1. 既存 app で<br/>npx aub-workspace init を実行"] --> B["2. route をスキャンして<br/>candidate template を生成"]
+  B --> C["3. mapping を確認し<br/>Blueprint を保存"]
+  C --> D["4. 指示を Copilot、Codex、<br/>または他の Agent へ渡す"]
+  D --> E["5. 実装証拠で<br/>PR を検証"]
 ```
 
-1. **作成またはインポート**：18 種類のテンプレート、登録済みコンポーネント、Angular、Figma／Penpot Design Bridge から開始します。
-2. **本番コンポーネントを紐付け**：カスタム型を framework module、export、source、Storybook、ドキュメント、props へ対応付けます。
-3. **契約を一度だけ引き渡す**：`.aub.zip` または MCP を使い、Agent ごとに schema や受け入れ意味を変えません。
-4. **証拠で検証する**：すべての node mapping と acceptance id に証拠を要求し、GitHub Action で PR をゲートします。
+1. **自分の app から開始**：既存プロジェクトの root で `npx aub-workspace init` を実行し、その後 `npx aub-workspace` を実行します。AUB の clone は不要です。
+2. **スキャンしてテンプレート化**：routes、components、layout の手がかり、カスタムコンポーネント候補を検出します。
+3. **契約をレビュー**：candidate template を開き、mapping を確認し、Blueprint を調整します。
+4. **Agent に渡す**：active Blueprint、route、preview URL、MCP tools を含む指示をコピーします。
+5. **証拠で検証する**：すべての node mapping と acceptance id に証拠を要求し、GitHub Action で PR をゲートします。
 
 ## 既存プロジェクトの最短開始
 
@@ -41,10 +43,21 @@ flowchart LR
 
 ```bash
 cd /path/to/your-existing-app
+npx aub-workspace init
 npx aub-workspace
 ```
 
 これにより local AUB MCP server が起動し、bundled editor が開き、editor が workspace に自動接続されます。この方法では AUB repo を clone する必要はありません。
+
+`init` は AUB CI config、`.aubignore`、`AGENTS.md`、GitHub issue templates、Copilot instructions、PR workflow を導入します。Editor では **Scan project → Generate template → Review component candidates → Save Blueprint/session → Copy agent instruction** の順に進めます。その指示を Copilot、Codex、または他の coding agent に渡し、実 app の変更と証拠報告を依頼します。
+
+実プロジェクトを使わずに安全ループ全体を確認するには、次を実行します。
+
+```bash
+npx aub-workspace demo
+```
+
+これは合成 workspace を作成し、`.aub/scan-report.json`、candidate template、Blueprint、gate が拒否する低証拠 report、通過できる report、fail/pass PR safety comment を生成します。低証拠 PR が止まり、証拠を補った PR が review 可能になる流れを最短で確認できます。
 
 ## AUB が解決する問題
 
@@ -159,6 +172,10 @@ pnpm migrate old.ui.json migrated.ui.json
 pnpm diff before.ui.json after.ui.json
 pnpm report:init examples/dashboard.ui.json implementation-report.json
 pnpm report:verify examples/dashboard.ui.json implementation-report.json
+pnpm report:capture -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings
+pnpm report:verify screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json --require-evidence
+pnpm report:score screens/settings.ui.json .aub/reports/workspace.settings.implementation-report.json
+pnpm report:playwright -- --workspace /path/to/app --blueprint screens/settings.ui.json --url http://localhost:3000/settings --output tests/aub-ui.spec.ts
 ```
 
 不足している interaction、responsive、acceptance を非破壊で補完します。
@@ -186,23 +203,28 @@ pnpm project export-md examples/project/app.aub.project.json ./out
   with:
     config: .aub/ci.json
     require-reports: "true"
+    require-evidence: "false"
 ```
 
 Blueprint、project、extension registry、node mapping、acceptance evidence、unresolved work を検証します。ローカルでも同じ検証を実行できます。
 
 ```bash
 pnpm ci:verify -- --workspace /path/to/target/repo --require-reports
+pnpm ci:verify -- --workspace /path/to/target/repo --require-reports --require-evidence
 ```
 
 ## 現在の状態
 
 - Blueprint schema、semantic validation、migration、diff、lock：実装済み。
 - WYSIWYG エディター、18 テンプレート、複数画面 project、5 言語 landing page：実装済み。
+- Product/package release: `0.4.0`。workspace safety demo、PR evidence review、scanner trust breakdown、demo mode 分離が中心です。Blueprint format は `0.3.0` のままです。
 - Angular、Figma／Penpot bridge import：実装済み。
 - Codex、Claude Code、GitHub Copilot adapter：実装済み。
 - stdio／HTTP MCP server、23 ツール：実装済み。
+- One-command workspace initialization（`npx aub-workspace init`）：CI config、`.aubignore`、`AGENTS.md`、issue templates、Copilot instructions、PR workflow：実装済み。
 - Workspace-connected editor loop、local MCP HTTP、session、scanner-generated template、custom component candidate review、direct Blueprint save、implementation preview：実装済み。
-- 本番 component mapping、implementation report、GitHub Action：実装済み。
+- Implementation evidence capture：viewport screenshot、DOM query、overflow、report evidence verification：実装済み。
+- 本番 component mapping、implementation report、GitHub Action、PR Safety Score comment、evidence matrix：実装済み。
 - UI 内 YAML 編集、エディター内 lock 生成：backlog。
 
 現在の format version は `0.3.0` です。

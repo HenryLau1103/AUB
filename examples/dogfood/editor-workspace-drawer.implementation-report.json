@@ -1,0 +1,1109 @@
+{
+  "format": "aub-implementation-report",
+  "format_version": "1.0.0",
+  "blueprint": {
+    "screen_id": "workspace.react_aub_workspace_drawer",
+    "version": "0.3.0"
+  },
+  "implementation": {
+    "framework": "react",
+    "route": "/editor/workspace-drawer",
+    "files": [
+      "apps/editor/src/components/WorkspacePanel.tsx",
+      "apps/editor/src/App.css",
+      "apps/editor/src/lib/workspace-client.ts"
+    ]
+  },
+  "node_mappings": [
+    {
+      "node_id": "root",
+      "status": "mapped",
+      "component": "page",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "[data-aub-node=\"root\"]",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "section_section",
+      "status": "mapped",
+      "component": "section",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "section.`workspace-panel${connected.?.'.connected'.:.''",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "header_header",
+      "status": "mapped",
+      "component": "header",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "header",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-connect-row",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_input_on_endpoint_change_event_target_value_placeholder_http_127_0_0_1",
+      "status": "mapped",
+      "component": "text_input",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "input",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_button",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_refresh_ccw",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "RefreshCcw",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_wifi",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "Wifi",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_zh_disconnect",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_x",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "X",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_p",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "p.workspace-error",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "section_section_2",
+      "status": "mapped",
+      "component": "section",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "section.workspace-demo-story",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_p_2",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "p",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_2",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-demo-steps",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_2",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_3",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_4",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_zh_demo_safety_loop_demo_safety_loop_summary",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-demo-evidence",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "section_section_3",
+      "status": "mapped",
+      "component": "section",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "section.workspace-onboarding",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "heading_h3",
+      "status": "mapped",
+      "component": "heading",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "h3",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_p_3",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "p",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_workspace_wizard",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "WorkspaceWizard",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "badge_div",
+      "status": "mapped",
+      "component": "badge",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-status-pills",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_5",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_6",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_7",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_8",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_9",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_storybook",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_10",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_div",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-onboarding-actions",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_button_2",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "select_set_selected_template_source_event_target_value_disabled",
+      "status": "mapped",
+      "component": "select",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "select",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_on_generate_template_selected_template_source",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_void_copy_agent_instruction",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "tabs_zh_workspace_workspace_review_mode",
+      "status": "mapped",
+      "component": "tabs",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-mode-tabs",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_set_review_mode_template",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button.reviewMode.===.'template'.?.'active'.:.''",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_set_review_mode_evidence",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button.reviewMode.===.'evidence'.?.'active'.:.''",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_scan_trust_summary",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "ScanTrustSummary",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "data_table_div",
+      "status": "mapped",
+      "component": "data_table",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-grid",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "section_section_4",
+      "status": "mapped",
+      "component": "section",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "section",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "heading_h3_2",
+      "status": "mapped",
+      "component": "heading",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "h3",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "select_event_target_value_on_load_blueprint_event_target_value",
+      "status": "mapped",
+      "component": "select",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "select",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_3",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-save-row",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_input_on_save_path_change_event_target_value_placeholder_screens_settings_ui_json",
+      "status": "mapped",
+      "component": "text_input",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "input",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_button_3",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_save",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "Save",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "section_section_5",
+      "status": "mapped",
+      "component": "section",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "section",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "heading_h3_3",
+      "status": "mapped",
+      "component": "heading",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "h3",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_4",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-candidate-batch",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_button_4",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_review_selected_create_extension",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_review_selected_ignore",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_set_selected_candidate_ids_new_set",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_candidate_list",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "CandidateList",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "section_section_6",
+      "status": "mapped",
+      "component": "section",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "section",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "heading_h3_4",
+      "status": "mapped",
+      "component": "heading",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "h3",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_source_reference_list",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "SourceReferenceList",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "section_section_7",
+      "status": "mapped",
+      "component": "section",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "section",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "heading_h3_5",
+      "status": "mapped",
+      "component": "heading",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "h3",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_input_set_preview_draft_draft",
+      "status": "mapped",
+      "component": "text_input",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "input",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_input_set_preview_draft_draft_2",
+      "status": "mapped",
+      "component": "text_input",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "input",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_on_preview_change_preview_draft",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "link_a",
+      "status": "mapped",
+      "component": "link",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "a",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_5",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-report-summary",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_6",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-safety-score",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_11",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_7",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-candidate-meta",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_pass",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_fail",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_12",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_evidence",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_source",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_viewport",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_reuse",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "section_section_8",
+      "status": "mapped",
+      "component": "section",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "section",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "heading_h3_6",
+      "status": "mapped",
+      "component": "heading",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "h3",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_evidence_focus",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "EvidenceFocus",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_8",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.`workspace-scan-trust.${report.trust.grade",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_9",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-candidate-meta",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_13",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_14",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_15",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_16",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_p_4",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "p.empty",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_10",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-evidence-focus",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_p_5",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "p",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_11",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-candidate-meta",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_17",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_18",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_19",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_20",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_21",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_22",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "list_ol",
+      "status": "mapped",
+      "component": "list",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "ol.workspace-onboarding-steps",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_li",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "li.step.done.?.'complete'.:.'pending'",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_23",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_p_6",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "p.empty",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_12",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-candidates",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_candidate_item",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "CandidateItem",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_article",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "article.`workspace-candidate.${candidate.status",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_label",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "label.workspace-candidate-select",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_input_on_toggle_candidate_candidate_id_event_target_checked",
+      "status": "mapped",
+      "component": "text_input",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "input",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_div_13",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-candidate-meta",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_24",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_25",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_26",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_27",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_span_28",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "span",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "card_candidate_actions",
+      "status": "mapped",
+      "component": "card",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "CandidateActions",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "text_p_7",
+      "status": "mapped",
+      "component": "text",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "p.empty",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "list_div",
+      "status": "mapped",
+      "component": "list",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-source-list",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "heading_h4",
+      "status": "mapped",
+      "component": "heading",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "h4",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_div_2",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "div.workspace-candidate-actions",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "select_select",
+      "status": "mapped",
+      "component": "select",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "select",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_button_5",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_on_review_candidate_candidate_create_extension",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    },
+    {
+      "node_id": "button_on_review_candidate_candidate_ignore",
+      "status": "mapped",
+      "component": "button",
+      "file": "apps/editor/src/components/WorkspacePanel.tsx",
+      "selector": "button",
+      "notes": "AUB self-dogfood sample maps the workspace drawer contract back to editor source files."
+    }
+  ],
+  "acceptance_results": [
+    {
+      "acceptance_id": "acc_workspace_source_structure",
+      "status": "pass",
+      "evidence": [
+        {
+          "type": "code_diff",
+          "reference": "apps/editor/src/components/WorkspacePanel.tsx"
+        },
+        {
+          "type": "code_diff",
+          "reference": "apps/editor/src/App.css"
+        },
+        {
+          "type": "code_diff",
+          "reference": "apps/editor/src/lib/workspace-client.ts"
+        },
+        {
+          "type": "command",
+          "reference": "(cd apps/editor && pnpm typecheck)"
+        },
+        {
+          "type": "command",
+          "reference": "(cd apps/editor && pnpm build)"
+        },
+        {
+          "type": "overflow",
+          "reference": "desktop workspace drawer remains in a side drawer and does not cover demo canvas",
+          "viewport": "desktop",
+          "pass": true
+        },
+        {
+          "type": "overflow",
+          "reference": "tablet workspace drawer remains scrollable without horizontal overflow",
+          "viewport": "tablet",
+          "pass": true
+        },
+        {
+          "type": "overflow",
+          "reference": "mobile workspace drawer remains scrollable without horizontal overflow",
+          "viewport": "mobile",
+          "pass": true
+        },
+        {
+          "type": "dom_query",
+          "reference": "Workspace settings dialog only opens after user action",
+          "selector": ".workspace-drawer-shell",
+          "expected": 0,
+          "actual": 0
+        }
+      ],
+      "notes": "Self-dogfood report for the workspace drawer and demo-mode separation work."
+    },
+    {
+      "acceptance_id": "acc_workspace_component_reuse",
+      "status": "pass",
+      "evidence": [
+        {
+          "type": "code_diff",
+          "reference": "apps/editor/src/App.css"
+        },
+        {
+          "type": "command",
+          "reference": "(cd apps/editor && pnpm build)"
+        }
+      ],
+      "notes": "Self-dogfood report for the workspace drawer and demo-mode separation work."
+    },
+    {
+      "acceptance_id": "acc_workspace_responsive",
+      "status": "pass",
+      "evidence": [
+        {
+          "type": "code_diff",
+          "reference": "apps/editor/src/lib/workspace-client.ts"
+        },
+        {
+          "type": "overflow",
+          "reference": "desktop workspace drawer remains in a side drawer and does not cover demo canvas",
+          "viewport": "desktop",
+          "pass": true
+        }
+      ],
+      "notes": "Self-dogfood report for the workspace drawer and demo-mode separation work."
+    },
+    {
+      "acceptance_id": "acc_workspace_interactions",
+      "status": "pass",
+      "evidence": [
+        {
+          "type": "command",
+          "reference": "(cd apps/editor && pnpm typecheck)"
+        },
+        {
+          "type": "overflow",
+          "reference": "tablet workspace drawer remains scrollable without horizontal overflow",
+          "viewport": "tablet",
+          "pass": true
+        }
+      ],
+      "notes": "Self-dogfood report for the workspace drawer and demo-mode separation work."
+    },
+    {
+      "acceptance_id": "acc_workspace_a11y",
+      "status": "pass",
+      "evidence": [
+        {
+          "type": "command",
+          "reference": "(cd apps/editor && pnpm build)"
+        },
+        {
+          "type": "overflow",
+          "reference": "mobile workspace drawer remains scrollable without horizontal overflow",
+          "viewport": "mobile",
+          "pass": true
+        }
+      ],
+      "notes": "Self-dogfood report for the workspace drawer and demo-mode separation work."
+    }
+  ],
+  "unresolved": [],
+  "safety_score": {
+    "overall": 100,
+    "grade": "pass",
+    "sourceCoverageScore": 100,
+    "acceptanceEvidenceScore": 100,
+    "viewportEvidenceScore": 100,
+    "overflowSafety": 100,
+    "componentReuseScore": 100,
+    "unresolvedMappingCount": 0,
+    "lookalikePreventionCount": 0,
+    "evidenceItems": 17,
+    "expectedViewports": [
+      "desktop",
+      "tablet",
+      "mobile"
+    ]
+  }
+}

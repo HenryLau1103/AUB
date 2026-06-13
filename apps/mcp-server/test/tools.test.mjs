@@ -383,6 +383,75 @@ async function createWorkspaceLoopFixture() {
   return root;
 }
 
+async function createAngularWorkspaceLoopFixture() {
+  const root = await mkdtemp(join(tmpdir(), 'aub-angular-workspace-loop-'));
+  await mkdir(join(root, 'src', 'app', 'login'), { recursive: true });
+  await mkdir(join(root, 'src', 'app', 'home'), { recursive: true });
+  await mkdir(join(root, 'src', 'app', 'shared', 'constants'), { recursive: true });
+  await mkdir(join(root, 'src', 'app', 'txn', 't01', 'demo-datatable'), { recursive: true });
+  await writeFile(join(root, 'package.json'), `${JSON.stringify({
+    name: 'enterprise-portal',
+    dependencies: { '@angular/core': '^9.1.13' },
+  }, null, 2)}\n`);
+  await writeFile(join(root, 'src', 'app', 'app-route-paths.const.ts'), [
+    'export const appRoutePaths = {',
+    "  login: 'login',",
+    "  home: '',",
+    '};',
+    '',
+  ].join('\n'));
+  await writeFile(join(root, 'src', 'app', 'app.routing.ts'), [
+    "import { LoginComponent } from './login/login.component';",
+    "import { HomeComponent } from './home/home.component';",
+    "import { appRoutePaths } from './app-route-paths.const';",
+    "const fallbackRoute = { path: '**', redirectTo: appRoutePaths.home, pathMatch: 'full' };",
+    'const routes = [',
+    '  { path: appRoutePaths.login, component: LoginComponent },',
+    '  { path: appRoutePaths.home, component: HomeComponent },',
+    '  fallbackRoute,',
+    '];',
+    '',
+  ].join('\n'));
+  await writeFile(join(root, 'src', 'app', 'txn', 't01', 't01.routing.ts'), [
+    "import { appRoutePaths } from '../../app-route-paths.const';",
+    "import { DemoDataTableComponent } from './demo-datatable/demo-datatable.component';",
+    'const routes = [',
+    "  { path: appRoutePaths.home + 'portal/demo/table', component: DemoDataTableComponent },",
+    '];',
+    '',
+  ].join('\n'));
+  await writeFile(join(root, 'src', 'app', 'login', 'login.component.ts'), [
+    "import { Component } from '@angular/core';",
+    "@Component({ selector: 'app-login', templateUrl: './login.component.html' })",
+    'export class LoginComponent {}',
+    '',
+  ].join('\n'));
+  await writeFile(join(root, 'src', 'app', 'login', 'login.component.html'), '<form><button>Login</button></form>\n');
+  await writeFile(join(root, 'src', 'app', 'home', 'home.component.ts'), [
+    "import { Component } from '@angular/core';",
+    "@Component({ selector: 'app-home', templateUrl: './home.component.html' })",
+    'export class HomeComponent {}',
+    '',
+  ].join('\n'));
+  await writeFile(join(root, 'src', 'app', 'home', 'home.component.html'), '<app-demo-datatable></app-demo-datatable>\n');
+  await writeFile(join(root, 'src', 'app', 'shared', 'constants', 'prod-type.constants.ts'), [
+    'export const DemoConstants = {',
+    "  KIND: 'demo',",
+    '};',
+    '',
+  ].join('\n'));
+  await writeFile(join(root, 'src', 'app', 'txn', 't01', 'demo-datatable', 'demo-datatable.component.ts'), [
+    "import { Component, Input } from '@angular/core';",
+    "@Component({ selector: 'app-demo-datatable', templateUrl: './demo-datatable.component.html' })",
+    'export class DemoDataTableComponent {',
+    '  @Input() rows = [];',
+    '}',
+    '',
+  ].join('\n'));
+  await writeFile(join(root, 'src', 'app', 'txn', 't01', 'demo-datatable', 'demo-datatable.component.html'), '<table><tr><td>Demo</td></tr></table>\n');
+  return root;
+}
+
 test('workspace session tools read and update .aub/session.json', async () => {
   const root = await mkdtemp(join(tmpdir(), 'aub-session-'));
   try {
@@ -427,6 +496,21 @@ test('scan_project_ui caps the file limit and rejects invalid limits', async () 
     const result = await scanProjectUi({ ...ctx, root }, { limit: 5000 });
     assert.ok(result.components.length > 0);
     assert.equal(result.skippedSourceFiles, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('scan_project_ui parses Angular routing files without treating wildcard redirects as routes', async () => {
+  const root = await createAngularWorkspaceLoopFixture();
+  try {
+    const result = await scanProjectUi({ ...ctx, root }, { namespace: 'portal' });
+    assert.ok(result.frameworks.includes('angular'));
+    assert.ok(result.routes.some((route) => route.route === '/login' && route.path === 'src/app/login/login.component.html'));
+    assert.ok(result.routes.some((route) => route.route === '/portal/demo/table'));
+    assert.equal(result.routes.some((route) => route.route.includes('*')), false);
+    assert.ok(result.components.some((component) => component.suggestedType === 'portal:demo_datatable'));
+    assert.equal(result.components.some((component) => component.componentName === 'DemoConstants'), false);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -536,6 +620,23 @@ test('submit_report rejects unsafe accepted-report file name stems', async () =>
       () => submitReport({ ...ctx, root }, { ref: 'bad.ui.json', report }),
       /Unsafe file name segment/
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('submit_report persists safety_score with accepted reports', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-report-'));
+  try {
+    const blueprint = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
+    await writeFile(join(root, 'dashboard.ui.json'), `${JSON.stringify(blueprint, null, 2)}\n`, 'utf8');
+    const report = passingReport(blueprint);
+    const result = await submitReport({ ...ctx, root }, { ref: 'dashboard.ui.json', report, persist: true });
+    assert.equal(result.accepted, true, `errors: ${JSON.stringify(result.errors)}`);
+    assert.ok(result.savedPath);
+    const persisted = JSON.parse(await readFile(join(root, result.savedPath), 'utf8'));
+    assert.equal(typeof persisted.safety_score?.overall, 'number');
+    assert.equal(persisted.safety_score.grade, result.summary.safety_score.grade);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

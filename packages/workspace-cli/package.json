@@ -1,6 +1,6 @@
 {
   "name": "aub-workspace",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "One-command local AUB workspace launcher for existing projects",
   "type": "module",
   "bin": {
@@ -9,7 +9,8 @@
   "files": [
     "bin",
     "vendor",
-    "README.md"
+    "README.md",
+    "README.*.md"
   ],
   "scripts": {
     "prepack": "node ../../scripts/package-workspace-cli.mjs",

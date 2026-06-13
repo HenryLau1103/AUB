@@ -10,10 +10,14 @@ When scanning an app:
 
 1. Inspect routes, layouts, reusable components, design tokens, and project
    conventions before generating a template.
-2. Use core AUB component types when the meaning is clear.
-3. Put project-specific components in `.aub/component-candidates.json`.
-4. Never write a scanned component directly into `aub.registry.json`.
-5. Generate `.aub/templates/<slug>.aub.template.json` with source references,
+2. Respect `.aubignore` and default scanner exclusions. Do not include secrets,
+   generated output, or local-only cache files in templates, candidates, or
+   snapshots.
+3. Use core AUB component types when the meaning is clear.
+4. Put project-specific components in `.aub/component-candidates.json`.
+5. Treat Storybook stories as component reuse hints, not as automatic approval.
+6. Never write a scanned component directly into `aub.registry.json`.
+7. Generate `.aub/templates/<slug>.aub.template.json` with source references,
    confidence, and `status: "candidate"` unless a human has already approved it.
 
 ## Workspace Template Shape
@@ -61,6 +65,9 @@ Scanned custom components belong in `.aub/component-candidates.json`:
     "isContainer": true,
     "props": ["title"],
     "usageCount": 3,
+    "storybookStories": [
+      { "path": "src/components/InsightCard.stories.tsx", "title": "Analytics/InsightCard" }
+    ],
     "confidence": 0.72,
     "reason": "Static scan found a reusable project component."
   }]
@@ -84,3 +91,6 @@ Users review each candidate in the editor:
    `.aub/session.json` with `update_aub_session`.
 5. The implementation agent reads `get_aub_session`, `get_blueprint`, and
    `resolve_component` before changing production code.
+6. The implementation agent returns an implementation report with machine
+   evidence and a PR Safety Score so reviewers can see source coverage,
+   viewport coverage, overflow safety, and component reuse risk.
