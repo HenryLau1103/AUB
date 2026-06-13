@@ -35,6 +35,11 @@ function isLocalOrigin(origin: string): boolean {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(origin);
 }
 
+function isAllowedOrigin(origin: string, cfg: ReturnType<typeof resolveRpcConfig>): boolean {
+  if (cfg.allowedOrigins.length > 0) return cfg.allowedOrigins.includes(origin);
+  return isLocalOrigin(origin) || origin === 'https://henrylau1103.github.io';
+}
+
 function safeEquals(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
@@ -61,11 +66,11 @@ function mcpErrorPayload(message: string, code = -32000) {
 function checkRpcAuthorization(req: Request, cfg: ReturnType<typeof resolveRpcConfig>): { ok: true } | { ok: false; status: number; message: string } {
   const origin = req.headers.origin;
   if (cfg.allowedOrigins.length > 0) {
-    if (!origin || !cfg.allowedOrigins.includes(origin)) {
+    if (!origin || !isAllowedOrigin(origin, cfg)) {
       return { ok: false, status: 403, message: 'RPC origin is not allowed.' };
     }
   } else {
-    if (origin && !isLocalOrigin(origin) && origin !== 'https://henrylau1103.github.io') {
+    if (origin && !isAllowedOrigin(origin, cfg)) {
       return { ok: false, status: 403, message: 'RPC origin is not allowed.' };
     }
   }
@@ -122,9 +127,7 @@ async function main(): Promise<void> {
   app.use(express.json({ limit: '20mb' }));
   app.use((req: Request, res: Response, next) => {
     const origin = req.headers.origin;
-    if (origin && /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    } else if (origin === 'https://henrylau1103.github.io') {
+    if (origin && isAllowedOrigin(origin, rpcConfig)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
     }
     res.setHeader('Vary', 'Origin');
@@ -141,8 +144,7 @@ async function main(): Promise<void> {
     res.json({
       status: 'ok',
       service: 'aub-mcp-server',
-      version: '0.3.0',
-      workspace: root,
+      version: '0.4.0',
       tools: registeredToolNames(),
     });
   });

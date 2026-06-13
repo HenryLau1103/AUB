@@ -45,6 +45,8 @@ test('Streamable HTTP transport initializes and calls an AUB tool', async () => 
     await waitForReady(child);
     const health = await fetch(`http://127.0.0.1:${port}/health`).then((response) => response.json());
     assert.equal(health.status, 'ok');
+    assert.equal(health.version, '0.4.0');
+    assert.equal('workspace' in health, false);
     assert.equal(health.tools.length, 23);
 
     const client = new Client({ name: 'aub-http-test', version: '1.0.0' });

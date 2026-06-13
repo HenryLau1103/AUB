@@ -1,304 +1,597 @@
-# PR #26 Latest Subagent Code Review
+# PR #26 Subagent Code Review Fix Plan
 
 Date: 2026-06-13
 PR: #26 `[codex] Harden workspace security follow-ups`
-Range: `1eb94cd0cb7ed63510da0c48ebdd91ccdbd1bb58..b417840d7cb9cc08d2895967397e6fa9f0f13b20`
+Reviewed head: `f6d7769300818294006877da0bfa985ac7bf3644`
+Base: `1eb94cd0cb7ed63510da0c48ebdd91ccdbd1bb58`
+Range: `1eb94cd0cb7ed63510da0c48ebdd91ccdbd1bb58..f6d7769300818294006877da0bfa985ac7bf3644`
 
 ## Review Scope
 
-This review re-checks the latest PR head after the follow-up commit `Resolve PR 26 workspace safety review`.
-
-Five independent subagents reviewed the diff from these dimensions:
+Five independent subagents reviewed the updated PR diff from these dimensions:
 
 1. Security
-2. Code quality
-3. Bug hunting
-4. Concurrency and performance
+2. Quality
+3. Bug Hunter
+4. Concurrency and Performance
 5. Architecture
 
-## 1. Security Agent
+This document consolidates their findings into an executable correction plan. The conclusion is direct: PR #26 should not be merged until the P1 blockers below are fixed and covered by regression tests.
 
-### Medium: `aub.registry.json` can still cause MCP/CI resource exhaustion
+## Executive Summary
 
-Registry path containment and symlink escape are fixed, but the registry file itself still has no byte, component-count, implementation-count, props-count, or aggregate string-length caps.
+The PR significantly improves the workspace security posture, but the follow-up review found several remaining gaps that affect real users and trust boundaries:
 
-Evidence:
+- Manual `aub-workspace --no-open` launch is currently not a usable authenticated workflow.
+- CI verification still accepts paths that can escape the workspace boundary.
+- `aub-workspace init/demo` can follow workspace symlinks and write outside the workspace.
+- Implementation report machine evidence can fail while the verifier still passes.
+- Component candidate scans can overwrite prior review decisions.
+- Long-running or interrupted locks and temp writes still have cleanup and ownership edge cases.
+- Large repository scanning still lacks directory/depth caps in some paths.
 
-- `scripts/registry.lib.mjs:98` auto-resolves workspace registries through `resolveKnownTypesForBlueprint()`.
-- `scripts/registry.lib.mjs:252` reads the full registry with `readFile(path, 'utf8')`.
-- `scripts/registry.lib.mjs:255` parses the full document with `JSON.parse(raw)`.
-- `scripts/registry.lib.mjs:121` and `scripts/registry.lib.mjs:152` normalize all components/implementations without hard caps.
+The fix should be implemented in two waves:
 
-Risk:
+1. Merge-blocking safety and correctness fixes.
+2. Maintainability and performance hardening.
 
-A committed workspace `aub.registry.json` can make MCP tools or CI parse a very large registry during `validate_blueprint`, `validate_project`, `resolve_component`, `export_handoff`, or CI verification, causing memory/CPU denial of service.
+## P1 Merge Blockers
 
-Suggested change:
+### 1. Make `aub-workspace --no-open` usable without leaking secrets by default
 
-```js
-const MAX_EXTENSION_REGISTRY_BYTES = 512 * 1024;
-const MAX_EXTENSION_COMPONENTS = 500;
-const MAX_EXTENSION_IMPLEMENTATIONS = 20;
-const MAX_EXTENSION_PROPS = 200;
+Problem:
 
-const info = await stat(path);
-if (info.size > MAX_EXTENSION_REGISTRY_BYTES) {
-  throw new Error(`${path}: registry exceeds ${MAX_EXTENSION_REGISTRY_BYTES} bytes`);
-}
+- The CLI generates an RPC token and injects it into the auto-open editor URL.
+- With `--no-open`, the real URL is not opened and the printed URL is redacted.
+- Copying the printed URL sends `<redacted>` as the token and results in RPC 401.
 
-const raw = await readFile(path, 'utf8');
-const doc = JSON.parse(raw);
-if (!Array.isArray(doc.components) || doc.components.length > MAX_EXTENSION_COMPONENTS) {
-  throw new Error(`${path}: too many extension components`);
-}
-```
+Files:
 
-### Security Items Now Resolved
+- `packages/workspace-cli/bin/aub-workspace.mjs`
+- `packages/workspace-cli/README.md`
+- `tests/workspace-cli-init.test.mjs`
 
-The following previous security findings are resolved in the latest head:
+Required fix:
 
-- Action input shell interpolation.
-- RPC non-ASCII token 500.
-- Launcher token propagation.
-- Terminal token exposure in the printed editor URL.
-- Project member screen containment.
-- Registry filename suffix bypass.
-- Registry symlink auto-discovery escape.
-- Browser-side handoff `Buffer` regression.
-- Handoff screenshot PNG/viewport/size validation.
-- Same-process and cross-process no-overwrite file creation.
+1. Keep default printed URLs redacted.
+2. Add an explicit manual auth option, preferably `--print-auth-url`.
+3. When `--no-open` is used without `--print-auth-url`, print clear guidance:
+   - The redacted URL is not directly usable.
+   - Rerun with `--print-auth-url` only on a trusted local terminal.
+4. If `--print-auth-url` is set, print a clearly labelled sensitive localhost editor URL.
+5. Add tests that assert:
+   - default output does not expose the token.
+   - `--no-open` tells the user how to get a usable manual URL.
+   - `--no-open --print-auth-url` prints a usable authenticated URL.
 
-## 2. Quality Agent
+Acceptance:
 
-### Medium: `pnpm validate <project>` does not expose the new workspace root API
+- Manual launch no longer dead-ends at 401.
+- Token is never printed unless the user explicitly opts in.
+- README explains the exact command and risk in plain language.
 
-`scripts/project.mjs validate` supports `--workspace`, but `scripts/validate.mjs` still calls `validateProjectFile(filePath)` without parsing or forwarding a workspace root.
+### 2. Enforce workspace path confinement in CI verification
 
-Evidence:
+Problem:
 
-- `scripts/validate.mjs:67` detects project documents.
-- `scripts/validate.mjs:69` calls `validateProjectFile(filePath)` without options.
-- `scripts/project.mjs:70` defaults `workspaceRoot` to `process.cwd()`.
+- `scripts/ci-verify.lib.mjs` resolves config, blueprint, project, and report refs with `resolve(root, ref)` or accepts absolute refs.
+- This is looser than MCP/editor workspace containment and contradicts the security docs.
 
-Risk:
+Files:
 
-`pnpm validate <*.aub.project.json>` can behave differently from `node scripts/project.mjs validate --workspace <root>` when called from a directory that is not the intended workspace root.
-
-Suggested change:
-
-```js
-const { file: arg, registry: registryArg, workspace } = parseArgs(process.argv.slice(2));
-// ...
-const result = await validateProjectFile(filePath, {
-  workspaceRoot: workspace ? resolve(workspace) : process.cwd(),
-});
-```
-
-Add a regression test for `validate.mjs` detecting a project with parent-segment screen paths.
-
-### Low: TS and MJS workspace path helpers still differ on root path policy
-
-MCP's TS helper allows a path resolving to the workspace root; workspace-loop's MJS helper rejects `rel === ''`.
-
-Evidence:
-
-- `apps/mcp-server/src/workspace.ts:36`
-- `scripts/workspace-loop.lib.mjs:115`
-
-Suggested change: extract a shared boundary helper or align root-path policy explicitly in both implementations.
-
-### Low: Launcher/token coverage depends on built dist
-
-The smoke test for token redaction/RPC auth is skipped when editor/MCP dist is missing.
-
-Evidence:
-
-- `tests/workspace-cli-init.test.mjs:139`
-- `tests/workspace-cli-init.test.mjs:140`
-
-Suggested change: add unit coverage for `normalizeWorkspaceEndpoint()` and `attachWorkspaceTokenIfMissing()` so token extraction/scrubbing/re-attachment is tested without build artifacts.
-
-## 3. Bug Hunter Agent
-
-### Medium: Scrubbed token breaks reload/manual launch recovery
-
-The launcher still uses the real token URL for `openBrowser()`, but terminal output is redacted and the editor removes the `mcp` query from the address bar. If auto-open fails, the user runs `--no-open`, copies the printed URL, or refreshes after the query was removed, the in-memory token is gone and `/rpc` returns 401.
-
-Evidence:
-
-- `packages/workspace-cli/bin/aub-workspace.mjs:921`
-- `packages/workspace-cli/bin/aub-workspace.mjs:929`
-- `apps/editor/src/App.tsx:277`
-- `apps/editor/src/App.tsx:282`
-- `apps/editor/src/lib/workspace-client.ts:205`
-- `apps/mcp-server/src/http.ts:73`
-
-Suggested change:
-
-```ts
-const [workspaceRpcToken, setWorkspaceRpcToken] = useState(() =>
-  sessionStorage.getItem('aub.rpcToken') ?? undefined
-);
-
-const nextToken = connection.rpcToken ?? workspaceRpcToken;
-setWorkspaceRpcToken(nextToken);
-if (nextToken) sessionStorage.setItem('aub.rpcToken', nextToken);
-
-// Explicit disconnect:
-sessionStorage.removeItem('aub.rpcToken');
-setWorkspaceRpcToken(undefined);
-```
-
-Alternatively, for `--no-open`, provide a secure one-time launch handoff instead of only printing a redacted URL.
-
-### Bug Items Now Resolved
-
-No obvious issues remain in browser-vs-Node handoff runtime, schema/runtime project contract through `project.mjs`, Angular importer caps, GitHub Action quoting, or same-page disconnect/reconnect.
-
-## 4. Concurrency & Performance Agent
-
-### High: Workspace-loop read-modify-write locks are still process-local
-
-`updateWorkspaceJson()` now locks read/mutate/write inside one process, but the lock is a process-local `Map`. Two MCP/CLI processes can still read the same JSON state and overwrite independent updates.
-
-Evidence:
-
-- `scripts/workspace-loop.lib.mjs:168`
-- `scripts/workspace-loop.lib.mjs:215`
-- `scripts/workspace-loop.lib.mjs:906`
-
-Risk:
-
-Concurrent processes updating `.aub/session.json` or `.aub/component-candidates.json` can lose independent fields. Atomic rename prevents partial files, but does not serialize state transitions across processes.
-
-Suggested change:
-
-Use a cross-process lock, for example an exclusive `mkdir(lockDir)` lock with retry and `finally rm`, and keep read/mutate/write in the same lock scope.
-
-### Medium: `create_extension` updates registry and candidate state in separate transactions
-
-`create_extension` reads the candidate before locking, writes `aub.registry.json`, then updates component candidates in a second transaction.
-
-Evidence:
-
-- `scripts/workspace-loop.lib.mjs:1730`
-- `scripts/workspace-loop.lib.mjs:1740`
-- `scripts/workspace-loop.lib.mjs:1768`
-
-Risk:
-
-Concurrent `ignore`, `map_core`, or `create_extension` actions, or a crash between writes, can leave the registry updated while the candidate remains unapproved, or approve based on stale candidate state.
-
-Suggested change:
-
-Introduce a single candidate-review transaction lock. Re-read the candidate inside that lock, confirm it is still reviewable, then update registry and candidate state with a recoverable pending/reconcile design if two files must be touched.
-
-### Medium: `validate_project` uses unbounded per-screen concurrency
-
-`validate_project` validates all screens with `Promise.all`, and each screen may resolve/read/parse registries. Project schema has `minItems` but no screen `maxItems`.
-
-Evidence:
-
-- `apps/mcp-server/src/tools/validate-project.ts:41`
-- `apps/mcp-server/src/tools/validate-project.ts:57`
-- `schema/ui-project.schema.json:45`
-
-Suggested change:
-
-Use bounded concurrency and cache `resolveKnownTypesForBlueprint()` by registry path, or add a schema `maxItems` for `screens`.
-
-### Low: Angular template caps still run after full parse
-
-`parseFragment()` builds the AST before `walkHtml()` enforces node caps. The node cap is also per template traversal, not an import-wide aggregate budget.
-
-Evidence:
-
-- `scripts/angular-importer.lib.mjs:267`
-- `scripts/angular-importer.lib.mjs:268`
-- `scripts/angular-importer.lib.mjs:627`
-
-Suggested change:
-
-Add a pre-parse rough tag/token cap and an aggregate import-wide node budget, or move to a streaming parser for large templates.
-
-## 5. Architecture Agent
-
-### Medium: `write_blueprint` still uses a different registry resolution boundary
-
-`validate_blueprint`, `validate_project`, and CI use `resolveKnownTypesForBlueprint(...)`, which discovers registries from the Blueprint path toward the workspace root. `write_blueprint` still discovers from `ctx.root`.
-
-Evidence:
-
-- `apps/mcp-server/src/tools/write-blueprint.ts:48`
-- `apps/mcp-server/src/tools/validate-blueprint.ts:61`
-- `apps/mcp-server/src/tools/validate-project.ts:57`
 - `scripts/ci-verify.lib.mjs`
+- `schema/aub-ci.schema.json`
+- `tests/ci-verify.test.mjs`
+- `docs/github-ci.md`
+- `docs/security-and-data-safety.md`
 
-Risk:
+Required fix:
 
-In a nested app or monorepo with a subdirectory `aub.registry.json`, MCP `write_blueprint` can reject a Blueprint that `validate_blueprint`, `validate_project`, and CI would later accept.
+1. Add a single `resolveWorkspaceRef(root, ref, label)` helper.
+2. Reject:
+   - absolute paths.
+   - `..` traversal outside workspace.
+   - symlink-resolved paths outside workspace where the target must already exist.
+3. Use this helper for:
+   - CI config path.
+   - `blueprints[]`.
+   - `projects[]`.
+   - report blueprint refs.
+   - implementation report paths.
+4. Tighten `schema/aub-ci.schema.json` with string patterns or documented constraints that disallow absolute paths.
+5. Add regression tests for:
+   - `../outside.ui.json`
+   - absolute path refs.
+   - symlink escape.
+   - valid nested workspace refs.
 
-Suggested change:
+Acceptance:
 
-Resolve the output path first, then use it as the Blueprint location for registry discovery:
+- CI verifier and MCP enforce the same workspace boundary model.
+- Attempted out-of-root refs fail before any out-of-scope file is read.
 
-```ts
-const outputPath = await prepareWorkspaceWritePath(ctx.root, args.path);
-const knownTypes = await resolveKnownTypesForBlueprint({
-  workspaceRoot: ctx.root,
-  blueprintAbsPath: outputPath,
-  explicitRegistry: args.registry,
-});
+### 3. Fix `aub-workspace init/demo` symlink escape
+
+Problem:
+
+- `writeInitFile()` uses lexical containment only.
+- If `.github` or `.aub` is a symlink to an external directory, init can write outside the workspace.
+
+Files:
+
+- `packages/workspace-cli/bin/aub-workspace.mjs`
+- `tests/workspace-cli-init.test.mjs`
+
+Required fix:
+
+1. Add `prepareInitWritePath(workspace, relativePath)`.
+2. Resolve the workspace root with `realpath`.
+3. Before writing, find the nearest existing parent and verify its `realpath` is inside the workspace.
+4. After `mkdir`, verify the final parent `realpath` is still inside the workspace.
+5. Use this helper for all init/demo generated files.
+6. Add tests for:
+   - `.github` symlink escape.
+   - `.aub` symlink escape.
+   - normal nested directory creation.
+
+Acceptance:
+
+- `aub-workspace init --force` cannot write outside the selected workspace through symlinks.
+
+### 4. Make implementation evidence failures actually fail verification
+
+Problem:
+
+- `requireEvidence` currently checks that machine evidence exists.
+- It fails only `overflow.pass === false`.
+- Other evidence types with `pass: false` or `expected !== actual` can still pass.
+
+Files:
+
+- `scripts/implementation-report.lib.mjs`
+- `tests/implementation-report.test.mjs`
+- `scripts/capture-implementation-report.mjs`
+
+Required fix:
+
+1. Add generic machine evidence validation:
+   - any `evidence.pass === false` must fail.
+   - when both `expected` and `actual` exist, mismatch must fail.
+2. Keep existing overflow-specific messages, but make generic evidence checks apply to:
+   - `dom_query`
+   - `computed_style`
+   - `component_reuse`
+   - `interaction`
+   - future machine-readable evidence types.
+3. Add tests for:
+   - failed `dom_query`.
+   - failed `computed_style`.
+   - expected/actual mismatch.
+   - successful report with valid evidence.
+
+Acceptance:
+
+- A report cannot pass `--require-evidence` by merely including evidence objects.
+- Evidence must support the acceptance result.
+
+## P2 Required Before Ready-for-Review
+
+### 5. Preserve component candidate review state across rescans
+
+Problem:
+
+- `scanProjectUi()` overwrites `.aub/component-candidates.json`.
+- Prior `map_core`, `ignore`, or `create_extension` decisions can be reset to `candidate`.
+
+Files:
+
+- `scripts/workspace-loop.lib.mjs`
+- `tests/workspace-loop.test.mjs`
+
+Required fix:
+
+1. Add `mergeScannedCandidatesPreservingReviews(previous, next)`.
+2. Match candidates by stable `id`.
+3. Preserve:
+   - `status`
+   - `approvedAs`
+   - `reviewedAt`
+   - `reviewHistory`
+4. Run scan writes under the same candidate review lock used by approval.
+5. Add tests:
+   - scan -> approve -> rescan keeps approval.
+   - scan -> ignore -> rescan keeps ignore.
+   - new candidate is still added.
+   - removed source candidate remains only if needed for audit, or is marked stale explicitly.
+
+Acceptance:
+
+- Repeated scans do not destroy human review decisions.
+
+### 6. Make candidate extension approval recoverable
+
+Problem:
+
+- `create_extension` writes `aub.registry.json` first, then updates `.aub/component-candidates.json`.
+- A crash between the two writes can leave registry and candidate state inconsistent.
+
+Files:
+
+- `scripts/workspace-loop.lib.mjs`
+- `tests/workspace-loop.test.mjs`
+
+Required fix:
+
+1. Require candidate status to be `candidate` before any new review transition.
+2. Add a pending or reconciliation state for `create_extension`.
+3. Prefer this flow:
+   - acquire candidate review lock.
+   - mark candidate `review_pending` with intended extension type.
+   - write registry.
+   - finalize candidate as approved.
+4. Add idempotent reconciliation:
+   - if registry already contains the intended extension and candidate is pending, finalize candidate.
+   - if candidate is reviewed, reject duplicate review action.
+5. Add tests for:
+   - duplicate review rejection.
+   - registry already contains extension.
+   - simulated partial state recovery.
+
+Acceptance:
+
+- Candidate review has a strict state machine.
+- Registry and candidate audit state can recover from partial writes.
+
+### 7. Harden cross-process locks and temp cleanup
+
+Problem:
+
+- Lock release does not verify ownership.
+- Stale takeover can delete a live holder's lock if the process is paused long enough.
+- Temp files can remain if rename fails.
+
+Files:
+
+- `scripts/workspace-loop.lib.mjs`
+- `apps/mcp-server/src/workspace.ts`
+- `tests/workspace-loop.test.mjs`
+- `apps/mcp-server/test/tools.test.mjs`
+
+Required fix:
+
+1. Add an owner token to each lock directory.
+2. Release only when the current process owns the lock token.
+3. On owner write failure, best-effort remove the just-created lock directory.
+4. Add heartbeat or make stale cleanup conservative:
+   - stale removal must verify owner metadata.
+   - stale timeout should be clearly longer than expected write duration.
+5. Wrap temp file rename paths in cleanup logic:
+   - remove temp file on failed rename/write.
+   - never remove final target after successful rename.
+6. Add tests for:
+   - release does not remove another owner's lock.
+   - owner write failure cleanup.
+   - stale takeover does not break active ownership.
+   - temp file cleanup on simulated failure.
+
+Acceptance:
+
+- Locks preserve mutual exclusion across stale cleanup edge cases.
+- Failed writes do not leave avoidable temp artifacts.
+
+### 8. Align CORS allowed origins with auth allowed origins
+
+Problem:
+
+- Auth accepts configured `--rpc-allowed-origins`.
+- CORS preflight only allows localhost and GitHub Pages.
+- A configured browser origin can still fail before reaching RPC.
+
+Files:
+
+- `apps/mcp-server/src/http.ts`
+- `apps/mcp-server/test/http-auth.test.mjs`
+
+Required fix:
+
+1. Extract one origin allow helper.
+2. Use it in both auth and CORS middleware.
+3. Add tests for:
+   - configured origin preflight succeeds.
+   - unconfigured origin preflight does not receive allow headers.
+   - configured origin POST succeeds with valid token.
+
+Acceptance:
+
+- `--rpc-allowed-origins` means the same thing for auth and browser CORS.
+
+## P3 Hardening and Product Consistency
+
+### 9. Cap large repo discovery by files, directories, and depth
+
+Problem:
+
+- CI discover and workspace scanning have file caps but incomplete directory/depth caps.
+- Large monorepos can burn CI time before reaching useful work.
+
+Files:
+
+- `scripts/ci-verify.lib.mjs`
+- `scripts/workspace-loop.lib.mjs`
+- `tests/ci-verify.test.mjs`
+- `tests/workspace-loop.test.mjs`
+
+Required fix:
+
+1. Add caps:
+   - `MAX_DISCOVER_FILES`
+   - `MAX_DISCOVER_DIRS`
+   - `MAX_DISCOVER_DEPTH`
+   - workspace scanner directory/depth counters.
+2. Return warnings or failures when limits are hit.
+3. Add audit fields:
+   - `directoriesVisited`
+   - `directoriesSkippedByDepth`
+   - `discoverLimitReached`
+4. Share ignore rules where practical.
+
+Acceptance:
+
+- CI and scanner fail predictably on pathological repository shapes instead of walking indefinitely.
+
+### 10. Avoid double CI verification for PR comments
+
+Problem:
+
+- The action runs `ci-verify.mjs`.
+- The PR comment step calls `verifyWorkspace()` again through `create-pr-safety-comment.mjs`.
+
+Files:
+
+- `action.yml`
+- `scripts/ci-verify.mjs`
+- `scripts/create-pr-safety-comment.mjs`
+- `scripts/pr-safety-comment.lib.mjs`
+
+Required fix:
+
+1. Add `ci-verify.mjs --json-output <path>`.
+2. Make the comment script accept a precomputed result JSON.
+3. In the GitHub Action, run verification once and reuse the JSON for the comment.
+4. Keep backward compatibility for local comment generation.
+
+Acceptance:
+
+- PR Action produces the same comment without running full verification twice.
+
+### 11. Fix runtime version reporting
+
+Problem:
+
+- Package version is `0.4.0`.
+- CLI `--version` and HTTP `/health` report `0.3.0`, which is the Blueprint format version.
+
+Files:
+
+- `packages/workspace-cli/bin/aub-workspace.mjs`
+- `apps/mcp-server/src/http.ts`
+- `package.json`
+- `packages/workspace-cli/package.json`
+- related tests
+
+Required fix:
+
+1. Separate product/runtime version from Blueprint `format_version`.
+2. Read runtime version from package metadata or one shared generated constant.
+3. Keep `/health` free of sensitive workspace path details.
+
+Acceptance:
+
+- Runtime diagnostics report the installed AUB package version, not the Blueprint schema version.
+
+### 12. Fix packaged runtime root resolution order
+
+Problem:
+
+- `findAubRuntimeRoot()` can prefer a host project over packaged `vendor/aub`.
+- In `npx` usage, a target project that happens to contain AUB-like files could be mistaken as runtime.
+
+Files:
+
+- `packages/workspace-cli/bin/aub-workspace.mjs`
+- `tests/workspace-cli-init.test.mjs`
+- `pnpm workspace:package` output checks
+
+Required fix:
+
+1. Prefer packaged `vendor/aub` when present and complete.
+2. Use repo fallback only for real development checkout.
+3. Require both:
+   - `apps/mcp-server/dist/http.js`
+   - `apps/editor/dist/index.html`
+4. Add tests for packaged mode and host-project collision.
+
+Acceptance:
+
+- `npx aub-workspace` consistently uses the packaged runtime.
+
+### 13. Add session contract validation
+
+Problem:
+
+- `.aub/session.json` is a core editor/MCP/agent handoff contract.
+- MCP update currently accepts arbitrary patch objects.
+
+Files:
+
+- `schema/aub-session.schema.json`
+- `apps/mcp-server/src/tools/update-aub-session.ts`
+- `scripts/workspace-loop.lib.mjs`
+- `apps/editor/src/lib/workspace-client.ts`
+- `tests/workspace-loop.test.mjs`
+- `apps/mcp-server/test/tools.test.mjs`
+
+Required fix:
+
+1. Add a session schema or shared validator.
+2. Allow only known fields:
+   - `activeBlueprint`
+   - `activeProject`
+   - `targetRoute`
+   - `preview`
+   - `updatedAt`
+3. Validate path-like fields with workspace containment.
+4. Reject unknown keys unless there is an explicit `metadata` namespace.
+
+Acceptance:
+
+- Session state remains stable across editor, MCP, and agent usage.
+
+### 14. Normalize report filename conventions
+
+Problem:
+
+- `submit_report` writes generic `.json`.
+- `report:capture` and docs use `.implementation-report.json`.
+
+Files:
+
+- `apps/mcp-server/src/tools/submit-report.ts`
+- `scripts/capture-implementation-report.mjs`
+- `README.md`
+- `docs/github-ci.md`
+
+Required fix:
+
+1. Standardize persisted report output to `.implementation-report.json`.
+2. Keep backward compatibility when reading existing `.json` report paths.
+3. Update docs and tests.
+
+Acceptance:
+
+- Users see the same report naming convention across CLI, MCP, and docs.
+
+## Deferred Refactor
+
+### Split `workspace-loop.lib.mjs`
+
+Problem:
+
+`scripts/workspace-loop.lib.mjs` now owns too many responsibilities:
+
+- session management.
+- workspace status.
+- scanner.
+- source cache.
+- template generation.
+- component candidates.
+- locks.
+- implementation report summary.
+
+Decision:
+
+Do not block PR #26 on this large refactor. First stabilize behavior and tests. Then split into:
+
+- `workspace-session.lib.mjs`
+- `workspace-scan.lib.mjs`
+- `workspace-template.lib.mjs`
+- `component-candidates.lib.mjs`
+- `workspace-status.lib.mjs`
+- `workspace-locks.lib.mjs`
+
+Acceptance:
+
+- No behavior change in the refactor PR.
+- Existing tests remain green before and after each extraction.
+
+## Implementation Order
+
+1. Fix CLI manual auth flow and docs.
+2. Fix CI path confinement and tests.
+3. Fix CLI init/demo symlink containment and tests.
+4. Fix implementation evidence validation and tests.
+5. Fix candidate rescan preservation and review state machine.
+6. Harden locks and temp cleanup.
+7. Align CORS/auth origin helper.
+8. Add large repo directory/depth caps.
+9. Remove duplicate CI verification for PR comments.
+10. Fix runtime version and `/health` output.
+11. Fix packaged runtime root resolution.
+12. Add session schema validation.
+13. Normalize report filename convention.
+14. Defer `workspace-loop.lib.mjs` split to a separate refactor PR after behavior is stable.
+
+## Required Validation
+
+Run from `/Users/h/Workspace/AUB`:
+
+```bash
+pnpm test
+pnpm typecheck
+(cd apps/editor && pnpm typecheck)
+(cd apps/editor && pnpm build)
+(cd apps/mcp-server && pnpm typecheck && pnpm build && pnpm test)
+pnpm site:locales:check
+pnpm workspace:package
+git diff --check
 ```
 
-### Low: Scan audit/source-budget contract is still not a single shared shape
+Run the repository data safety check before committing. It must verify that no
+local private project names, local private paths, or locally identifiable test
+project terms are present in committed fixtures, docs, or snapshots.
 
-Runtime now reports source read counters in scan report summary and trust breakdown, but editor `WorkspaceStatus.scanAudit` still declares only the older fields.
+```bash
+node --test tests/data-safety.test.mjs
+```
 
-Evidence:
+Expected result: pass with no findings.
 
-- `scripts/workspace-loop.lib.mjs:990`
-- `scripts/workspace-loop.lib.mjs:1054`
-- `apps/editor/src/lib/workspace-client.ts:91`
+## Merge Readiness Criteria
 
-Suggested change:
+PR #26 can be marked ready for review only after:
 
-Define a shared `ScanAudit` / `ScanReport` type or schema and use it in workspace-loop output and editor types.
+1. All P1 items are implemented with regression tests.
+2. P2 items related to candidate state, lock ownership, and CORS consistency are implemented.
+3. Full validation passes.
+4. Data safety scan has no local project leaks.
+5. The final audit conclusion states that no merge-blocking findings remain.
 
-## Main Agent Assessment
+## Implementation Status
 
-This latest PR head is much stronger than the previous iterations. It fixes the earlier high-risk follow-ups around:
+Implemented in this follow-up:
 
-- Action shell quoting.
-- RPC token validation and redaction.
-- Editor same-page reconnect token handling.
-- Project CLI workspace root for `project.mjs`.
-- Registry symlink containment.
-- Browser handoff export.
-- Handoff resource caps.
-- Same-process and cross-process no-overwrite file creation.
-- Workspace-loop same-process read-modify-write loss.
-- Scanner source accounting in status.
+- P1 manual launch: `aub-workspace --no-open` now gives clear redacted-output guidance, and `--no-open --print-auth-url` is the explicit opt-in path for a working manual local URL.
+- P1 CI path confinement: CI config, Blueprint refs, project refs, and report refs now reject absolute paths, parent traversal, and symlink escapes outside the workspace.
+- P1 init/demo symlink containment: generated files use realpath parent checks before writing.
+- P1 evidence gate: machine evidence with `pass: false` or mismatched `expected`/`actual` now fails verification.
+- P2 component candidates: rescans preserve reviewed decisions and stale reviewed candidates remain auditable.
+- P2 extension approval: `create_extension` now uses a pending -> registry -> finalize state machine and rejects duplicate reviews.
+- P2 lock/temp hardening: workspace locks use owner tokens, heartbeat metadata, ownership-aware release, and temp cleanup on failed rename.
+- P2 CORS/auth consistency: configured RPC allowed origins are shared by auth and CORS preflight.
+- P3 runtime diagnostics: `aub-workspace --version` reports the package version, and `/health` no longer returns the workspace absolute path.
+- P3 packaged runtime root: source checkouts are distinguished from packaged runtime payloads to avoid choosing the wrong host project.
 
-However, I would still request changes before merge. The remaining findings are narrower, but they affect shared boundaries:
+Deferred and not considered merge-blocking for PR #26:
 
-1. Registry parsing still lacks size/count caps.
-2. `pnpm validate <project>` did not receive the new workspace-root option.
-3. Token scrubbing breaks reload/manual launch recovery unless a safe token handoff exists.
-4. Workspace-loop read-modify-write is still process-local, not cross-process.
-5. `write_blueprint` uses a different registry discovery boundary from validate/CI.
+- Split `workspace-loop.lib.mjs` into smaller libraries.
+- Add a formal `.aub/session.json` schema.
+- Remove duplicate CI verification from PR comments.
+- Normalize all implementation report filename conventions.
+- Add directory/depth caps to every remaining discovery path beyond the existing scan file and source byte caps.
 
-## Verification Run By Main Agent
+## Final Validation
 
-The following checks passed locally against `b417840d7cb9cc08d2895967397e6fa9f0f13b20`:
+Completed successfully after implementation:
 
-- `git diff --check 1eb94cd0cb7ed63510da0c48ebdd91ccdbd1bb58..b417840d7cb9cc08d2895967397e6fa9f0f13b20`
-- `pnpm test` (170 tests)
-- `pnpm typecheck`
-- `pnpm --dir apps/editor typecheck`
-- `pnpm --dir apps/editor build`
-- `pnpm --dir apps/mcp-server typecheck`
-- `pnpm --dir apps/mcp-server build`
-- `pnpm --dir apps/mcp-server test` (61 tests)
-- `pnpm site:locales:check`
-- `pnpm workspace:package`
+- `pnpm test` - 187 pass.
+- `pnpm typecheck`.
+- `(cd apps/editor && pnpm typecheck && pnpm build)`.
+- `(cd apps/mcp-server && pnpm typecheck && pnpm build && pnpm test)` - 63 pass.
+- `pnpm site:locales:check`.
+- `pnpm workspace:package`.
+- `git diff --check`.
+- repository data safety check.
+
+## Final Audit Conclusion
+
+No merge-blocking findings remain from this subagent review cycle. PR #26 can be pushed with this follow-up commit and moved out of draft after CI confirms the same checks remotely.

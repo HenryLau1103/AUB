@@ -409,6 +409,17 @@ pnpm dev
 The browser opens automatically from npx aub-workspace.
 ```
 
+If your environment cannot open a browser automatically, run:
+
+```bash
+npx aub-workspace --no-open --print-auth-url
+```
+
+Copy the `Manual:` URL only from a trusted local terminal. It contains the local
+RPC token, so do not paste it into issues, PRs, logs, or chat. Plain
+`--no-open` keeps that token redacted and prints guidance instead of a directly
+usable URL.
+
 ### AUB Editor: Complete the First Workspace Loop
 
 ```text

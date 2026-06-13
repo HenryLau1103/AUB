@@ -194,15 +194,34 @@ async function acquireCrossProcessLock(path) {
   const lockPath = `${path}.lock`;
   const startedAt = Date.now();
   for (;;) {
+    const token = randomUUID();
     try {
       await mkdir(lockPath);
-      await writeFile(
-        join(lockPath, 'owner.json'),
-        `${JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString(), target: path }, null, 2)}\n`,
+      const ownerPath = join(lockPath, 'owner.json');
+      const writeOwner = () => writeFile(
+        ownerPath,
+        `${JSON.stringify({ token, pid: process.pid, updatedAt: new Date().toISOString(), target: path }, null, 2)}\n`,
         'utf8'
       );
+      try {
+        await writeOwner();
+      } catch (ownerError) {
+        await rm(lockPath, { recursive: true, force: true }).catch(() => {});
+        throw ownerError;
+      }
+      const heartbeat = setInterval(() => {
+        void writeOwner().catch(() => {});
+      }, Math.max(1000, Math.floor(CROSS_PROCESS_LOCK_STALE_MS / 3)));
       return async () => {
-        await rm(lockPath, { recursive: true, force: true });
+        clearInterval(heartbeat);
+        try {
+          const owner = JSON.parse(await readFile(ownerPath, 'utf8'));
+          if (owner?.token === token) {
+            await rm(lockPath, { recursive: true, force: true });
+          }
+        } catch (releaseError) {
+          if (releaseError?.code !== 'ENOENT') throw releaseError;
+        }
       };
     } catch (err) {
       if (err?.code !== 'EEXIST') throw err;
@@ -240,7 +259,13 @@ async function writeJsonAtomicLocked(path, value, { overwrite = true } = {}) {
       await rm(tempPath, { force: true });
     }
   } else {
-    await rename(tempPath, path);
+    let renamed = false;
+    try {
+      await rename(tempPath, path);
+      renamed = true;
+    } finally {
+      if (!renamed) await rm(tempPath, { force: true });
+    }
   }
   return { bytes: new TextEncoder().encode(content).byteLength };
 }
@@ -992,6 +1017,36 @@ async function writeComponentCandidates(root, candidates) {
   return doc;
 }
 
+function mergeScannedCandidatesPreservingReviews(previousCandidates = [], nextCandidates = []) {
+  const previousById = new Map(previousCandidates.map((candidate) => [candidate.id, candidate]));
+  const nextIds = new Set(nextCandidates.map((candidate) => candidate.id));
+  const merged = nextCandidates.map((candidate) => {
+    const previous = previousById.get(candidate.id);
+    if (!previous) return candidate;
+    if (previous.status === 'candidate' && !previous.reviewedAt && !previous.approvedAs) {
+      return { ...previous, ...candidate, reviewHistory: previous.reviewHistory ?? candidate.reviewHistory ?? [] };
+    }
+    return {
+      ...candidate,
+      status: previous.status,
+      approvedAs: previous.approvedAs,
+      reviewedAt: previous.reviewedAt,
+      reviewHistory: previous.reviewHistory ?? [],
+    };
+  });
+
+  for (const previous of previousCandidates) {
+    if (nextIds.has(previous.id)) continue;
+    if (previous.status && previous.status !== 'candidate') {
+      merged.push({
+        ...previous,
+        stale: true,
+      });
+    }
+  }
+  return merged;
+}
+
 export async function readScanReport(root) {
   return readJsonIfExists(join(root, SCAN_REPORT_PATH), null);
 }
@@ -1238,13 +1293,19 @@ export async function scanProjectUi(root, options = {}) {
   const frameworks = detectFrameworks(packageJson, files);
   const routes = await detectRoutes(files, sourceReader);
   const storybook = await detectStorybook(files, sourceReader);
-  const { candidates } = await detectComponents(root, files, namespace, frameworks, storybook, sourceReader);
+  const { candidates: scannedCandidates } = await detectComponents(root, files, namespace, frameworks, storybook, sourceReader);
   walkState.audit.sourceBytesRead = sourceReader.audit.totalSourceBytes;
   walkState.audit.sourceFilesRead = sourceReader.audit.sourceFilesRead;
   walkState.audit.sourceFilesSkippedBySize = sourceReader.audit.skippedLargeFiles;
   walkState.audit.sourceFilesSkippedByBudget = sourceReader.audit.skippedBudgetFiles;
   walkState.audit.sourceByteLimitReached = sourceReader.audit.skippedBudgetFiles > 0;
-  const doc = await writeComponentCandidates(root, candidates);
+  await mkdir(join(root, AUB_DIR), { recursive: true });
+  const doc = await withPathLock(join(root, AUB_DIR, 'component-candidates.review'), async () => {
+    const previous = await readComponentCandidates(root);
+    const mergedCandidates = mergeScannedCandidatesPreservingReviews(previous.candidates, scannedCandidates);
+    return writeComponentCandidates(root, mergedCandidates);
+  });
+  const candidates = doc.candidates;
   const scanReport = await writeScanReport(root, buildScanReport({
     packageJson,
     namespace,
@@ -1742,6 +1803,7 @@ async function approveComponentCandidateLocked(root, args = {}) {
     }, (doc) => {
       const candidate = (doc.candidates ?? []).find((item) => item.id === args.id);
       if (!candidate) throw new Error(`Component candidate not found: ${args.id}`);
+      assertCandidateCanBeReviewed(candidate, args.id);
       candidate.status = 'ignored';
       candidate.reviewedAt = new Date().toISOString();
       candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'ignore', reviewedAt: candidate.reviewedAt }];
@@ -1758,6 +1820,7 @@ async function approveComponentCandidateLocked(root, args = {}) {
     }, (doc) => {
       const candidate = (doc.candidates ?? []).find((item) => item.id === args.id);
       if (!candidate) throw new Error(`Component candidate not found: ${args.id}`);
+      assertCandidateCanBeReviewed(candidate, args.id);
       const normalizedCoreType = normalizeCoreType(args.coreType ?? candidate.suggestedCoreType);
       if (!normalizedCoreType) {
         throw new Error(`Invalid core type: ${args.coreType ?? candidate.suggestedCoreType}`);
@@ -1784,6 +1847,27 @@ async function approveComponentCandidateLocked(root, args = {}) {
   if (!namespacedType) {
     throw new Error(`Invalid namespaced type: ${inputNamespacedType}`);
   }
+  const pendingResult = await updateWorkspaceJson(root, COMPONENT_CANDIDATES_PATH, {
+    format: 'aub-component-candidates',
+    format_version: WORKSPACE_LOOP_VERSION,
+    candidates: [],
+  }, (currentDoc) => {
+    const currentCandidate = (currentDoc.candidates ?? []).find((item) => item.id === args.id);
+    if (!currentCandidate) throw new Error(`Component candidate not found: ${args.id}`);
+    if (currentCandidate.status === 'review_pending' && currentCandidate.approvedAs === namespacedType) {
+      return { ...currentDoc, updatedAt: new Date().toISOString(), candidates: currentDoc.candidates ?? [] };
+    }
+    assertCandidateCanBeReviewed(currentCandidate, args.id);
+    currentCandidate.status = 'review_pending';
+    currentCandidate.approvedAs = namespacedType;
+    currentCandidate.reviewedAt = new Date().toISOString();
+    currentCandidate.reviewHistory = [
+      ...(currentCandidate.reviewHistory ?? []),
+      { action: 'create_extension_pending', approvedAs: namespacedType, reviewedAt: currentCandidate.reviewedAt },
+    ];
+    return { ...currentDoc, updatedAt: new Date().toISOString(), candidates: currentDoc.candidates ?? [] };
+  });
+  const pendingCandidate = pendingResult.value.candidates.find((item) => item.id === args.id);
   let componentEntry;
   await updateWorkspaceJson(root, 'aub.registry.json', {
     $schema: 'https://henrylau1103.github.io/AUB/schema/aub.registry.schema.json',
@@ -1795,16 +1879,16 @@ async function approveComponentCandidateLocked(root, args = {}) {
     const existing = registry.components.find((item) => item.name === namespacedType);
     componentEntry = {
       name: namespacedType,
-      isContainer: Boolean(args.isContainer ?? candidate.isContainer),
-      description: normalizeText(args.description, `${candidate.componentName} scanned from ${candidate.sourcePath}.`, 240),
+      isContainer: Boolean(args.isContainer ?? pendingCandidate.isContainer),
+      description: normalizeText(args.description, `${pendingCandidate.componentName} scanned from ${pendingCandidate.sourcePath}.`, 240),
       implementations: [{
-        id: candidate.framework || 'app',
-        framework: normalizeFramework(candidate.framework),
-        module: normalizeText(args.module, candidate.sourcePath, 200),
-        export: normalizeText(args.export, candidate.componentName, 120),
+        id: pendingCandidate.framework || 'app',
+        framework: normalizeFramework(pendingCandidate.framework),
+        module: normalizeText(args.module, pendingCandidate.sourcePath, 200),
+        export: normalizeText(args.export, pendingCandidate.componentName, 120),
         importStyle: args.importStyle ?? 'named',
-        sourcePath: candidate.sourcePath,
-        props: Object.fromEntries((candidate.props ?? []).map((prop) => [prop, { from: `content.${prop}`, required: false }])),
+        sourcePath: pendingCandidate.sourcePath,
+        props: Object.fromEntries((pendingCandidate.props ?? []).map((prop) => [prop, { from: `content.${prop}`, required: false }])),
         notes: 'Approved from AUB component candidate review. Preserve production behavior.',
       }],
     };
@@ -1820,6 +1904,9 @@ async function approveComponentCandidateLocked(root, args = {}) {
   }, (currentDoc) => {
     const currentCandidate = (currentDoc.candidates ?? []).find((item) => item.id === args.id);
     if (!currentCandidate) throw new Error(`Component candidate not found: ${args.id}`);
+    if (currentCandidate.status !== 'review_pending' || currentCandidate.approvedAs !== namespacedType) {
+      throw new Error(`Component candidate review state changed before finalization: ${args.id}`);
+    }
     currentCandidate.status = 'approved';
     currentCandidate.approvedAs = namespacedType;
     currentCandidate.reviewedAt = new Date().toISOString();
@@ -1831,6 +1918,12 @@ async function approveComponentCandidateLocked(root, args = {}) {
     registryPath: 'aub.registry.json',
     registryComponent: componentEntry,
   };
+}
+
+function assertCandidateCanBeReviewed(candidate, id) {
+  if ((candidate.status ?? 'candidate') !== 'candidate') {
+    throw new Error(`Component candidate is already reviewed: ${id}`);
+  }
 }
 
 function normalizeFramework(framework) {

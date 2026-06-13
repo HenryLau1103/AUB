@@ -56,7 +56,13 @@ npx aub-workspace demo
 npx aub-workspace --workspace /path/to/app
 npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open
+npx aub-workspace --no-open --print-auth-url
 ```
+
+`--no-open` 不會開啟瀏覽器，而且只會印出遮蔽 token 的 editor URL。
+如果你需要手動複製可連線的 URL，請在可信任的本機終端機使用
+`--no-open --print-auth-url`。該 URL 會包含本機 RPC token，不要貼到
+issue、PR、log 或聊天訊息。
 
 `demo` 會建立一個合成 workspace，用來證明安全流程，不需要使用真實專案。它包含 scan report、generated template、Blueprint、會失敗的 implementation report、可通過的 implementation report，以及 fail/pass PR safety comment。
 

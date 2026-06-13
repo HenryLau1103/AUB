@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { promisify } from 'node:util';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
-import { scanProjectUi, generateTemplateFromSource } from '../scripts/workspace-loop.lib.mjs';
+import { approveComponentCandidate, scanProjectUi, generateTemplateFromSource } from '../scripts/workspace-loop.lib.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA = JSON.parse(await readFile(resolve(ROOT, 'schema/ui-blueprint.schema.json'), 'utf8'));
@@ -201,6 +201,105 @@ test('WL5: component candidate reviews are serialized across processes', async (
     assert.equal(byId.get('nav-b').approvedAs, 'nav_menu');
     assert.equal(byId.get('card-a').reviewHistory.length, 1);
     assert.equal(byId.get('nav-b').reviewHistory.length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('WL6: rescanning preserves reviewed component candidate state', async () => {
+  const root = await copyFixture('next-dashboard');
+  try {
+    const firstScan = await scanProjectUi(root);
+    const candidate = firstScan.components.find((item) => item.componentName === 'RiskSummaryCard');
+    assert.ok(candidate);
+
+    await approveComponentCandidate(root, {
+      id: candidate.id,
+      action: 'ignore',
+    });
+
+    const secondScan = await scanProjectUi(root);
+    const reviewed = secondScan.components.find((item) => item.id === candidate.id);
+    assert.equal(reviewed.status, 'ignored');
+    assert.ok(reviewed.reviewedAt);
+    assert.equal(reviewed.reviewHistory.length, 1);
+
+    await rm(join(root, 'components', 'RiskSummaryCard.tsx'), { force: true });
+    const thirdScan = await scanProjectUi(root);
+    const stale = thirdScan.components.find((item) => item.id === candidate.id);
+    assert.equal(stale.status, 'ignored');
+    assert.equal(stale.stale, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('WL7: extension candidate review is strict and can recover pending state', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-candidates-state-machine-'));
+  try {
+    await mkdir(join(root, '.aub'), { recursive: true });
+    await writeFile(join(root, '.aub', 'component-candidates.json'), `${JSON.stringify({
+      format: 'aub-component-candidates',
+      format_version: '0.1.0',
+      candidates: [
+        {
+          id: 'card-a',
+          status: 'candidate',
+          sourcePath: 'src/CardA.tsx',
+          framework: 'react',
+          componentName: 'CardA',
+          suggestedType: 'app:card_a',
+          suggestedCoreType: 'card',
+          props: ['title'],
+          reviewHistory: [],
+        },
+        {
+          id: 'card-b',
+          status: 'review_pending',
+          approvedAs: 'app:card_b',
+          sourcePath: 'src/CardB.tsx',
+          framework: 'react',
+          componentName: 'CardB',
+          suggestedType: 'app:card_b',
+          suggestedCoreType: 'card',
+          props: [],
+          reviewHistory: [{ action: 'create_extension_pending', approvedAs: 'app:card_b' }],
+        },
+      ],
+    }, null, 2)}\n`, 'utf8');
+
+    const approved = await approveComponentCandidate(root, {
+      id: 'card-a',
+      action: 'create_extension',
+      namespacedType: 'app:card_a',
+    });
+    assert.equal(approved.candidate.status, 'approved');
+    assert.equal(approved.candidate.approvedAs, 'app:card_a');
+    assert.deepEqual(
+      approved.candidate.reviewHistory.map((item) => item.action),
+      ['create_extension_pending', 'create_extension']
+    );
+
+    await assert.rejects(
+      approveComponentCandidate(root, {
+        id: 'card-a',
+        action: 'map_core',
+        coreType: 'card',
+      }),
+      /already reviewed/
+    );
+
+    const recovered = await approveComponentCandidate(root, {
+      id: 'card-b',
+      action: 'create_extension',
+      namespacedType: 'app:card_b',
+    });
+    assert.equal(recovered.candidate.status, 'approved');
+    assert.equal(recovered.candidate.approvedAs, 'app:card_b');
+    assert.deepEqual(
+      recovered.candidate.reviewHistory.map((item) => item.action),
+      ['create_extension_pending', 'create_extension']
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

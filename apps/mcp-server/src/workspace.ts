@@ -178,7 +178,13 @@ export async function writeFileAtomic(
       }
       return;
     }
-    await rename(tempPath, outputPath);
+    let renamed = false;
+    try {
+      await rename(tempPath, outputPath);
+      renamed = true;
+    } finally {
+      if (!renamed) await rm(tempPath, { force: true });
+    }
   });
 }
 

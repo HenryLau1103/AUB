@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,12 +19,19 @@ export async function verifyWorkspace({
   requireEvidence = false,
   minSafetyScore = null,
 } = {}) {
-  const root = resolve(workspace);
-  const absoluteConfig = resolve(root, configPath);
+  const root = await realpath(resolve(workspace));
   const validators = await loadValidators();
   const failures = [];
   const checks = [];
   let config;
+  let absoluteConfig;
+
+  try {
+    absoluteConfig = await resolveWorkspaceRef(root, configPath, 'CI config path');
+  } catch (error) {
+    failures.push({ path: configPath, message: error.message });
+    return summarize({ root, configPath: null, checks, failures });
+  }
 
   if (existsSync(absoluteConfig)) {
     config = JSON.parse(await readFile(absoluteConfig, 'utf8'));
@@ -102,9 +109,9 @@ async function loadValidators() {
 }
 
 async function verifyBlueprintFile(root, ref, validators) {
-  const path = resolveRef(root, ref);
   const failures = [];
   try {
+    const path = await resolveWorkspaceRef(root, ref, 'Blueprint path');
     const blueprint = await readDocument(path);
     const schemaOk = validators.validateBlueprint(blueprint);
     if (!schemaOk) {
@@ -131,9 +138,9 @@ async function verifyBlueprintFile(root, ref, validators) {
 }
 
 async function verifyProjectFile(root, ref, validators) {
-  const path = resolveRef(root, ref);
   const failures = [];
   try {
+    const path = await resolveWorkspaceRef(root, ref, 'Project path');
     const loaded = await loadProject(path, { workspaceRoot: root });
     if (!validators.validateProject(loaded.project)) {
       for (const error of formatAjvErrors(validators.validateProject)) {
@@ -176,9 +183,11 @@ async function verifyReportFile(root, entry, validators, options = {}) {
   let safetyScore = null;
   let reportSummary = null;
   try {
+    const blueprintPath = await resolveWorkspaceRef(root, entry.blueprint, 'Report Blueprint path');
+    const reportPath = await resolveWorkspaceRef(root, entry.report, 'Implementation report path');
     const [blueprint, report] = await Promise.all([
-      readDocument(resolveRef(root, entry.blueprint)),
-      readJson(resolveRef(root, entry.report)),
+      readDocument(blueprintPath),
+      readJson(reportPath),
     ]);
     if (!validators.validateReport(report)) {
       for (const error of formatAjvErrors(validators.validateReport)) {
@@ -253,8 +262,27 @@ function summarize({ root, configPath, checks, failures }) {
   };
 }
 
-function resolveRef(root, ref) {
-  return isAbsolute(ref) ? ref : resolve(root, ref);
+async function resolveWorkspaceRef(root, ref, label = 'path') {
+  if (typeof ref !== 'string' || ref.trim() === '') {
+    throw new Error(`${label} must be a non-empty workspace-relative path.`);
+  }
+  if (isAbsolute(ref)) {
+    throw new Error(`${label} must be workspace-relative: ${ref}`);
+  }
+  const path = resolve(root, ref);
+  const rel = relative(root, path);
+  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new Error(`${label} must stay inside the workspace: ${ref}`);
+  }
+  if (existsSync(path)) {
+    const real = await realpath(path);
+    const realRel = relative(root, real);
+    if (realRel === '..' || realRel.startsWith(`..${sep}`) || isAbsolute(realRel)) {
+      throw new Error(`${label} must stay inside the workspace: ${ref}`);
+    }
+    return real;
+  }
+  return path;
 }
 
 function normalizeRef(ref) {

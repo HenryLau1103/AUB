@@ -3,8 +3,8 @@ import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import { createReadStream, existsSync } from 'node:fs';
-import { mkdir, readdir, stat, writeFile } from 'node:fs/promises';
-import { dirname, extname, join, resolve, sep } from 'node:path';
+import { mkdir, readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { once } from 'node:events';
 
@@ -22,6 +22,7 @@ function parseArgs(argv) {
     force: false,
     github: true,
     ciOnly: false,
+    printAuthUrl: false,
     workspaceSet: false,
   };
   if (['start', 'init', 'demo'].includes(argv[0])) {
@@ -36,6 +37,8 @@ function parseArgs(argv) {
       args.version = true;
     } else if (value === '--no-open') {
       args.open = false;
+    } else if (value === '--print-auth-url') {
+      args.printAuthUrl = true;
     } else if (value === '--force') {
       args.force = true;
     } else if (value === '--no-github') {
@@ -77,6 +80,7 @@ function usage() {
     '  --editor-port <port>   Preferred editor port. Defaults to 3110.',
     '  --host <host>          Local host binding. Defaults to 127.0.0.1.',
     '  --no-open             Print the editor URL without opening a browser.',
+    '  --print-auth-url       With --no-open, print the sensitive authenticated local editor URL.',
     '  --force               Overwrite existing files during init.',
     '  --no-github           During init, skip GitHub workflow and issue templates.',
     '  --ci-only             During init, create only CI config and workflow files.',
@@ -107,11 +111,37 @@ async function findOpenPort(host, preferredPort) {
   throw new Error(`Could not find an open port starting at ${preferredPort}`);
 }
 
-function findAubRuntimeRoot() {
+function hasCompleteRuntime(root) {
+  return existsSync(join(root, 'schema', 'ui-blueprint.schema.json'))
+    && existsSync(join(root, 'apps', 'mcp-server', 'dist', 'http.js'))
+    && existsSync(join(root, 'apps', 'editor', 'dist', 'index.html'));
+}
+
+async function isSourceCheckout(root) {
+  try {
+    const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+    return packageJson.name === 'aub' && hasCompleteRuntime(root);
+  } catch {
+    return false;
+  }
+}
+
+async function findAubRuntimeRoot() {
   const vendorRoot = join(packageRoot, 'vendor', 'aub');
-  if (existsSync(join(repoFallbackRoot, 'schema', 'ui-blueprint.schema.json'))) return repoFallbackRoot;
-  if (existsSync(join(vendorRoot, 'schema', 'ui-blueprint.schema.json'))) return vendorRoot;
+  if (await isSourceCheckout(repoFallbackRoot)) {
+    return repoFallbackRoot;
+  }
+  if (hasCompleteRuntime(vendorRoot)) return vendorRoot;
   throw new Error('AUB runtime payload is missing. Rebuild the package with: pnpm workspace:package');
+}
+
+async function readWorkspaceCliVersion() {
+  try {
+    const packageJson = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'));
+    return packageJson.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
 }
 
 function mimeType(path) {
@@ -133,6 +163,11 @@ function mimeType(path) {
 function isInside(root, filePath) {
   const normalizedRoot = root.endsWith(sep) ? root : `${root}${sep}`;
   return filePath === root || filePath.startsWith(normalizedRoot);
+}
+
+function isInsideByRelative(root, filePath) {
+  const rel = relative(root, filePath);
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
 function createEditorServer(editorRoot) {
@@ -360,16 +395,38 @@ function initFileEntries(args) {
   return entries;
 }
 
-async function writeInitFile(workspace, relativePath, content, force) {
-  const path = resolve(workspace, relativePath);
-  if (!isInside(workspace, path)) {
+async function prepareInitWritePath(workspace, relativePath) {
+  const workspaceRoot = await realpath(workspace);
+  const path = resolve(workspaceRoot, relativePath);
+  if (!isInsideByRelative(workspaceRoot, path)) {
     throw new Error(`Init path must stay inside workspace: ${relativePath}`);
   }
+
+  let existingParent = dirname(path);
+  while (!existsSync(existingParent)) {
+    const next = dirname(existingParent);
+    if (next === existingParent) break;
+    existingParent = next;
+  }
+  const existingParentReal = await realpath(existingParent);
+  if (!isInsideByRelative(workspaceRoot, existingParentReal)) {
+    throw new Error(`Init path parent must stay inside workspace: ${relativePath}`);
+  }
+
+  await mkdir(dirname(path), { recursive: true });
+  const finalParentReal = await realpath(dirname(path));
+  if (!isInsideByRelative(workspaceRoot, finalParentReal)) {
+    throw new Error(`Init path parent must stay inside workspace: ${relativePath}`);
+  }
+  return path;
+}
+
+async function writeInitFile(workspace, relativePath, content, force) {
+  const path = await prepareInitWritePath(workspace, relativePath);
   const exists = existsSync(path);
   if (exists && !force) {
     return { path: relativePath, status: 'exists' };
   }
-  await mkdir(dirname(path), { recursive: true });
   await writeFile(path, content, 'utf8');
   return { path: relativePath, status: exists ? 'overwritten' : 'created' };
 }
@@ -600,7 +657,7 @@ function demoSourceFiles() {
 }
 
 async function createDemoReports({ workspace, blueprint, implementation }) {
-  const runtimeRoot = findAubRuntimeRoot();
+  const runtimeRoot = await findAubRuntimeRoot();
   const reportModule = await import(pathToFileURL(join(runtimeRoot, 'scripts', 'implementation-report.lib.mjs')).href);
   const failReport = reportModule.createImplementationReportTemplate(blueprint);
   failReport.implementation = {
@@ -652,7 +709,7 @@ async function createDemoReports({ workspace, blueprint, implementation }) {
 }
 
 async function createDemoPrComments(workspace) {
-  const runtimeRoot = findAubRuntimeRoot();
+  const runtimeRoot = await findAubRuntimeRoot();
   const [{ verifyWorkspace }, { formatPrSafetyComment }] = await Promise.all([
     import(pathToFileURL(join(runtimeRoot, 'scripts', 'ci-verify.lib.mjs')).href),
     import(pathToFileURL(join(runtimeRoot, 'scripts', 'pr-safety-comment.lib.mjs')).href),
@@ -701,7 +758,7 @@ async function createDemoWorkspace(args) {
   await mkdir(join(workspace, '.aub', 'reports'), { recursive: true });
   await mkdir(join(workspace, 'screens'), { recursive: true });
 
-  const runtimeRoot = findAubRuntimeRoot();
+  const runtimeRoot = await findAubRuntimeRoot();
   const workspaceModule = await import(pathToFileURL(join(runtimeRoot, 'scripts', 'workspace-loop.lib.mjs')).href);
   await workspaceModule.scanProjectUi(workspace, { namespace: 'demo' });
   const generated = await workspaceModule.generateTemplateFromSource(workspace, {
@@ -863,7 +920,7 @@ async function main() {
     return;
   }
   if (args.version) {
-    console.log('0.3.0');
+    console.log(await readWorkspaceCliVersion());
     return;
   }
 
@@ -886,7 +943,7 @@ async function main() {
     throw new Error(`Workspace is not a directory: ${workspace}`);
   }
 
-  const aubRoot = findAubRuntimeRoot();
+  const aubRoot = await findAubRuntimeRoot();
   const mcpEntry = join(aubRoot, 'apps', 'mcp-server', 'dist', 'http.js');
   const editorRoot = join(aubRoot, 'apps', 'editor', 'dist');
   if (!existsSync(mcpEntry)) throw new Error(`MCP server build is missing: ${mcpEntry}`);
@@ -930,7 +987,12 @@ async function main() {
   console.error(`MCP:       ${mcpUrl}`);
   console.error('Security:  The printed editor URL is redacted; the auto-opened browser URL carries the local RPC token and the editor stores it for reloads.');
   if (!args.open) {
-    console.error('Manual:    --no-open does not print the RPC token. Use the editor Connect Workspace form with an authenticated MCP endpoint if needed.');
+    if (args.printAuthUrl) {
+      console.error(`Manual:    ${editorUrl.href}`);
+      console.error('Warning:   The Manual URL contains the local RPC token. Do not paste it into issues, PRs, logs, or chat.');
+    } else {
+      console.error('Manual:    The redacted URL is not directly usable. Rerun with --no-open --print-auth-url on a trusted local terminal to copy an authenticated local editor URL.');
+    }
   }
   console.error('Stop:      Ctrl+C');
   console.error('');

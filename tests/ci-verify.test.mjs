@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -138,4 +138,77 @@ test('CI6: AUB self-dogfood editor report passes the evidence gate', async () =>
   const report = result.checks.find((check) => check.kind === 'report');
   assert.equal(report?.safetyScore.grade, 'pass');
   assert.equal(report?.reportSummary.acceptance_passed, report?.reportSummary.acceptance_total);
+});
+
+test('CI7: CI config path must stay inside the workspace', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'aub-ci-config-boundary-'));
+  const outside = await mkdtemp(join(tmpdir(), 'aub-ci-outside-'));
+  await writeFile(join(outside, 'ci.json'), `${JSON.stringify({ version: '1.0.0' })}\n`, 'utf8');
+
+  try {
+    const relativeEscape = await verifyWorkspace({
+      workspace,
+      configPath: '../ci.json',
+    });
+    assert.equal(relativeEscape.valid, false);
+    assert.ok(relativeEscape.failures.some((failure) => failure.message.includes('workspace')));
+
+    const absoluteEscape = await verifyWorkspace({
+      workspace,
+      configPath: join(outside, 'ci.json'),
+    });
+    assert.equal(absoluteEscape.valid, false);
+    assert.ok(absoluteEscape.failures.some((failure) => failure.message.includes('workspace-relative')));
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test('CI8: configured refs cannot escape the workspace', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'aub-ci-ref-boundary-'));
+  await mkdir(join(workspace, '.aub'), { recursive: true });
+
+  try {
+    await writeFile(join(workspace, '.aub', 'ci.json'), `${JSON.stringify({
+      version: '1.0.0',
+      blueprints: ['../outside.ui.json'],
+      projects: ['/tmp/outside.aub.project.json'],
+      reports: [{ blueprint: 'screens/freeform-actions.ui.json', report: '../report.json' }],
+    }, null, 2)}\n`, 'utf8');
+
+    const result = await verifyWorkspace({
+      workspace,
+      configPath: '.aub/ci.json',
+    });
+    assert.equal(result.valid, false);
+    assert.ok(result.failures.some((failure) => failure.message.includes('CI config')));
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test('CI9: configured refs cannot follow symlinks outside the workspace', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'aub-ci-symlink-boundary-'));
+  const outside = await mkdtemp(join(tmpdir(), 'aub-ci-symlink-outside-'));
+  const blueprint = await readFile(resolve(ROOT, 'examples/freeform-actions.ui.json'), 'utf8');
+  await mkdir(join(workspace, '.aub'), { recursive: true });
+  await writeFile(join(outside, 'outside.ui.json'), blueprint, 'utf8');
+  await symlink(join(outside, 'outside.ui.json'), join(workspace, 'linked.ui.json'));
+  await writeFile(join(workspace, '.aub', 'ci.json'), `${JSON.stringify({
+    version: '1.0.0',
+    blueprints: ['linked.ui.json'],
+  }, null, 2)}\n`, 'utf8');
+
+  try {
+    const result = await verifyWorkspace({
+      workspace,
+      configPath: '.aub/ci.json',
+    });
+    assert.equal(result.valid, false);
+    assert.ok(result.failures.some((failure) => failure.message.includes('stay inside the workspace')));
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
 });

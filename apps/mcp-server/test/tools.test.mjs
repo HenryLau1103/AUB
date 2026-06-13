@@ -849,15 +849,38 @@ test('approve_component_candidate only writes registry for extension approval', 
     });
     assert.equal(mapped.registryPath, null);
     await assert.rejects(() => readFile(join(root, 'aub.registry.json'), 'utf8'), /ENOENT/);
+    await assert.rejects(
+      () => approveComponentCandidate({ ...ctx, root }, {
+        id: candidate.id,
+        action: 'create_extension',
+        namespacedType: 'webapp:insight_card',
+      }),
+      /already reviewed/
+    );
+
+    const candidatesPath = join(root, '.aub', 'component-candidates.json');
+    const doc = JSON.parse(await readFile(candidatesPath, 'utf8'));
+    doc.candidates.push({
+      ...candidate,
+      id: 'src-components-insight-panel.tsx-insight_panel',
+      componentName: 'InsightPanel',
+      sourcePath: 'src/components/InsightPanel.tsx',
+      suggestedType: 'webapp:insight_panel',
+      status: 'candidate',
+      approvedAs: undefined,
+      reviewedAt: undefined,
+      reviewHistory: [],
+    });
+    await writeFile(candidatesPath, `${JSON.stringify(doc, null, 2)}\n`, 'utf8');
 
     const extension = await approveComponentCandidate({ ...ctx, root }, {
-      id: candidate.id,
+      id: 'src-components-insight-panel.tsx-insight_panel',
       action: 'create_extension',
-      namespacedType: 'webapp:insight_card',
+      namespacedType: 'webapp:insight_panel',
     });
     assert.equal(extension.registryPath, 'aub.registry.json');
     const registry = JSON.parse(await readFile(join(root, 'aub.registry.json'), 'utf8'));
-    assert.equal(registry.components[0].name, 'webapp:insight_card');
+    assert.equal(registry.components[0].name, 'webapp:insight_panel');
   } finally {
     await rm(root, { recursive: true, force: true });
   }
