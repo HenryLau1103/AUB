@@ -1,10 +1,9 @@
-import { access } from 'node:fs/promises';
 import { extname, relative, sep } from 'node:path';
 import yaml from 'js-yaml';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
 import type { Blueprint } from '../aub.js';
-import { buildKnownTypes, validateBlueprintSemantics } from '../aub.js';
+import { buildKnownTypes, discoverWorkspaceExtensionRegistry, validateBlueprintSemantics } from '../aub.js';
 import { formatAjvErrors } from '../schema.js';
 import { prepareWorkspaceWritePath, resolveWorkspaceRegistryPath, writeFileAtomic } from '../workspace.js';
 
@@ -29,15 +28,6 @@ export const config = {
   inputSchema,
 };
 
-async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function run(
   ctx: ServerContext,
   args: {
@@ -56,8 +46,10 @@ export async function run(
   const schemaOk = ctx.validators.validateBlueprint(blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
   const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry ? await resolveWorkspaceRegistryPath(ctx.root, args.registry) : null,
-    startDir: ctx.root,
+    extensionPath: args.registry
+      ? await resolveWorkspaceRegistryPath(ctx.root, args.registry)
+      : discoverWorkspaceExtensionRegistry(ctx.root, ctx.root),
+    discover: false,
   });
   const semanticErrors = schemaOk
     ? validateBlueprintSemantics(blueprint, { knownTypes: knownTypes.knownTypes })
@@ -69,21 +61,22 @@ export async function run(
   }
 
   const outputPath = await prepareWorkspaceWritePath(ctx.root, args.path);
-  if (!args.overwrite && (await exists(outputPath))) {
-    throw new Error(`Refusing to overwrite existing file: ${args.path}`);
-  }
   const ext = extname(outputPath).toLowerCase();
   const content =
     ext === '.yaml' || ext === '.yml'
       ? yaml.dump(blueprint, { noRefs: true, lineWidth: 120 })
       : `${JSON.stringify(blueprint, null, 2)}\n`;
-  await writeFileAtomic(outputPath, content);
+  await writeFileAtomic(outputPath, content, {
+    overwrite: Boolean(args.overwrite),
+    root: ctx.root,
+    displayPath: args.path,
+  });
 
   return {
     savedPath: relative(ctx.root, outputPath).split(sep).join('/'),
     screenId: blueprint.screen.id,
     format: ext === '.json' ? 'json' : 'yaml',
-    bytes: Buffer.byteLength(content),
+    bytes: new TextEncoder().encode(content).byteLength,
     extensionRegistry: knownTypes.extensionPath,
   };
 }

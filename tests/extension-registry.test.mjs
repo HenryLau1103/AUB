@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, mkdtemp, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { validateBlueprintSemantics } from '../scripts/validate-blueprint.lib.mjs';
@@ -9,6 +9,7 @@ import {
   buildCoreKnownTypes,
   parseExtensionRegistry,
   discoverExtensionRegistry,
+  discoverWorkspaceExtensionRegistry,
   EXTENSION_NAME_PATTERN,
 } from '../scripts/registry.lib.mjs';
 
@@ -117,6 +118,21 @@ test('discoverExtensionRegistry finds aub.registry.json by walking up', async ()
   await writeFile(join(base, 'aub.registry.json'), '{"components":[]}\n');
   const found = discoverExtensionRegistry(nested);
   assert.equal(found, join(base, 'aub.registry.json'));
+});
+
+test('discoverWorkspaceExtensionRegistry does not cross the workspace root', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'aub-reg-parent-'));
+  try {
+    const workspace = join(base, 'workspace');
+    const nested = join(workspace, 'src', 'screens');
+    await mkdir(nested, { recursive: true });
+    await writeFile(join(base, 'aub.registry.json'), '{"components":[]}\n');
+    assert.equal(discoverWorkspaceExtensionRegistry(workspace, nested), null);
+    await writeFile(join(workspace, 'aub.registry.json'), '{"components":[]}\n');
+    assert.equal(discoverWorkspaceExtensionRegistry(workspace, nested), join(workspace, 'aub.registry.json'));
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
 });
 
 test('buildKnownTypes auto-discovers from a start directory', async () => {

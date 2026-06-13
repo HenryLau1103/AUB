@@ -218,6 +218,50 @@ test('validate_blueprint rejects registry paths outside the workspace', async ()
   }
 });
 
+test('validate_blueprint rejects registry filenames that only end with aub.registry.json', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-registry-suffix-'));
+  try {
+    await mkdir(join(root, 'screens'), { recursive: true });
+    await writeFile(
+      join(root, 'screens', 'dashboard.ui.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'dashboard.ui.json'), 'utf8'),
+      'utf8'
+    );
+    await writeFile(join(root, 'evil-aub.registry.json'), '{"version":"0.1.0","components":[]}\n', 'utf8');
+    const result = await validateBlueprint({ ...ctx, root }, {
+      ref: 'screens/dashboard.ui.json',
+      registry: 'evil-aub.registry.json',
+    });
+    assert.equal(result.valid, false);
+    assert.ok(result.semanticErrors.some((error) => /Registry path must point to aub\.registry\.json/.test(error)));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('validate_blueprint does not auto-discover a parent registry outside the workspace', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'aub-parent-registry-'));
+  try {
+    const root = join(base, 'workspace');
+    await mkdir(join(root, 'screens'), { recursive: true });
+    await writeFile(
+      join(base, 'aub.registry.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'extensions', 'aub.registry.json'), 'utf8'),
+      'utf8'
+    );
+    await writeFile(
+      join(root, 'screens', 'analytics.ui.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'extensions', 'analytics-insights.ui.json'), 'utf8'),
+      'utf8'
+    );
+    const result = await validateBlueprint({ ...ctx, root }, { ref: 'screens/analytics.ui.json' });
+    assert.equal(result.valid, false);
+    assert.ok(result.semanticErrors.some((error) => /unknown component type "acme:/.test(error)));
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
 test('validate_blueprint reports unknown extension types without a registry', async () => {
   const blueprint = (
     await getBlueprint(ctx, { ref: 'examples/extensions/analytics-insights.ui.json' })
@@ -388,6 +432,27 @@ test('write_blueprint concurrent writes do not collide on temp paths', async () 
   }
 });
 
+test('write_blueprint concurrent overwrite:false writes allow exactly one creator', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-write-create-race-'));
+  try {
+    const first = structuredClone((await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint);
+    const second = structuredClone(first);
+    first.screen.name = 'Create Race First';
+    second.screen.name = 'Create Race Second';
+    const localCtx = { ...ctx, root };
+    const results = await Promise.allSettled([
+      writeBlueprint(localCtx, { path: 'specs/race.ui.json', blueprint: first, overwrite: false }),
+      writeBlueprint(localCtx, { path: 'specs/race.ui.json', blueprint: second, overwrite: false }),
+    ]);
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(results.filter((result) => result.status === 'rejected').length, 1);
+    const stored = JSON.parse(await readFile(join(root, 'specs', 'race.ui.json'), 'utf8'));
+    assert.ok(['Create Race First', 'Create Race Second'].includes(stored.screen.name));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('export_handoff writes a verifiable package inside the workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'aub-mcp-handoff-'));
   try {
@@ -399,6 +464,25 @@ test('export_handoff writes a verifiable package inside the workspace', async ()
     assert.ok(zip.file('AGENT-README.md'));
     assert.ok(zip.file(`${SCREEN_ID}.ui.json`));
     assert.ok(zip.file('implementation-report.schema.json'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('export_handoff concurrent overwrite:false writes allow exactly one creator', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-handoff-race-'));
+  try {
+    const blueprint = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
+    await writeFile(join(root, 'dashboard.ui.json'), `${JSON.stringify(blueprint, null, 2)}\n`);
+    const localCtx = { ...ctx, root };
+    const results = await Promise.allSettled([
+      exportHandoff(localCtx, { ref: 'dashboard.ui.json', output: '.aub/handoffs/race.aub.zip' }),
+      exportHandoff(localCtx, { ref: 'dashboard.ui.json', output: '.aub/handoffs/race.aub.zip' }),
+    ]);
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(results.filter((result) => result.status === 'rejected').length, 1);
+    const zip = await JSZip.loadAsync(await readFile(join(root, '.aub', 'handoffs', 'race.aub.zip')));
+    assert.ok(zip.file('manifest.json'));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -731,7 +815,7 @@ test('submit_report safely persists schema-valid dotted screen ids', async () =>
     const result = await submitReport({ ...ctx, root }, { ref: 'bad.ui.json', report });
     assert.equal(result.accepted, true, JSON.stringify(result.errors));
     assert.ok(result.savedPath);
-    assert.match(result.savedPath, /^\.aub\/reports\/bad\.id-/);
+    assert.match(result.savedPath, /^\.aub\/reports\/bad\.id-.*-[0-9a-f-]{36}\.json$/);
     const persisted = JSON.parse(await readFile(join(root, result.savedPath), 'utf8'));
     assert.equal(persisted.blueprint.screen_id, 'bad..id');
   } finally {

@@ -184,7 +184,7 @@ async function writeJsonAtomic(path, value) {
     release();
     if (writeLocks.get(path) === chained) writeLocks.delete(path);
   }
-  return { bytes: Buffer.byteLength(content) };
+  return { bytes: new TextEncoder().encode(content).byteLength };
 }
 
 async function writeWorkspaceJsonAtomic(root, filePath, value) {
@@ -339,46 +339,63 @@ async function readSourceText(file) {
   }
 }
 
-async function readSourceTexts(files) {
+function createSourceReader() {
+  const audit = {
+    skippedLargeFiles: 0,
+    skippedBudgetFiles: 0,
+    totalSourceBytes: 0,
+  };
+  const accounted = new Map();
+  return {
+    audit,
+    async read(file) {
+      try {
+        const st = await stat(file.absPath);
+        if (accounted.has(file.absPath)) {
+          const prior = accounted.get(file.absPath);
+          if (prior === 'read') return readSourceText(file);
+          return { text: '', skipped: true, skippedReason: prior };
+        }
+        if (st.size > MAX_SOURCE_FILE_BYTES) {
+          audit.skippedLargeFiles += 1;
+          accounted.set(file.absPath, 'size');
+          return { text: '', skipped: true, skippedReason: 'size' };
+        }
+        if (audit.totalSourceBytes + st.size > MAX_TOTAL_SOURCE_BYTES) {
+          audit.skippedBudgetFiles += 1;
+          accounted.set(file.absPath, 'budget');
+          return { text: '', skipped: true, skippedReason: 'budget' };
+        }
+        audit.totalSourceBytes += st.size;
+        accounted.set(file.absPath, 'read');
+        const result = await readSourceText(file);
+        if (result.skipped) {
+          audit.skippedLargeFiles += 1;
+          accounted.set(file.absPath, 'size');
+          return { ...result, skippedReason: 'size' };
+        }
+        return result;
+      } catch {
+        return { text: '', skipped: false };
+      }
+    },
+  };
+}
+
+async function readSourceTexts(files, reader = createSourceReader()) {
   const sourceFiles = files.filter((file) => SOURCE_EXTENSIONS.has(extname(file.path).toLowerCase()));
   const contents = new Map();
-  let skippedLargeFiles = 0;
-  let skippedBudgetFiles = 0;
-  let totalSourceBytes = 0;
-  let nextIndex = 0;
-  async function worker() {
-    while (nextIndex < sourceFiles.length) {
-      const file = sourceFiles[nextIndex];
-      nextIndex += 1;
-      let size = 0;
-      try {
-        size = (await stat(file.absPath)).size;
-      } catch {
-        contents.set(file.absPath, '');
-        continue;
-      }
-      if (size > MAX_SOURCE_FILE_BYTES) {
-        skippedLargeFiles += 1;
-        contents.set(file.absPath, '');
-        continue;
-      }
-      if (totalSourceBytes + size > MAX_TOTAL_SOURCE_BYTES) {
-        skippedBudgetFiles += 1;
-        contents.set(file.absPath, '');
-        continue;
-      }
-      totalSourceBytes += size;
-      const result = await readSourceText(file);
-      if (result.skipped) skippedLargeFiles += 1;
-      contents.set(file.absPath, result.text);
-    }
+  const before = { ...reader.audit };
+  for (const file of sourceFiles) {
+    const result = await reader.read(file);
+    contents.set(file.absPath, result.text);
   }
-  const workers = Array.from(
-    { length: Math.min(SOURCE_READ_CONCURRENCY, sourceFiles.length) },
-    () => worker()
-  );
-  await Promise.all(workers);
-  return { contents, skippedLargeFiles, skippedBudgetFiles, totalSourceBytes };
+  return {
+    contents,
+    skippedLargeFiles: reader.audit.skippedLargeFiles - before.skippedLargeFiles,
+    skippedBudgetFiles: reader.audit.skippedBudgetFiles - before.skippedBudgetFiles,
+    totalSourceBytes: reader.audit.totalSourceBytes - before.totalSourceBytes,
+  };
 }
 
 function normalizeScanLimit(limit) {
@@ -543,7 +560,7 @@ function routeFromPath(path) {
   return route === '/index' || route === '/app' ? '/' : route;
 }
 
-async function detectRoutes(files) {
+async function detectRoutes(files, reader = createSourceReader()) {
   const webRoutes = files
     .filter((file) => {
       const path = file.path;
@@ -558,7 +575,7 @@ async function detectRoutes(files) {
       kind: /\.vue$/.test(file.path) ? 'vue-route' : 'route',
     }));
 
-  const angularRoutes = await detectAngularRoutes(files);
+  const angularRoutes = await detectAngularRoutes(files, reader);
   const fallbackAngularTemplates = angularRoutes.length > 0
     ? []
     : files
@@ -577,11 +594,14 @@ async function detectRoutes(files) {
   return [...byKey.values()];
 }
 
-async function detectAngularRoutes(files) {
+async function detectAngularRoutes(files, reader = createSourceReader()) {
   const routingFiles = files.filter((file) => /\.routing\.ts$/.test(file.path) || /app\.routing\.ts$/.test(file.path));
   if (routingFiles.length === 0) return [];
   const fileByPath = new Map(files.map((file) => [file.path, file]));
-  const { contents: sourceTexts } = await readSourceTexts(routingFiles.concat(files.filter((file) => /app-route-paths\.const\.ts$/.test(file.path))));
+  const { contents: sourceTexts } = await readSourceTexts(
+    routingFiles.concat(files.filter((file) => /app-route-paths\.const\.ts$/.test(file.path))),
+    reader
+  );
   const constants = extractAngularRouteConstants(sourceTexts);
   const routes = [];
 
@@ -595,7 +615,7 @@ async function detectAngularRoutes(files) {
       if (!route || componentName === 'undefined') continue;
       const componentPath = imports.get(componentName);
       const componentFile = componentPath ? fileByPath.get(componentPath) : null;
-      const componentContent = componentFile ? (await readSourceText(componentFile)).text : '';
+      const componentContent = componentFile ? (await reader.read(componentFile)).text : '';
       const htmlPath = componentPath
         ? resolveAngularTemplatePath(componentPath, componentContent, fileByPath)
         : null;
@@ -719,12 +739,12 @@ function inferCoreType(name) {
   return CORE_KIND_BY_NAME.find(([regex]) => regex.test(name))?.[1] ?? 'card';
 }
 
-async function detectStorybook(files) {
+async function detectStorybook(files, reader = createSourceReader()) {
   const config = files.find((file) => /^\.storybook\/main\.(js|cjs|mjs|ts)$/.test(file.path));
   const storyFiles = files.filter((file) => /\.stories\.(jsx?|tsx?|mdx|vue)$/.test(file.path));
   const stories = [];
   for (const file of storyFiles.slice(0, 100)) {
-    const content = (await readSourceText(file)).text;
+    const content = (await reader.read(file)).text;
     stories.push({
       path: file.path,
       title: content.match(/title:\s*['"`]([^'"`]+)['"`]/)?.[1] ?? null,
@@ -739,9 +759,10 @@ async function detectStorybook(files) {
   };
 }
 
-async function detectComponents(root, files, namespace, frameworks, storybook = null) {
+async function detectComponents(root, files, namespace, frameworks, storybook = null, reader = createSourceReader()) {
   const candidates = [];
-  const { contents: sourceTexts, skippedLargeFiles, skippedBudgetFiles, totalSourceBytes } = await readSourceTexts(files);
+  const before = { ...reader.audit };
+  const { contents: sourceTexts } = await readSourceTexts(files, reader);
   for (const file of files) {
     const ext = extname(file.path).toLowerCase();
     if (!SOURCE_EXTENSIONS.has(ext)) continue;
@@ -789,7 +810,12 @@ async function detectComponents(root, files, namespace, frameworks, storybook = 
   }
   const byId = new Map();
   for (const candidate of candidates) byId.set(candidate.id, candidate);
-  return { candidates: [...byId.values()].slice(0, 100), skippedLargeFiles, skippedBudgetFiles, totalSourceBytes };
+  return {
+    candidates: [...byId.values()].slice(0, 100),
+    skippedLargeFiles: reader.audit.skippedLargeFiles - before.skippedLargeFiles,
+    skippedBudgetFiles: reader.audit.skippedBudgetFiles - before.skippedBudgetFiles,
+    totalSourceBytes: reader.audit.totalSourceBytes - before.totalSourceBytes,
+  };
 }
 
 function findStorybookStoriesForComponent(componentName, selector, storybook) {
@@ -1030,10 +1056,11 @@ export async function getWorkspaceStatus(root) {
   const files = [];
   const walkState = await createWalkState(root);
   await walkWithState(root, root, files, 1500, walkState);
+  const sourceReader = createSourceReader();
   const packageJson = await readPackage(root);
   const frameworks = detectFrameworks(packageJson, files);
-  const routes = await detectRoutes(files);
-  const storybook = await detectStorybook(files);
+  const routes = await detectRoutes(files, sourceReader);
+  const storybook = await detectStorybook(files, sourceReader);
   const session = await readAubSession(root);
   const candidates = await readComponentCandidates(root);
   const templates = await listWorkspaceTemplates(root);
@@ -1101,16 +1128,17 @@ export async function scanProjectUi(root, options = {}) {
   const limit = normalizeScanLimit(options.limit);
   const walkState = await createWalkState(root);
   await walkWithState(root, root, files, limit, walkState);
+  const sourceReader = createSourceReader();
   const packageJson = await readPackage(root);
   const namespace = normalizeNamespace(options.namespace ?? inferNamespace(root, packageJson), 'app');
   const frameworks = detectFrameworks(packageJson, files);
-  const routes = await detectRoutes(files);
-  const storybook = await detectStorybook(files);
-  const { candidates, skippedLargeFiles, skippedBudgetFiles, totalSourceBytes } = await detectComponents(root, files, namespace, frameworks, storybook);
-  walkState.audit.sourceBytesRead = totalSourceBytes;
-  walkState.audit.sourceFilesSkippedBySize = skippedLargeFiles;
-  walkState.audit.sourceFilesSkippedByBudget = skippedBudgetFiles;
-  walkState.audit.sourceByteLimitReached = skippedBudgetFiles > 0;
+  const routes = await detectRoutes(files, sourceReader);
+  const storybook = await detectStorybook(files, sourceReader);
+  const { candidates } = await detectComponents(root, files, namespace, frameworks, storybook, sourceReader);
+  walkState.audit.sourceBytesRead = sourceReader.audit.totalSourceBytes;
+  walkState.audit.sourceFilesSkippedBySize = sourceReader.audit.skippedLargeFiles;
+  walkState.audit.sourceFilesSkippedByBudget = sourceReader.audit.skippedBudgetFiles;
+  walkState.audit.sourceByteLimitReached = sourceReader.audit.skippedBudgetFiles > 0;
   const doc = await writeComponentCandidates(root, candidates);
   const scanReport = await writeScanReport(root, buildScanReport({
     packageJson,
@@ -1132,15 +1160,15 @@ export async function scanProjectUi(root, options = {}) {
     scanReport,
     routes,
     components: candidates,
-    skippedSourceFiles: skippedLargeFiles,
+    skippedSourceFiles: sourceReader.audit.skippedLargeFiles,
     componentCandidatesPath: COMPONENT_CANDIDATES_PATH,
     componentCandidates: doc,
   };
 }
 
-async function makeBlueprint({ id, name, framework, source, route, root, files, candidates = [] }) {
+async function makeBlueprint({ id, name, framework, source, route, root, files, candidates = [], reader = createSourceReader() }) {
   const sourceFile = files.find((file) => file.path === source.path);
-  const sourceText = sourceFile ? (await readSourceText(sourceFile)).text : '';
+  const sourceText = sourceFile ? (await reader.read(sourceFile)).text : '';
   const extracted = extractBlueprintStructure({
     sourcePath: source.path,
     sourceText,
@@ -1524,6 +1552,7 @@ export async function generateTemplateFromSource(root, args = {}) {
   const files = [];
   const walkState = await createWalkState(root);
   await walkWithState(root, root, files, 2000, walkState);
+  const sourceReader = createSourceReader();
   const candidates = (await readComponentCandidates(root)).candidates;
   const framework = normalizeFrameworkLabel(
     typeof args.framework === 'string' ? args.framework : inferFrameworkFromPath(relPath),
@@ -1544,6 +1573,7 @@ export async function generateTemplateFromSource(root, args = {}) {
     files,
     source: { path: relPath },
     candidates,
+    reader: sourceReader,
   });
   const template = {
     format: TEMPLATE_FORMAT,

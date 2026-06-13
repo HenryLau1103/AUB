@@ -92,12 +92,9 @@
         },
         "path": {
           "type": "string",
-          "description": "Relative path (from the project file) to a single-screen .ui.json or .ui.yaml Blueprint.",
+          "description": "Relative path (from the project file) to a single-screen .ui.json or .ui.yaml Blueprint. Parent segments are allowed only when runtime containment keeps the resolved file inside the active workspace.",
           "not": {
-            "anyOf": [
-              { "pattern": "^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)" },
-              { "pattern": "(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)" }
-            ]
+            "pattern": "^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)"
           },
           "minLength": 1,
           "maxLength": 1024

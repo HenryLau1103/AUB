@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { ServerContext } from '../context.js';
 import {
   buildKnownTypes,
+  discoverWorkspaceExtensionRegistry,
   importDesignBridge,
   validateBlueprintSemantics,
 } from '../aub.js';
@@ -60,8 +61,10 @@ export async function run(
   const schemaOk = ctx.validators.validateBlueprint(result.blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
   const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry ? await resolveWorkspaceRegistryPath(ctx.root, args.registry) : null,
-    startDir: bridgePath ? dirname(bridgePath) : ctx.root,
+    extensionPath: args.registry
+      ? await resolveWorkspaceRegistryPath(ctx.root, args.registry)
+      : discoverWorkspaceExtensionRegistry(ctx.root, bridgePath ? dirname(bridgePath) : ctx.root),
+    discover: false,
   });
   const semanticErrors = schemaOk
     ? validateBlueprintSemantics(result.blueprint, { knownTypes: knownTypes.knownTypes })

@@ -17,7 +17,7 @@ import {
   buildProject,
 } from './project.lib.mjs';
 import { validateBlueprintSemantics } from './validate-blueprint.lib.mjs';
-import { buildKnownTypes } from './registry.lib.mjs';
+import { buildKnownTypes, discoverWorkspaceExtensionRegistry } from './registry.lib.mjs';
 import { exportMarkdown } from './export-md.lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -105,7 +105,10 @@ export async function validateProjectFile(projectPathArg) {
     }
     let knownTypes;
     try {
-      const resolved = await buildKnownTypes({ startDir: dirname(memberPath) });
+      const resolved = await buildKnownTypes({
+        extensionPath: discoverWorkspaceExtensionRegistry(dirname(projectPath), dirname(memberPath)),
+        discover: false,
+      });
       knownTypes = resolved.knownTypes;
     } catch (err) {
       screenErrors.push(`registry: ${err.message}`);

@@ -273,6 +273,14 @@ export function App() {
   const selectedId = selectedIds[0] ?? null;
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !initialHasWorkspaceEndpoint) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('mcp');
+    const sanitized = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, document.title, sanitized);
+  }, [initialHasWorkspaceEndpoint]);
+
+  useEffect(() => {
     try {
       setExtensionRegistryForEditor(extensionRegistry);
     } catch (error) {

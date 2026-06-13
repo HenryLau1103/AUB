@@ -31,7 +31,7 @@ export interface ProjectScreenRef {
   id: string;
   /** Optional display name. Defaults to the referenced Blueprint's screen.name. */
   name?: string;
-  /** Relative path (from the project file) to a .ui.json or .ui.yaml Blueprint. */
+  /** Relative path from the project file to a .ui.json/.ui.yaml Blueprint; runtime loaders require it to stay inside the active workspace. */
   path: string;
 }
 

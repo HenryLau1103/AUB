@@ -89,6 +89,37 @@ test('HP2: manifest byte counts and SHA-256 hashes match every packaged file', a
   }
 });
 
+test('HP2b: screenshot data URL decoding prefers the browser atob path', async () => {
+  const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
+  const reportSchema = JSON.parse(await readFile(REPORT_SCHEMA_URL, 'utf8'));
+  const originalAtob = globalThis.atob;
+  let atobCalled = false;
+  try {
+    globalThis.atob = (value) => {
+      atobCalled = true;
+      return originalAtob(value);
+    };
+    const { bytes } = await createHandoffArchive({
+      blueprint,
+      markdown: exportMarkdown(blueprint),
+      genericPrompt: exportAgentPrompt(blueprint, { adapter: 'generic', task: 'implement' }),
+      codexPrompt: exportAgentPrompt(blueprint, { adapter: 'codex', task: 'implement' }),
+      agentGuide: await readFile(GUIDE_URL, 'utf8'),
+      agentGuideZhHant: await readFile(GUIDE_ZH_URL, 'utf8'),
+      reportTemplate: createImplementationReportTemplate(blueprint),
+      reportSchema,
+      viewportImages: {
+        desktop: 'data:image/png;base64,iVBORw0KGgo=',
+      },
+    });
+    const zip = await JSZip.loadAsync(bytes);
+    assert.ok(zip.file('screenshots/desktop.png'));
+    assert.equal(atobCalled, true);
+  } finally {
+    globalThis.atob = originalAtob;
+  }
+});
+
 test('HP3: handoff bundles aub.registry.json and references it when extensions are provided', async () => {
   const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
   const reportSchema = JSON.parse(await readFile(REPORT_SCHEMA_URL, 'utf8'));
@@ -233,5 +264,28 @@ test('HP7: handoff rejects non-PNG screenshot data URLs', async () => {
       },
     }),
     /is not a PNG/
+  );
+});
+
+test('HP8: handoff rejects oversized viewport screenshots', async () => {
+  const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
+  const reportSchema = JSON.parse(await readFile(REPORT_SCHEMA_URL, 'utf8'));
+  const pngBytes = new Uint8Array(8 * 1024 * 1024 + 9);
+  pngBytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  await assert.rejects(
+    async () => createHandoffArchive({
+      blueprint,
+      markdown: exportMarkdown(blueprint),
+      genericPrompt: exportAgentPrompt(blueprint, { adapter: 'generic', task: 'implement' }),
+      codexPrompt: exportAgentPrompt(blueprint, { adapter: 'codex', task: 'implement' }),
+      agentGuide: await readFile(GUIDE_URL, 'utf8'),
+      agentGuideZhHant: await readFile(GUIDE_ZH_URL, 'utf8'),
+      reportTemplate: createImplementationReportTemplate(blueprint),
+      reportSchema,
+      viewportImages: {
+        desktop: `data:image/png;base64,${Buffer.from(pngBytes).toString('base64')}`,
+      },
+    }),
+    /screenshot exceeds maximum size/
   );
 });

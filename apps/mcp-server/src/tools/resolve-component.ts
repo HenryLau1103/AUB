@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
-import { buildKnownTypes } from '../aub.js';
+import { buildKnownTypes, discoverWorkspaceExtensionRegistry } from '../aub.js';
 import { resolveWorkspaceRegistryPath } from '../workspace.js';
 
 export const name = 'resolve_component';
@@ -34,8 +34,10 @@ export async function run(
     throw new Error('Provide a component "type".');
   }
   const resolved = await buildKnownTypes({
-    extensionPath: args.registry ? await resolveWorkspaceRegistryPath(ctx.root, args.registry) : null,
-    startDir: ctx.root,
+    extensionPath: args.registry
+      ? await resolveWorkspaceRegistryPath(ctx.root, args.registry)
+      : discoverWorkspaceExtensionRegistry(ctx.root, ctx.root),
+    discover: false,
   });
   const metadata = resolved.knownTypes.get(args.type);
   if (!metadata) {

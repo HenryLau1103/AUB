@@ -7,7 +7,7 @@
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve, join } from 'node:path';
+import { dirname, resolve, join, relative, sep, isAbsolute } from 'node:path';
 import { loadCoreRegistry, computeTypeLists } from './generate-registry-artifacts.lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -44,6 +44,33 @@ export function discoverExtensionRegistry(startDir = process.cwd()) {
     if (existsSync(candidate)) return candidate;
     const parent = dirname(dir);
     if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+function isInsideRoot(absRoot, absPath) {
+  const rel = relative(absRoot, absPath);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+/**
+ * Walk up from startDir looking for aub.registry.json without crossing the
+ * supplied workspace root. Use this for workspace-connected tools so a parent
+ * directory cannot influence validation for an unrelated child workspace.
+ */
+export function discoverWorkspaceExtensionRegistry(workspaceRoot, startDir = workspaceRoot) {
+  const root = resolve(workspaceRoot);
+  let dir = resolve(startDir);
+  if (!isInsideRoot(root, dir)) {
+    throw new Error(`Registry discovery start directory must stay inside workspace: ${startDir}`);
+  }
+  for (let i = 0; i < 64; i += 1) {
+    const candidate = join(dir, EXTENSION_REGISTRY_FILENAME);
+    if (existsSync(candidate)) return candidate;
+    if (dir === root) break;
+    const parent = dirname(dir);
+    if (parent === dir || !isInsideRoot(root, parent)) break;
     dir = parent;
   }
   return null;

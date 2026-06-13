@@ -108,11 +108,6 @@ export async function resolveContainedScreenPath(projectFilePath, screenPath, wo
     throw new Error(`Screen path must be relative to the project file: ${screenPath}`);
   }
   const candidate = resolve(dirname(projectFilePath), screenPath);
-  const projectDir = dirname(projectFilePath);
-  const lexicalRel = relative(projectDir, candidate);
-  if (lexicalRel === '..' || lexicalRel.startsWith(`..${sep}`) || isAbsolute(lexicalRel)) {
-    throw new Error(`Screen path must stay inside the project directory: ${screenPath}`);
-  }
   if (!workspaceRoot) return candidate;
   const realRoot = await realpath(workspaceRoot);
   const realTarget = await realpath(candidate);
@@ -140,6 +135,7 @@ export async function readBlueprintFile(absPath) {
  */
 export async function loadProject(projectPathArg, options = {}) {
   const projectPath = resolve(projectPathArg);
+  const workspaceRoot = options.allowExternalScreens ? null : resolve(options.workspaceRoot ?? dirname(projectPath));
   const raw = await readFile(projectPath, 'utf8');
   const project = parseProjectText(raw, projectPath);
 
@@ -150,8 +146,8 @@ export async function loadProject(projectPathArg, options = {}) {
   for (const ref of project?.screens ?? []) {
     let memberPath = resolveScreenPath(projectPath, ref.path);
     try {
-      memberPath = options.workspaceRoot
-        ? await resolveContainedScreenPath(projectPath, ref.path, options.workspaceRoot)
+      memberPath = workspaceRoot
+        ? await resolveContainedScreenPath(projectPath, ref.path, workspaceRoot)
         : memberPath;
       const blueprint = await readBlueprintFile(memberPath);
       screens.push({ ref, path: memberPath, blueprint });

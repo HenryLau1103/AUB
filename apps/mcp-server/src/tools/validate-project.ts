@@ -3,7 +3,13 @@ import { relative, sep } from 'node:path';
 import type { ServerContext } from '../context.js';
 import { resolveProjectRef } from '../workspace.js';
 import { formatAjvErrors } from '../schema.js';
-import { loadProject, validateProjectSemantics, validateBlueprintSemantics, buildKnownTypes } from '../aub.js';
+import {
+  loadProject,
+  validateProjectSemantics,
+  validateBlueprintSemantics,
+  buildKnownTypes,
+  discoverWorkspaceExtensionRegistry,
+} from '../aub.js';
 
 export const name = 'validate_project';
 
@@ -36,7 +42,10 @@ export async function run(ctx: ServerContext, args: { ref?: string }) {
   let knownTypes: Awaited<ReturnType<typeof buildKnownTypes>>['knownTypes'] | undefined;
   let registryError: string | null = null;
   try {
-    const resolved = await buildKnownTypes({ extensionPath: null, startDir: ctx.root });
+    const resolved = await buildKnownTypes({
+      extensionPath: discoverWorkspaceExtensionRegistry(ctx.root, ctx.root),
+      discover: false,
+    });
     knownTypes = resolved.knownTypes;
   } catch (err) {
     registryError = err instanceof Error ? err.message : String(err);

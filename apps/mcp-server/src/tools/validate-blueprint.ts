@@ -4,7 +4,7 @@ import type { Blueprint } from '../aub.js';
 import { resolveBlueprint } from '../workspace.js';
 import { resolveWorkspaceRegistryPath } from '../workspace.js';
 import { formatAjvErrors } from '../schema.js';
-import { validateBlueprintSemantics, buildKnownTypes } from '../aub.js';
+import { validateBlueprintSemantics, buildKnownTypes, discoverWorkspaceExtensionRegistry } from '../aub.js';
 
 export const name = 'validate_blueprint';
 
@@ -58,8 +58,10 @@ export async function run(
   let registryError: string | null = null;
   try {
     const resolved = await buildKnownTypes({
-      extensionPath: args.registry ? await resolveWorkspaceRegistryPath(ctx.root, args.registry) : null,
-      startDir: ctx.root,
+      extensionPath: args.registry
+        ? await resolveWorkspaceRegistryPath(ctx.root, args.registry)
+        : discoverWorkspaceExtensionRegistry(ctx.root, ctx.root),
+      discover: false,
     });
     knownTypes = resolved.knownTypes;
     extensionRegistry = resolved.extensionPath;

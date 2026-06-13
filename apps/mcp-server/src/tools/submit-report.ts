@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { relative, sep } from 'node:path';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
@@ -47,10 +48,15 @@ export async function run(
       safety_score: verification.summary?.safety_score,
     };
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const suffix = randomUUID();
     const screenId = encodeSafeFileStem(entry.screenId || 'blueprint', 'blueprint');
-    const outputRef = `.aub/reports/${screenId}-${timestamp}.json`;
+    const outputRef = `.aub/reports/${screenId}-${timestamp}-${suffix}.json`;
     const absPath = await prepareWorkspaceWritePath(ctx.root, outputRef);
-    await writeFileAtomic(absPath, `${JSON.stringify(persistedReport, null, 2)}\n`);
+    await writeFileAtomic(absPath, `${JSON.stringify(persistedReport, null, 2)}\n`, {
+      overwrite: false,
+      root: ctx.root,
+      displayPath: outputRef,
+    });
     savedPath = relative(ctx.root, absPath).split(sep).join('/');
   }
 

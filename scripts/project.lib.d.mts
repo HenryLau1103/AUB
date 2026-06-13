@@ -36,7 +36,7 @@ export interface LoadedProject {
 
 export function loadProject(
   projectPathArg: string,
-  options?: { workspaceRoot?: string }
+  options?: { workspaceRoot?: string; allowExternalScreens?: boolean }
 ): Promise<LoadedProject>;
 
 export function mergeDesignSystem(

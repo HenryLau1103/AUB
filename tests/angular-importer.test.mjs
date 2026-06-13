@@ -107,6 +107,65 @@ test('ANG6: nodes with excessive attributes fail explicitly', async () => {
   );
 });
 
+test('ANG7: source file count, path length, and component count caps fail explicitly', async () => {
+  await assert.rejects(
+    () => importAngularComponent(Array.from({ length: 2001 }, (_, index) => ({
+      path: `many/file-${index}.ts`,
+      content: '',
+    }))),
+    /maximum file count of 2000/
+  );
+
+  await assert.rejects(
+    () => importAngularComponent([
+      {
+        path: `${'a'.repeat(513)}.component.ts`,
+        content: '',
+      },
+    ]),
+    /source path exceeds maximum length of 512/
+  );
+
+  await assert.rejects(
+    () => importAngularComponent(Array.from({ length: 501 }, (_, index) => ({
+      path: `many/c${index}.component.ts`,
+      content: `
+        import { Component } from '@angular/core';
+        @Component({ selector: 'app-c${index}', templateUrl: './c${index}.component.html' })
+        export class C${index}Component {}
+      `,
+    }))),
+    /component count exceeds maximum of 500/
+  );
+});
+
+test('ANG8: child component templates also apply the full-template node cap', async () => {
+  const wideTemplate = `<section>${'<span>Item</span>'.repeat(5005)}</section>`;
+  await assert.rejects(
+    () => importAngularComponent([
+      {
+        path: 'parent/parent.component.ts',
+        content: `
+          import { Component } from '@angular/core';
+          @Component({ selector: 'app-parent', templateUrl: './parent.component.html' })
+          export class ParentComponent {}
+        `,
+      },
+      { path: 'parent/parent.component.html', content: '<app-child></app-child>' },
+      {
+        path: 'parent/child.component.ts',
+        content: `
+          import { Component } from '@angular/core';
+          @Component({ selector: 'app-child', templateUrl: './child.component.html' })
+          export class ChildComponent {}
+        `,
+      },
+      { path: 'parent/child.component.html', content: wideTemplate },
+    ], { entry: 'app-parent' }),
+    /Angular template exceeds maximum node count of 5000/
+  );
+});
+
 async function walk(directory) {
   const result = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {

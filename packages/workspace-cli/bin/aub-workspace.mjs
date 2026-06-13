@@ -924,6 +924,7 @@ async function main() {
   console.error(`Workspace: ${workspace}`);
   console.error(`Editor:    ${editorUrl.href}`);
   console.error(`MCP:       ${mcpUrl}`);
+  console.error('Security:  The editor launch URL contains a short-lived local RPC token; the editor removes it from the address bar after startup.');
   console.error('Stop:      Ctrl+C');
   console.error('');
 

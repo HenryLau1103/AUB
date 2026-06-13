@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import {
@@ -171,6 +173,39 @@ test('parseProjectText reads JSON and the example file round-trips', async () =>
   const parsed = parseProjectText(raw, PROJECT);
   assert.equal(parsed.id, 'acme-app');
   assert.equal(parsed.entry_screen, 'acme.dashboard');
+});
+
+test('project schema allows parent segments; runtime workspace containment enforces safety', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-project-contained-'));
+  try {
+    await mkdir(join(root, 'flows'), { recursive: true });
+    await mkdir(join(root, 'screens'), { recursive: true });
+    await writeFile(
+      join(root, 'screens', 'home.ui.json'),
+      await readFile(new URL('../examples/dashboard.ui.json', import.meta.url), 'utf8'),
+      'utf8'
+    );
+    const project = {
+      version: PROJECT_VERSION,
+      id: 'workspace-layout',
+      name: 'Workspace Layout',
+      screens: [{ id: 'dashboard.overview', path: '../screens/home.ui.json' }],
+      entry_screen: 'dashboard.overview',
+    };
+    await writeFile(join(root, 'flows', 'app.aub.project.json'), `${JSON.stringify(project, null, 2)}\n`, 'utf8');
+
+    const validate = await compile(PROJECT_SCHEMA);
+    assert.equal(validate(project), true, JSON.stringify(validate.errors));
+
+    const loaded = await loadProject(join(root, 'flows', 'app.aub.project.json'), { workspaceRoot: root });
+    assert.deepEqual(loaded.errors, []);
+    assert.equal(loaded.screens[0].blueprint.screen.id, 'dashboard.overview');
+
+    const defaultLoaded = await loadProject(join(root, 'flows', 'app.aub.project.json'));
+    assert.ok(defaultLoaded.errors.some((error) => /inside workspace/.test(error)), JSON.stringify(defaultLoaded.errors));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('NAVIGATION_TRIGGERS lists the supported triggers', () => {
