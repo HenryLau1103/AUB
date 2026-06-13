@@ -94,6 +94,11 @@ export interface WorkspaceStatus {
     directoriesSkipped: number;
     ignoredPatterns: string[];
     limitReached: boolean;
+    sourceBytesRead?: number;
+    sourceFilesRead?: number;
+    sourceFilesSkippedBySize?: number;
+    sourceFilesSkippedByBudget?: number;
+    sourceByteLimitReached?: boolean;
   };
   scanReport?: {
     path: string;
@@ -111,6 +116,11 @@ export interface WorkspaceStatus {
       filesSkipped: number;
       directoriesSkipped: number;
       limitReached: boolean;
+      sourceBytesRead?: number;
+      sourceFilesRead?: number;
+      sourceFilesSkippedBySize?: number;
+      sourceFilesSkippedByBudget?: number;
+      sourceByteLimitReached?: boolean;
       trustScore: number;
     };
     trust: {
@@ -124,6 +134,7 @@ export interface WorkspaceStatus {
         componentCandidateCount: number;
         storybookDetected: boolean;
         scanLimitReached: boolean;
+        sourceByteLimitReached?: boolean;
       };
       breakdown?: {
         frameworkDetected: boolean;
@@ -135,6 +146,11 @@ export interface WorkspaceStatus {
         filesSkipped: number;
         directoriesSkipped: number;
         scanLimitReached: boolean;
+        sourceBytesRead?: number;
+        sourceFilesRead?: number;
+        sourceFilesSkippedBySize?: number;
+        sourceFilesSkippedByBudget?: number;
+        sourceByteLimitReached?: boolean;
       };
     };
     storybook: {
@@ -159,6 +175,11 @@ export interface WorkspaceStatus {
       directoriesSkipped: number;
       ignoredPatterns: string[];
       limitReached: boolean;
+      sourceBytesRead?: number;
+      sourceFilesRead?: number;
+      sourceFilesSkippedBySize?: number;
+      sourceFilesSkippedByBudget?: number;
+      sourceByteLimitReached?: boolean;
     };
   } | null;
   routeCount: number;

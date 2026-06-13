@@ -1,277 +1,304 @@
-# PR #26 Updated Subagent Code Review
+# PR #26 Latest Subagent Code Review
 
 Date: 2026-06-13
 PR: #26 `[codex] Harden workspace security follow-ups`
-Range: `1eb94cd0cb7ed63510da0c48ebdd91ccdbd1bb58..c8b546c4b55867676a08db885419aa56a98e9819`
+Range: `1eb94cd0cb7ed63510da0c48ebdd91ccdbd1bb58..b417840d7cb9cc08d2895967397e6fa9f0f13b20`
+
+## Review Scope
+
+This review re-checks the latest PR head after the follow-up commit `Resolve PR 26 workspace safety review`.
+
+Five independent subagents reviewed the diff from these dimensions:
+
+1. Security
+2. Code quality
+3. Bug hunting
+4. Concurrency and performance
+5. Architecture
 
 ## 1. Security Agent
 
-### Medium: Workspace registry auto-discovery can follow symlinked directories outside the workspace
+### Medium: `aub.registry.json` can still cause MCP/CI resource exhaustion
 
-`discoverWorkspaceExtensionRegistry()` uses lexical `resolve()` / `relative()` containment, then checks `existsSync(join(dir, 'aub.registry.json'))`. If `startDir` is a symlinked directory inside the workspace that resolves outside the workspace, discovery can still find an external registry.
+Registry path containment and symlink escape are fixed, but the registry file itself still has no byte, component-count, implementation-count, props-count, or aggregate string-length caps.
 
 Evidence:
 
-- `scripts/registry.lib.mjs:62`
-- `apps/mcp-server/src/tools/export-handoff.ts:56`
-- `scripts/ci-verify.lib.mjs:116`
+- `scripts/registry.lib.mjs:98` auto-resolves workspace registries through `resolveKnownTypesForBlueprint()`.
+- `scripts/registry.lib.mjs:252` reads the full registry with `readFile(path, 'utf8')`.
+- `scripts/registry.lib.mjs:255` parses the full document with `JSON.parse(raw)`.
+- `scripts/registry.lib.mjs:121` and `scripts/registry.lib.mjs:152` normalize all components/implementations without hard caps.
+
+Risk:
+
+A committed workspace `aub.registry.json` can make MCP tools or CI parse a very large registry during `validate_blueprint`, `validate_project`, `resolve_component`, `export_handoff`, or CI verification, causing memory/CPU denial of service.
 
 Suggested change:
 
 ```js
-import { existsSync, realpathSync } from 'node:fs';
+const MAX_EXTENSION_REGISTRY_BYTES = 512 * 1024;
+const MAX_EXTENSION_COMPONENTS = 500;
+const MAX_EXTENSION_IMPLEMENTATIONS = 20;
+const MAX_EXTENSION_PROPS = 200;
 
-export function discoverWorkspaceExtensionRegistry(workspaceRoot, startDir = workspaceRoot) {
-  const root = realpathSync(resolve(workspaceRoot));
-  let dir = realpathSync(resolve(startDir));
-  if (!isInsideRoot(root, dir)) {
-    throw new Error(`Registry discovery start directory must stay inside workspace: ${startDir}`);
-  }
+const info = await stat(path);
+if (info.size > MAX_EXTENSION_REGISTRY_BYTES) {
+  throw new Error(`${path}: registry exceeds ${MAX_EXTENSION_REGISTRY_BYTES} bytes`);
+}
 
-  for (let i = 0; i < 64; i += 1) {
-    const candidate = join(dir, EXTENSION_REGISTRY_FILENAME);
-    if (existsSync(candidate)) {
-      const realCandidate = realpathSync(candidate);
-      if (!isInsideRoot(root, realCandidate)) {
-        throw new Error(`Registry path must stay inside workspace: ${candidate}`);
-      }
-      return realCandidate;
-    }
-    if (dir === root) break;
-    const parent = dirname(dir);
-    if (parent === dir || !isInsideRoot(root, parent)) break;
-    dir = parent;
-  }
-  return null;
+const raw = await readFile(path, 'utf8');
+const doc = JSON.parse(raw);
+if (!Array.isArray(doc.components) || doc.components.length > MAX_EXTENSION_COMPONENTS) {
+  throw new Error(`${path}: too many extension components`);
 }
 ```
 
-### Low: Local RPC token is still printed in the terminal URL
+### Security Items Now Resolved
 
-The editor now scrubs the `mcp` query from the address bar, but the CLI still prints the full token-bearing editor URL.
+The following previous security findings are resolved in the latest head:
 
-Evidence:
-
-- `packages/workspace-cli/bin/aub-workspace.mjs:914`
-- `packages/workspace-cli/bin/aub-workspace.mjs:925`
-- `apps/editor/src/App.tsx:275`
-
-Suggested change:
-
-```js
-const displayedEditorUrl = new URL(editorUrl.href);
-const displayedMcp = new URL(displayedEditorUrl.searchParams.get('mcp'));
-displayedMcp.searchParams.set('token', '<redacted>');
-displayedEditorUrl.searchParams.set('mcp', displayedMcp.href);
-console.error(`Editor:    ${displayedEditorUrl.href}`);
-```
-
-### Resolved Since Previous Review
-
-The previous security blockers are mostly resolved: action shell interpolation, RPC non-ASCII token handling, launcher token propagation, explicit registry filename suffix checks, browser-safe handoff PNG decode, same-process no-overwrite race, and resource caps all have code and regression coverage.
+- Action input shell interpolation.
+- RPC non-ASCII token 500.
+- Launcher token propagation.
+- Terminal token exposure in the printed editor URL.
+- Project member screen containment.
+- Registry filename suffix bypass.
+- Registry symlink auto-discovery escape.
+- Browser-side handoff `Buffer` regression.
+- Handoff screenshot PNG/viewport/size validation.
+- Same-process and cross-process no-overwrite file creation.
 
 ## 2. Quality Agent
 
-### Medium: Project CLI workspace containment differs from schema/docs/MCP/CI
+### Medium: `pnpm validate <project>` does not expose the new workspace root API
 
-The schema and docs allow `screens[].path` parent segments when runtime containment keeps the resolved screen inside the active workspace. MCP and CI pass an explicit workspace root. The standalone CLI calls `loadProject(projectPath)` and therefore defaults containment to the project file directory.
+`scripts/project.mjs validate` supports `--workspace`, but `scripts/validate.mjs` still calls `validateProjectFile(filePath)` without parsing or forwarding a workspace root.
 
 Evidence:
 
-- `scripts/project.lib.mjs:138`
-- `scripts/project.mjs:56`
-- `scripts/project.mjs:265`
-- `docs/multi-screen.md:46`
+- `scripts/validate.mjs:67` detects project documents.
+- `scripts/validate.mjs:69` calls `validateProjectFile(filePath)` without options.
+- `scripts/project.mjs:70` defaults `workspaceRoot` to `process.cwd()`.
 
-Failure mode: `flows/app.aub.project.json` referencing `../screens/home.ui.json` can be valid in MCP/CI but fail in CLI validation/export.
+Risk:
+
+`pnpm validate <*.aub.project.json>` can behave differently from `node scripts/project.mjs validate --workspace <root>` when called from a directory that is not the intended workspace root.
 
 Suggested change:
 
 ```js
-export async function validateProjectFile(projectPathArg, options = {}) {
-  const projectPath = resolve(projectPathArg);
-  const workspaceRoot = resolve(options.workspaceRoot ?? process.cwd());
-  const loaded = await loadProject(projectPath, { workspaceRoot });
-  // ...
-}
+const { file: arg, registry: registryArg, workspace } = parseArgs(process.argv.slice(2));
+// ...
+const result = await validateProjectFile(filePath, {
+  workspaceRoot: workspace ? resolve(workspace) : process.cwd(),
+});
 ```
 
-Add a CLI flow test for `project init flows/app.aub.project.json screens/home.ui.json`, then immediate `validate` and `export-md`.
+Add a regression test for `validate.mjs` detecting a project with parent-segment screen paths.
 
-### Medium: Extension registry auto-discovery semantics still differ across entrypoints
+### Low: TS and MJS workspace path helpers still differ on root path policy
 
-CI discovers from the Blueprint directory toward workspace root. Project CLI discovers from member screen directory but uses the project directory as the root in default calls. MCP `validate_blueprint` starts at `ctx.root`, while `export_handoff` starts at the resolved Blueprint directory.
+MCP's TS helper allows a path resolving to the workspace root; workspace-loop's MJS helper rejects `rel === ''`.
 
 Evidence:
 
-- `apps/mcp-server/src/tools/validate-blueprint.ts:60`
-- `apps/mcp-server/src/tools/validate-project.ts:45`
-- `scripts/ci-verify.lib.mjs:116`
-- `scripts/project.mjs:108`
+- `apps/mcp-server/src/workspace.ts:36`
+- `scripts/workspace-loop.lib.mjs:115`
 
-Suggested change: centralize registry resolution in a shared helper such as `resolveKnownTypesForBlueprint(workspaceRoot, blueprintAbsPath, explicitRegistry)`, and use it from CLI, MCP, and CI.
+Suggested change: extract a shared boundary helper or align root-path policy explicitly in both implementations.
 
-### Low: `SOURCE_READ_CONCURRENCY` is declared but unused
+### Low: Launcher/token coverage depends on built dist
 
-`readSourceTexts()` is now sequential, but `SOURCE_READ_CONCURRENCY = 32` remains declared. Either implement bounded concurrency or remove the constant and document that deterministic source budget accounting is intentionally sequential.
+The smoke test for token redaction/RPC auth is skipped when editor/MCP dist is missing.
+
+Evidence:
+
+- `tests/workspace-cli-init.test.mjs:139`
+- `tests/workspace-cli-init.test.mjs:140`
+
+Suggested change: add unit coverage for `normalizeWorkspaceEndpoint()` and `attachWorkspaceTokenIfMissing()` so token extraction/scrubbing/re-attachment is tested without build artifacts.
 
 ## 3. Bug Hunter Agent
 
-### High: CLI can reject a project shape that schema and `project init` allow
+### Medium: Scrubbed token breaks reload/manual launch recovery
 
-The current schema allows parent segments, and `project init` can produce parent-relative paths via `relative(outDir, screenAbs)`. But CLI validate/export paths use `loadProject(projectPath)` without an explicit workspace root, making the project directory the containment root.
-
-Evidence:
-
-- `schema/ui-project.schema.json:93`
-- `scripts/project.lib.mjs:136`
-- `scripts/project.mjs:50`
-- `scripts/project.mjs:259`
-
-Suggested change: make CLI pass an active workspace root, preferably `process.cwd()` by default plus a `--workspace` option for explicit use.
-
-### Medium: Disconnect/reconnect can lose the workspace RPC token
-
-The launcher passes the token inside the nested MCP endpoint URL. `normalizeWorkspaceEndpoint()` extracts the token and returns a normalized endpoint without it; `handleConnectWorkspace()` stores that stripped endpoint back into the input. After disconnect, reconnecting from the visible input can 401 because the in-memory connection was cleared and the token is no longer in the endpoint.
+The launcher still uses the real token URL for `openBrowser()`, but terminal output is redacted and the editor removes the `mcp` query from the address bar. If auto-open fails, the user runs `--no-open`, copies the printed URL, or refreshes after the query was removed, the in-memory token is gone and `/rpc` returns 401.
 
 Evidence:
 
-- `packages/workspace-cli/bin/aub-workspace.mjs:914`
+- `packages/workspace-cli/bin/aub-workspace.mjs:921`
+- `packages/workspace-cli/bin/aub-workspace.mjs:929`
+- `apps/editor/src/App.tsx:277`
+- `apps/editor/src/App.tsx:282`
 - `apps/editor/src/lib/workspace-client.ts:205`
-- `apps/editor/src/App.tsx:275`
-- `apps/editor/src/App.tsx:432`
-- `apps/editor/src/App.tsx:1148`
+- `apps/mcp-server/src/http.ts:73`
 
 Suggested change:
 
 ```ts
-const [workspaceRpcToken, setWorkspaceRpcToken] = useState<string | undefined>();
+const [workspaceRpcToken, setWorkspaceRpcToken] = useState(() =>
+  sessionStorage.getItem('aub.rpcToken') ?? undefined
+);
 
-async function handleConnectWorkspace() {
-  const endpoint = workspaceRpcToken
-    ? addTokenIfMissing(workspaceEndpoint, workspaceRpcToken)
-    : workspaceEndpoint;
-  const { connection } = await connectWorkspace(endpoint);
-  setWorkspaceRpcToken(connection.rpcToken ?? workspaceRpcToken);
-  setWorkspaceEndpoint(connection.endpoint);
-}
+const nextToken = connection.rpcToken ?? workspaceRpcToken;
+setWorkspaceRpcToken(nextToken);
+if (nextToken) sessionStorage.setItem('aub.rpcToken', nextToken);
+
+// Explicit disconnect:
+sessionStorage.removeItem('aub.rpcToken');
+setWorkspaceRpcToken(undefined);
 ```
 
-Add a browser/client test for `launch URL auto-connect -> disconnect -> reconnect`.
+Alternatively, for `--no-open`, provide a secure one-time launch handoff instead of only printing a redacted URL.
 
-### No Longer Reproduced
+### Bug Items Now Resolved
 
-The previous browser `Buffer` handoff export issue is fixed with an `atob`-first decoder and test coverage.
+No obvious issues remain in browser-vs-Node handoff runtime, schema/runtime project contract through `project.mjs`, Angular importer caps, GitHub Action quoting, or same-page disconnect/reconnect.
 
 ## 4. Concurrency & Performance Agent
 
-### High: `overwrite:false` still races across separate processes
+### High: Workspace-loop read-modify-write locks are still process-local
 
-The same-process race is fixed by a per-process `Map` lock, but two MCP server or CLI processes can both pass `exists(outputPath)` and then use `rename(tempPath, outputPath)`. On POSIX, `rename` can replace the target, violating the no-overwrite contract across processes.
-
-Evidence:
-
-- `apps/mcp-server/src/workspace.ts:174`
-- `apps/mcp-server/src/workspace.ts:179`
-
-Suggested change:
-
-```ts
-await writeFile(tempPath, content, { flag: 'wx' });
-if (!options.overwrite) {
-  try {
-    await link(tempPath, outputPath); // fails atomically with EEXIST
-  } finally {
-    await rm(tempPath, { force: true });
-  }
-  return;
-}
-await rename(tempPath, outputPath);
-```
-
-### High: Read-modify-write flows can still lose concurrent updates
-
-`writeJsonAtomic()` locks only the final write. Callers such as `updateAubSession()` and `approveComponentCandidate()` read JSON, compute a patch, and then write. Concurrent calls can compute from the same stale state and lose one update.
+`updateWorkspaceJson()` now locks read/mutate/write inside one process, but the lock is a process-local `Map`. Two MCP/CLI processes can still read the same JSON state and overwrite independent updates.
 
 Evidence:
 
-- `scripts/workspace-loop.lib.mjs:169`
-- `scripts/workspace-loop.lib.mjs:873`
-- `scripts/workspace-loop.lib.mjs:1625`
+- `scripts/workspace-loop.lib.mjs:168`
+- `scripts/workspace-loop.lib.mjs:215`
+- `scripts/workspace-loop.lib.mjs:906`
+
+Risk:
+
+Concurrent processes updating `.aub/session.json` or `.aub/component-candidates.json` can lose independent fields. Atomic rename prevents partial files, but does not serialize state transitions across processes.
 
 Suggested change:
 
-```js
-async function updateWorkspaceJson(root, filePath, fallback, mutate) {
-  const path = await prepareWorkspaceWritePath(root, filePath);
-  return withPathLock(path, async () => {
-    const current = await readJsonIfExists(path, fallback);
-    const next = await mutate(current);
-    await writeJsonAtomicLocked(path, next);
-    return next;
-  });
-}
-```
+Use a cross-process lock, for example an exclusive `mkdir(lockDir)` lock with retry and `finally rm`, and keep read/mutate/write in the same lock scope.
 
-### Medium: `getWorkspaceStatus()` reads source but reports zero source accounting
+### Medium: `create_extension` updates registry and candidate state in separate transactions
 
-`getWorkspaceStatus()` creates a source reader and calls route/storybook detection, but returns `walkState.audit` without copying source-reader counters.
+`create_extension` reads the candidate before locking, writes `aub.registry.json`, then updates component candidates in a second transaction.
 
 Evidence:
 
-- `scripts/workspace-loop.lib.mjs:1059`
-- `scripts/workspace-loop.lib.mjs:1075`
+- `scripts/workspace-loop.lib.mjs:1730`
+- `scripts/workspace-loop.lib.mjs:1740`
+- `scripts/workspace-loop.lib.mjs:1768`
+
+Risk:
+
+Concurrent `ignore`, `map_core`, or `create_extension` actions, or a crash between writes, can leave the registry updated while the candidate remains unapproved, or approve based on stale candidate state.
 
 Suggested change:
 
-```js
-walkState.audit.sourceBytesRead = sourceReader.audit.totalSourceBytes;
-walkState.audit.sourceFilesSkippedBySize = sourceReader.audit.skippedLargeFiles;
-walkState.audit.sourceFilesSkippedByBudget = sourceReader.audit.skippedBudgetFiles;
-walkState.audit.sourceByteLimitReached = sourceReader.audit.skippedBudgetFiles > 0;
-```
+Introduce a single candidate-review transaction lock. Re-read the candidate inside that lock, confirm it is still reviewable, then update registry and candidate state with a recoverable pending/reconcile design if two files must be touched.
 
-### Low: Screenshot size checks occur after full base64 decode
+### Medium: `validate_project` uses unbounded per-screen concurrency
 
-Handoff screenshot byte caps are present, but large data URLs are decoded before rejection. Add a pre-decode size estimate to reject oversized inputs earlier.
+`validate_project` validates all screens with `Promise.all`, and each screen may resolve/read/parse registries. Project schema has `minItems` but no screen `maxItems`.
+
+Evidence:
+
+- `apps/mcp-server/src/tools/validate-project.ts:41`
+- `apps/mcp-server/src/tools/validate-project.ts:57`
+- `schema/ui-project.schema.json:45`
+
+Suggested change:
+
+Use bounded concurrency and cache `resolveKnownTypesForBlueprint()` by registry path, or add a schema `maxItems` for `screens`.
+
+### Low: Angular template caps still run after full parse
+
+`parseFragment()` builds the AST before `walkHtml()` enforces node caps. The node cap is also per template traversal, not an import-wide aggregate budget.
+
+Evidence:
+
+- `scripts/angular-importer.lib.mjs:267`
+- `scripts/angular-importer.lib.mjs:268`
+- `scripts/angular-importer.lib.mjs:627`
+
+Suggested change:
+
+Add a pre-parse rough tag/token cap and an aggregate import-wide node budget, or move to a streaming parser for large templates.
 
 ## 5. Architecture Agent
 
-### Medium: Project path contract remains split between CLI and MCP/CI
+### Medium: `write_blueprint` still uses a different registry resolution boundary
 
-This is the core remaining architecture issue. The schema/docs describe active-workspace containment; MCP/CI mostly implement it; standalone CLI treats the project directory as the default workspace. The product should expose one project contract.
+`validate_blueprint`, `validate_project`, and CI use `resolveKnownTypesForBlueprint(...)`, which discovers registries from the Blueprint path toward the workspace root. `write_blueprint` still discovers from `ctx.root`.
 
-Suggested change: add a CLI `--workspace` option and default to a clear, documented root. Update `validateProjectFile`, `project export-md`, docs, and tests together.
+Evidence:
 
-### Low: Workspace containment and atomic-write logic are duplicated
+- `apps/mcp-server/src/tools/write-blueprint.ts:48`
+- `apps/mcp-server/src/tools/validate-blueprint.ts:61`
+- `apps/mcp-server/src/tools/validate-project.ts:57`
+- `scripts/ci-verify.lib.mjs`
 
-MCP has `apps/mcp-server/src/workspace.ts`; workspace-loop has another containment/write implementation. This has already produced small semantic differences and increases future drift risk.
+Risk:
 
-Suggested change: extract a shared `scripts/workspace-boundary.lib.mjs` and have both MCP and workspace-loop use the same behavior, with TypeScript wrappers where needed.
+In a nested app or monorepo with a subdirectory `aub.registry.json`, MCP `write_blueprint` can reject a Blueprint that `validate_blueprint`, `validate_project`, and CI would later accept.
+
+Suggested change:
+
+Resolve the output path first, then use it as the Blueprint location for registry discovery:
+
+```ts
+const outputPath = await prepareWorkspaceWritePath(ctx.root, args.path);
+const knownTypes = await resolveKnownTypesForBlueprint({
+  workspaceRoot: ctx.root,
+  blueprintAbsPath: outputPath,
+  explicitRegistry: args.registry,
+});
+```
+
+### Low: Scan audit/source-budget contract is still not a single shared shape
+
+Runtime now reports source read counters in scan report summary and trust breakdown, but editor `WorkspaceStatus.scanAudit` still declares only the older fields.
+
+Evidence:
+
+- `scripts/workspace-loop.lib.mjs:990`
+- `scripts/workspace-loop.lib.mjs:1054`
+- `apps/editor/src/lib/workspace-client.ts:91`
+
+Suggested change:
+
+Define a shared `ScanAudit` / `ScanReport` type or schema and use it in workspace-loop output and editor types.
 
 ## Main Agent Assessment
 
-The updated PR is substantially stronger than the previous head. The prior merge blockers around action quoting, browser `Buffer`, registry suffix checks, same-process `overwrite:false`, scanner source accounting, Angular caps, screenshot caps, and launcher process cleanup are now addressed with tests.
+This latest PR head is much stronger than the previous iterations. It fixes the earlier high-risk follow-ups around:
 
-I would still request changes before merge for three reasons:
+- Action shell quoting.
+- RPC token validation and redaction.
+- Editor same-page reconnect token handling.
+- Project CLI workspace root for `project.mjs`.
+- Registry symlink containment.
+- Browser handoff export.
+- Handoff resource caps.
+- Same-process and cross-process no-overwrite file creation.
+- Workspace-loop same-process read-modify-write loss.
+- Scanner source accounting in status.
 
-1. The project CLI can still reject project layouts that schema/docs/MCP/CI describe as valid.
-2. Registry discovery needs realpath containment to avoid symlink-mediated trust-boundary bypass.
-3. Workspace write semantics still do not fully protect cross-process no-overwrite or read-modify-write updates.
+However, I would still request changes before merge. The remaining findings are narrower, but they affect shared boundaries:
 
-The remaining issues are narrower than the previous review, but they sit on shared boundaries. Fixing them now would prevent another follow-up cycle.
+1. Registry parsing still lacks size/count caps.
+2. `pnpm validate <project>` did not receive the new workspace-root option.
+3. Token scrubbing breaks reload/manual launch recovery unless a safe token handoff exists.
+4. Workspace-loop read-modify-write is still process-local, not cross-process.
+5. `write_blueprint` uses a different registry discovery boundary from validate/CI.
 
 ## Verification Run By Main Agent
 
-The following checks passed locally against `c8b546c4b55867676a08db885419aa56a98e9819`:
+The following checks passed locally against `b417840d7cb9cc08d2895967397e6fa9f0f13b20`:
 
-- `git diff --check 1eb94cd0cb7ed63510da0c48ebdd91ccdbd1bb58..c8b546c4b55867676a08db885419aa56a98e9819`
-- `pnpm test` (167 tests)
+- `git diff --check 1eb94cd0cb7ed63510da0c48ebdd91ccdbd1bb58..b417840d7cb9cc08d2895967397e6fa9f0f13b20`
+- `pnpm test` (170 tests)
 - `pnpm typecheck`
 - `pnpm --dir apps/editor typecheck`
 - `pnpm --dir apps/editor build`
 - `pnpm --dir apps/mcp-server typecheck`
 - `pnpm --dir apps/mcp-server build`
-- `pnpm --dir apps/mcp-server test` (57 tests)
+- `pnpm --dir apps/mcp-server test` (61 tests)
 - `pnpm site:locales:check`
 - `pnpm workspace:package`

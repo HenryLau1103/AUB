@@ -85,7 +85,7 @@ test('ANG5: wide templates fail with an explicit node-count error', async () => 
       },
       { path: 'wide/wide.component.html', content: wideTemplate },
     ], { entry: 'app-wide' }),
-    /Angular template exceeds maximum node count of 5000/
+    /Angular template exceeds maximum (pre-parse tag count|node count)/
   );
 });
 
@@ -162,7 +162,40 @@ test('ANG8: child component templates also apply the full-template node cap', as
       },
       { path: 'parent/child.component.html', content: wideTemplate },
     ], { entry: 'app-parent' }),
-    /Angular template exceeds maximum node count of 5000/
+    /Angular template exceeds maximum (pre-parse tag count|node count)/
+  );
+});
+
+test('ANG9: aggregate template node budget applies across child components', async () => {
+  const childTemplate = `<section>${'<span>Item</span>'.repeat(2400)}</section>`;
+  const childFiles = Array.from({ length: 5 }, (_, index) => ([
+    {
+      path: `parent/child-${index}.component.ts`,
+      content: `
+        import { Component } from '@angular/core';
+        @Component({ selector: 'app-child-${index}', templateUrl: './child-${index}.component.html' })
+        export class Child${index}Component {}
+      `,
+    },
+    { path: `parent/child-${index}.component.html`, content: childTemplate },
+  ])).flat();
+  await assert.rejects(
+    () => importAngularComponent([
+      {
+        path: 'parent/parent.component.ts',
+        content: `
+          import { Component } from '@angular/core';
+          @Component({ selector: 'app-parent', templateUrl: './parent.component.html' })
+          export class ParentComponent {}
+        `,
+      },
+      {
+        path: 'parent/parent.component.html',
+        content: Array.from({ length: 5 }, (_, index) => `<app-child-${index}></app-child-${index}>`).join(''),
+      },
+      ...childFiles,
+    ], { entry: 'app-parent' }),
+    /Angular import exceeds maximum aggregate template node count of 20000/
   );
 });
 

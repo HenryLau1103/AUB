@@ -396,6 +396,36 @@ test('write_blueprint validates, writes atomically, and rejects paths outside th
   }
 });
 
+test('write_blueprint discovers extension registries from the destination blueprint path', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-write-nested-registry-'));
+  try {
+    await mkdir(join(root, 'apps', 'analytics'), { recursive: true });
+    await writeFile(
+      join(root, 'apps', 'analytics', 'aub.registry.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'extensions', 'aub.registry.json'), 'utf8'),
+      'utf8'
+    );
+    const blueprint = JSON.parse(
+      await readFile(join(findRepoRoot(), 'examples', 'extensions', 'analytics-insights.ui.json'), 'utf8')
+    );
+    const result = await writeBlueprint({ ...ctx, root }, {
+      path: 'apps/analytics/analytics-insights.ui.json',
+      blueprint,
+    });
+    assert.equal(result.extensionRegistry?.endsWith('/apps/analytics/aub.registry.json'), true);
+
+    await assert.rejects(
+      () => writeBlueprint({ ...ctx, root }, {
+        path: 'other/analytics-insights.ui.json',
+        blueprint,
+      }),
+      /unknown component type "acme:/
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('write_blueprint rejects symlinked output parents outside the workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'aub-mcp-write-link-'));
   const outside = await mkdtemp(join(tmpdir(), 'aub-mcp-write-outside-'));

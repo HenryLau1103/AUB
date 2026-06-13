@@ -928,7 +928,10 @@ async function main() {
   console.error(`Workspace: ${workspace}`);
   console.error(`Editor:    ${displayedEditorUrl.href}`);
   console.error(`MCP:       ${mcpUrl}`);
-  console.error('Security:  The editor launch URL contains a short-lived local RPC token; the editor removes it from the address bar after startup.');
+  console.error('Security:  The printed editor URL is redacted; the auto-opened browser URL carries the local RPC token and the editor stores it for reloads.');
+  if (!args.open) {
+    console.error('Manual:    --no-open does not print the RPC token. Use the editor Connect Workspace form with an authenticated MCP endpoint if needed.');
+  }
   console.error('Stop:      Ctrl+C');
   console.error('');
 

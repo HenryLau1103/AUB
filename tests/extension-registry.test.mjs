@@ -12,6 +12,10 @@ import {
   discoverWorkspaceExtensionRegistry,
   resolveKnownTypesForBlueprint,
   EXTENSION_NAME_PATTERN,
+  MAX_EXTENSION_COMPONENTS,
+  MAX_EXTENSION_IMPLEMENTATIONS,
+  MAX_EXTENSION_PROPS,
+  MAX_EXTENSION_REGISTRY_BYTES,
 } from '../scripts/registry.lib.mjs';
 
 const EXAMPLE = new URL('../examples/extensions/analytics-insights.ui.json', import.meta.url).pathname;
@@ -103,6 +107,50 @@ test('parseExtensionRegistry rejects bad names, duplicates, and missing isContai
   assert.throws(() => parseExtensionRegistry({}, new Set()), /missing required "components" array/);
 });
 
+test('parseExtensionRegistry enforces component, implementation, and prop caps', () => {
+  assert.throws(
+    () => parseExtensionRegistry({
+      components: Array.from({ length: MAX_EXTENSION_COMPONENTS + 1 }, (_, index) => ({
+        name: `acme:card_${index}`,
+        isContainer: true,
+      })),
+    }, new Set()),
+    /maximum component count/
+  );
+  assert.throws(
+    () => parseExtensionRegistry({
+      components: [{
+        name: 'acme:card',
+        isContainer: true,
+        implementations: Array.from({ length: MAX_EXTENSION_IMPLEMENTATIONS + 1 }, (_, index) => ({
+          id: `react-${index}`,
+          framework: 'react',
+          module: '@acme/ui',
+        })),
+      }],
+    }, new Set()),
+    /maximum implementation count/
+  );
+  assert.throws(
+    () => parseExtensionRegistry({
+      components: [{
+        name: 'acme:card',
+        isContainer: true,
+        implementations: [{
+          id: 'react',
+          framework: 'react',
+          module: '@acme/ui',
+          props: Object.fromEntries(Array.from({ length: MAX_EXTENSION_PROPS + 1 }, (_, index) => [
+            `prop${index}`,
+            { from: `content.prop${index}` },
+          ])),
+        }],
+      }],
+    }, new Set()),
+    /maximum prop count/
+  );
+});
+
 test('EXTENSION_NAME_PATTERN accepts team:component and rejects core/snake names', () => {
   assert.ok(EXTENSION_NAME_PATTERN.test('acme:data_card'));
   assert.ok(EXTENSION_NAME_PATTERN.test('a:b'));
@@ -189,6 +237,20 @@ test('buildKnownTypes auto-discovers from a start directory', async () => {
     knownTypes.get('acme:insight_card')?.implementations[0].props.title.from,
     'content.title'
   );
+});
+
+test('buildKnownTypes rejects oversized extension registry files before JSON parsing', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'aub-reg-size-'));
+  try {
+    const registryPath = join(base, 'aub.registry.json');
+    await writeFile(registryPath, `${' '.repeat(MAX_EXTENSION_REGISTRY_BYTES + 1)}`, 'utf8');
+    await assert.rejects(
+      () => buildKnownTypes({ extensionPath: registryPath, discover: false }),
+      /registry exceeds/
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
 });
 
 test('parseExtensionRegistry validates production implementation mappings', () => {

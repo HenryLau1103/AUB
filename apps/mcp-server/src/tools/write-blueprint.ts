@@ -3,9 +3,9 @@ import yaml from 'js-yaml';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
 import type { Blueprint } from '../aub.js';
-import { buildKnownTypes, discoverWorkspaceExtensionRegistry, validateBlueprintSemantics } from '../aub.js';
+import { resolveKnownTypesForBlueprint, validateBlueprintSemantics } from '../aub.js';
 import { formatAjvErrors } from '../schema.js';
-import { prepareWorkspaceWritePath, resolveWorkspaceRegistryPath, writeFileAtomic } from '../workspace.js';
+import { prepareWorkspaceWritePath, writeFileAtomic } from '../workspace.js';
 
 export const name = 'write_blueprint';
 
@@ -43,13 +43,13 @@ export async function run(
   if (!args.blueprint) throw new Error('Provide a complete "blueprint" object.');
 
   const blueprint = args.blueprint as Blueprint;
+  const outputPath = await prepareWorkspaceWritePath(ctx.root, args.path);
   const schemaOk = ctx.validators.validateBlueprint(blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
-  const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry
-      ? await resolveWorkspaceRegistryPath(ctx.root, args.registry)
-      : discoverWorkspaceExtensionRegistry(ctx.root, ctx.root),
-    discover: false,
+  const knownTypes = await resolveKnownTypesForBlueprint({
+    workspaceRoot: ctx.root,
+    blueprintAbsPath: outputPath,
+    explicitRegistry: args.registry,
   });
   const semanticErrors = schemaOk
     ? validateBlueprintSemantics(blueprint, { knownTypes: knownTypes.knownTypes })
@@ -60,7 +60,6 @@ export async function run(
     );
   }
 
-  const outputPath = await prepareWorkspaceWritePath(ctx.root, args.path);
   const ext = extname(outputPath).toLowerCase();
   const content =
     ext === '.yaml' || ext === '.yml'

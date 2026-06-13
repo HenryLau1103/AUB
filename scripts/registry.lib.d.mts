@@ -35,6 +35,11 @@ export interface BuildKnownTypesResult {
 
 export const EXTENSION_REGISTRY_FILENAME: string;
 export const EXTENSION_NAME_PATTERN: RegExp;
+export const MAX_EXTENSION_REGISTRY_BYTES: number;
+export const MAX_EXTENSION_COMPONENTS: number;
+export const MAX_EXTENSION_IMPLEMENTATIONS: number;
+export const MAX_EXTENSION_PROPS: number;
+export const MAX_EXTENSION_STRING_BYTES: number;
 export const REPO_ROOT: string;
 
 export function buildCoreKnownTypes(): Promise<KnownTypes>;

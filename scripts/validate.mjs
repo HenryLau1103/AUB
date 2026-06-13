@@ -17,7 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 
 function parseArgs(argv) {
-  const args = { file: null, registry: null };
+  const args = { file: null, registry: null, workspace: null };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === '--registry') {
@@ -25,6 +25,11 @@ function parseArgs(argv) {
       i += 1;
     } else if (token.startsWith('--registry=')) {
       args.registry = token.slice('--registry='.length);
+    } else if (token === '--workspace') {
+      args.workspace = argv[i + 1];
+      i += 1;
+    } else if (token.startsWith('--workspace=')) {
+      args.workspace = token.slice('--workspace='.length);
     } else if (!args.file) {
       args.file = token;
     }
@@ -33,12 +38,13 @@ function parseArgs(argv) {
 }
 
 async function main() {
-  const { file: arg, registry: registryArg } = parseArgs(process.argv.slice(2));
+  const { file: arg, registry: registryArg, workspace: workspaceArg } = parseArgs(process.argv.slice(2));
   if (!arg) {
-    console.error('Usage: pnpm validate <file.ui.json|file.ui.yaml> [--registry <aub.registry.json>]');
+    console.error('Usage: pnpm validate <file.ui.json|file.ui.yaml|file.aub.project.json> [--registry <aub.registry.json>] [--workspace <root>]');
     process.exit(2);
   }
   const filePath = resolve(arg);
+  const workspaceRoot = workspaceArg ? resolve(workspaceArg) : process.cwd();
   const ext = extname(filePath).toLowerCase();
 
   const schemaPath = join(ROOT, 'schema', 'ui-blueprint.schema.json');
@@ -66,7 +72,7 @@ async function main() {
       !('nodes' in document));
   if (looksLikeProject) {
     console.log('→ detected project document; validating as project');
-    const result = await validateProjectFile(filePath);
+    const result = await validateProjectFile(filePath, { workspaceRoot });
     if (result.perScreen) {
       for (const screen of result.perScreen) {
         if (screen.ok) {

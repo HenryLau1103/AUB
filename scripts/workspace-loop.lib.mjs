@@ -63,6 +63,9 @@ const MAX_ROUTE_LENGTH = 220;
 const MAX_CATEGORY_LENGTH = 80;
 const MAX_SOURCE_KIND_LENGTH = 32;
 const MAX_FRAMEWORK_LENGTH = 32;
+const CROSS_PROCESS_LOCK_TIMEOUT_MS = 5000;
+const CROSS_PROCESS_LOCK_STALE_MS = 30000;
+const CROSS_PROCESS_LOCK_RETRY_MS = 25;
 const CORE_TYPE_PATTERN = /^[a-z][a-z0-9_]*$/;
 const CORE_KIND_BY_NAME = [
   [/badge|status|pill/i, 'badge'],
@@ -116,7 +119,7 @@ export function resolveWorkspacePath(root, filePath) {
   const absRoot = resolve(root);
   const absPath = isAbsolute(filePath) ? resolve(filePath) : resolve(absRoot, filePath);
   const rel = relative(absRoot, absPath);
-  if (rel === '..' || rel.startsWith(`..${sep}`) || rel === '' || isAbsolute(rel)) {
+  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     throw new Error(`Path must stay inside the workspace root: ${filePath}`);
   }
   return absPath;
@@ -175,10 +178,49 @@ async function withPathLock(path, fn) {
   writeLocks.set(path, chained);
   try {
     await previous;
-    return await fn();
+    const releaseCrossProcessLock = await acquireCrossProcessLock(path);
+    try {
+      return await fn();
+    } finally {
+      await releaseCrossProcessLock();
+    }
   } finally {
     release();
     if (writeLocks.get(path) === chained) writeLocks.delete(path);
+  }
+}
+
+async function acquireCrossProcessLock(path) {
+  const lockPath = `${path}.lock`;
+  const startedAt = Date.now();
+  for (;;) {
+    try {
+      await mkdir(lockPath);
+      await writeFile(
+        join(lockPath, 'owner.json'),
+        `${JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString(), target: path }, null, 2)}\n`,
+        'utf8'
+      );
+      return async () => {
+        await rm(lockPath, { recursive: true, force: true });
+      };
+    } catch (err) {
+      if (err?.code !== 'EEXIST') throw err;
+      try {
+        const info = await stat(lockPath);
+        if (Date.now() - info.mtimeMs > CROSS_PROCESS_LOCK_STALE_MS) {
+          await rm(lockPath, { recursive: true, force: true });
+          continue;
+        }
+      } catch (statError) {
+        if (statError?.code !== 'ENOENT') throw statError;
+        continue;
+      }
+      if (Date.now() - startedAt > CROSS_PROCESS_LOCK_TIMEOUT_MS) {
+        throw new Error(`Timed out waiting for workspace lock: ${lockPath}`);
+      }
+      await new Promise((resolveSleep) => setTimeout(resolveSleep, CROSS_PROCESS_LOCK_RETRY_MS));
+    }
   }
 }
 
@@ -1685,7 +1727,13 @@ function inferFrameworkFromPath(path) {
 
 export async function approveComponentCandidate(root, args = {}) {
   if (!args.id) throw new Error('Provide candidate id.');
+  await mkdir(join(root, AUB_DIR), { recursive: true });
+  return withPathLock(join(root, AUB_DIR, 'component-candidates.review'), () =>
+    approveComponentCandidateLocked(root, args)
+  );
+}
 
+async function approveComponentCandidateLocked(root, args = {}) {
   if (args.action === 'ignore') {
     const result = await updateWorkspaceJson(root, COMPONENT_CANDIDATES_PATH, {
       format: 'aub-component-candidates',

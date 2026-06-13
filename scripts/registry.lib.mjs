@@ -4,7 +4,7 @@
 // never collide with core snake_case types and are always explicit — agents still
 // resolve them, they are never free-guessed.
 
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { existsSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { basename, dirname, resolve, join, relative, sep, isAbsolute } from 'node:path';
@@ -15,6 +15,11 @@ const ROOT = resolve(__dirname, '..');
 
 export const EXTENSION_REGISTRY_FILENAME = 'aub.registry.json';
 export const EXTENSION_NAME_PATTERN = /^[a-z][a-z0-9]*:[a-z][a-z0-9_]*$/;
+export const MAX_EXTENSION_REGISTRY_BYTES = 512 * 1024;
+export const MAX_EXTENSION_COMPONENTS = 500;
+export const MAX_EXTENSION_IMPLEMENTATIONS = 20;
+export const MAX_EXTENSION_PROPS = 200;
+export const MAX_EXTENSION_STRING_BYTES = 256 * 1024;
 
 /** Build a Map<typeName, metadata> for the core registry. */
 export async function buildCoreKnownTypes() {
@@ -116,6 +121,13 @@ export function parseExtensionRegistry(doc, coreTypes, sourceLabel = EXTENSION_R
   if (!Array.isArray(components)) {
     throw new Error(`${sourceLabel}: missing required "components" array`);
   }
+  if (components.length > MAX_EXTENSION_COMPONENTS) {
+    throw new Error(`${sourceLabel}: registry exceeds maximum component count of ${MAX_EXTENSION_COMPONENTS}`);
+  }
+  const stringBytes = registryStringBytes(doc);
+  if (stringBytes > MAX_EXTENSION_STRING_BYTES) {
+    throw new Error(`${sourceLabel}: registry string content exceeds ${MAX_EXTENSION_STRING_BYTES} bytes`);
+  }
   const seen = new Set();
   const normalized = [];
   for (const entry of components) {
@@ -154,6 +166,11 @@ function normalizeImplementations(input, componentName, sourceLabel) {
   if (!Array.isArray(input) || input.length === 0) {
     throw new Error(`${sourceLabel}: extension "${componentName}" implementations must be a non-empty array`);
   }
+  if (input.length > MAX_EXTENSION_IMPLEMENTATIONS) {
+    throw new Error(
+      `${sourceLabel}: extension "${componentName}" exceeds maximum implementation count of ${MAX_EXTENSION_IMPLEMENTATIONS}`
+    );
+  }
   const seen = new Set();
   return input.map((implementation) => {
     if (!implementation || typeof implementation !== 'object' || Array.isArray(implementation)) {
@@ -181,6 +198,11 @@ function normalizeImplementations(input, componentName, sourceLabel) {
     }
     if (props != null && (!props || typeof props !== 'object' || Array.isArray(props))) {
       throw new Error(`${sourceLabel}: extension "${componentName}" implementation "${id}" props must be an object`);
+    }
+    if (Object.keys(props ?? {}).length > MAX_EXTENSION_PROPS) {
+      throw new Error(
+        `${sourceLabel}: extension "${componentName}" implementation "${id}" exceeds maximum prop count of ${MAX_EXTENSION_PROPS}`
+      );
     }
     const normalizedProps = {};
     for (const [propName, mapping] of Object.entries(props ?? {})) {
@@ -236,6 +258,28 @@ function normalizeImplementations(input, componentName, sourceLabel) {
   });
 }
 
+function registryStringBytes(value) {
+  let bytes = 0;
+  const encoder = new TextEncoder();
+  const visit = (item) => {
+    if (typeof item === 'string') {
+      bytes += encoder.encode(item).byteLength;
+      return;
+    }
+    if (!item || typeof item !== 'object') return;
+    if (Array.isArray(item)) {
+      for (const child of item) visit(child);
+      return;
+    }
+    for (const [key, child] of Object.entries(item)) {
+      bytes += encoder.encode(key).byteLength;
+      visit(child);
+    }
+  };
+  visit(value);
+  return bytes;
+}
+
 /**
  * Resolve the full known-type map: core types plus any extension types. Discovery
  * order: explicit extensionPath > auto-discovered file from startDir. Pass
@@ -249,6 +293,10 @@ export async function buildKnownTypes({ extensionPath, startDir = process.cwd(),
   if (!path && discover) path = discoverExtensionRegistry(startDir);
   if (!path) return { knownTypes: known, extensionPath: null, extensions: [] };
 
+  const info = await stat(path);
+  if (info.size > MAX_EXTENSION_REGISTRY_BYTES) {
+    throw new Error(`${path}: registry exceeds ${MAX_EXTENSION_REGISTRY_BYTES} bytes`);
+  }
   const raw = await readFile(path, 'utf8');
   let doc;
   try {

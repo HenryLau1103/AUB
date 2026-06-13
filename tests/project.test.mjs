@@ -24,6 +24,7 @@ const PROJECT = new URL('../examples/project/app.aub.project.json', import.meta.
 const PROJECT_SCHEMA = new URL('../schema/ui-project.schema.json', import.meta.url).pathname;
 const BLUEPRINT_SCHEMA = new URL('../schema/ui-blueprint.schema.json', import.meta.url).pathname;
 const PROJECT_CLI = new URL('../scripts/project.mjs', import.meta.url).pathname;
+const VALIDATE_CLI = new URL('../scripts/validate.mjs', import.meta.url).pathname;
 const execFileAsync = promisify(execFile);
 
 async function compile(schemaPath) {
@@ -245,6 +246,43 @@ test('project CLI uses the active workspace root for nested project files', asyn
     await execFileAsync(
       process.execPath,
       [PROJECT_CLI, 'validate', 'app.aub.project.json', '--workspace', root],
+      { cwd: join(root, 'flows') }
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('validate CLI forwards workspace root for project documents', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-validate-cli-workspace-'));
+  try {
+    await mkdir(join(root, 'flows'), { recursive: true });
+    await mkdir(join(root, 'screens'), { recursive: true });
+    const blueprint = JSON.parse(await readFile(new URL('../examples/dashboard.ui.json', import.meta.url), 'utf8'));
+    blueprint.screen.id = 'dashboard.overview';
+    await writeFile(join(root, 'screens', 'home.ui.json'), `${JSON.stringify(blueprint, null, 2)}\n`, 'utf8');
+    const project = {
+      version: PROJECT_VERSION,
+      id: 'workspace-layout',
+      name: 'Workspace Layout',
+      screens: [{ id: 'dashboard.overview', path: '../screens/home.ui.json' }],
+      entry_screen: 'dashboard.overview',
+      navigation: [],
+    };
+    await writeFile(join(root, 'flows', 'app.aub.project.json'), `${JSON.stringify(project, null, 2)}\n`, 'utf8');
+
+    await execFileAsync(process.execPath, [VALIDATE_CLI, 'flows/app.aub.project.json'], { cwd: root });
+    await assert.rejects(
+      execFileAsync(process.execPath, [VALIDATE_CLI, 'app.aub.project.json'], { cwd: join(root, 'flows') }),
+      (error) => {
+        assert.equal(error.code, 1);
+        assert.match(error.stderr, /inside workspace/);
+        return true;
+      }
+    );
+    await execFileAsync(
+      process.execPath,
+      [VALIDATE_CLI, 'app.aub.project.json', '--workspace', root],
       { cwd: join(root, 'flows') }
     );
   } finally {

@@ -10,6 +10,8 @@ const MAX_ANGULAR_SOURCE_FILES = 2000;
 const MAX_ANGULAR_SOURCE_PATH_LENGTH = 512;
 const MAX_ANGULAR_COMPONENTS = 500;
 const MAX_TEMPLATE_NODES = 5000;
+const MAX_TEMPLATE_TAGS_BEFORE_PARSE = 5000;
+const MAX_IMPORT_TEMPLATE_NODES = 20000;
 const MAX_ATTRIBUTES_PER_NODE = 80;
 
 const CONTAINER_TYPES = new Set([
@@ -207,6 +209,7 @@ function createBuilder(context) {
   const ids = new Map();
   const signatures = new Map();
   const parsedComponents = new Set();
+  let importTemplateNodes = 0;
 
   function addNode(input) {
     const id = uniqueId(input.idHint || input.name || input.type, ids);
@@ -264,8 +267,15 @@ function createBuilder(context) {
       return;
     }
     parsedComponents.add(cycleKey);
+    const roughTagCount = (file.content.match(/<[A-Za-z][^>]*>/g) ?? []).length;
+    if (roughTagCount > MAX_TEMPLATE_TAGS_BEFORE_PARSE) {
+      throw new Error(`Angular template exceeds maximum pre-parse tag count of ${MAX_TEMPLATE_TAGS_BEFORE_PARSE}.`);
+    }
     const document = parseFragment(file.content, { sourceCodeLocationInfo: true });
-    walkHtml(document, () => {});
+    importTemplateNodes += walkHtml(document, () => {});
+    if (importTemplateNodes > MAX_IMPORT_TEMPLATE_NODES) {
+      throw new Error(`Angular import exceeds maximum aggregate template node count of ${MAX_IMPORT_TEMPLATE_NODES}.`);
+    }
     walkChildren(document.childNodes ?? [], parentId, file, [...ancestors, cycleKey]);
   }
 
@@ -645,6 +655,7 @@ function walkHtml(node, visitor) {
       stack.push({ node: children[index], depth: current.depth + 1 });
     }
   }
+  return visited;
 }
 
 function visibleText(node) {

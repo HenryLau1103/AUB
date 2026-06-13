@@ -1,15 +1,18 @@
 import { cp, mkdir, mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { promisify } from 'node:util';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { scanProjectUi, generateTemplateFromSource } from '../scripts/workspace-loop.lib.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA = JSON.parse(await readFile(resolve(ROOT, 'schema/ui-blueprint.schema.json'), 'utf8'));
+const execFileAsync = promisify(execFile);
 
 async function copyFixture(name) {
   const source = resolve(ROOT, 'examples', 'workspace-fixtures', name);
@@ -116,6 +119,88 @@ test('WL3: scanner records aggregate source byte budget skips', async () => {
     assert.equal(scan.scanAudit.sourceByteLimitReached, true);
     assert.ok(scan.scanAudit.sourceFilesSkippedByBudget > 0);
     assert.ok(scan.scanReport.trust.breakdown.sourceByteLimitReached);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('WL4: workspace session updates are serialized across processes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-session-cross-process-'));
+  try {
+    const script = [
+      "import { updateAubSession } from './scripts/workspace-loop.lib.mjs';",
+      "await updateAubSession(process.argv[1], JSON.parse(process.argv[2]));",
+    ].join('\n');
+    await Promise.all([
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, root, JSON.stringify({
+        activeBlueprint: 'screens/settings.ui.json',
+      })], { cwd: ROOT }),
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, root, JSON.stringify({
+        preview: { route: '/settings' },
+      })], { cwd: ROOT }),
+    ]);
+    const stored = JSON.parse(await readFile(join(root, '.aub', 'session.json'), 'utf8'));
+    assert.equal(stored.activeBlueprint, 'screens/settings.ui.json');
+    assert.equal(stored.preview.route, '/settings');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('WL5: component candidate reviews are serialized across processes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-candidates-cross-process-'));
+  try {
+    await mkdir(join(root, '.aub'), { recursive: true });
+    await writeFile(join(root, '.aub', 'component-candidates.json'), `${JSON.stringify({
+      format: 'aub-component-candidates',
+      format_version: '0.1.0',
+      candidates: [
+        {
+          id: 'card-a',
+          status: 'candidate',
+          sourcePath: 'src/CardA.tsx',
+          framework: 'react',
+          componentName: 'CardA',
+          suggestedType: 'app:card_a',
+          suggestedCoreType: 'card',
+          props: [],
+          reviewHistory: [],
+        },
+        {
+          id: 'nav-b',
+          status: 'candidate',
+          sourcePath: 'src/NavB.tsx',
+          framework: 'react',
+          componentName: 'NavB',
+          suggestedType: 'app:nav_b',
+          suggestedCoreType: 'nav_menu',
+          props: [],
+          reviewHistory: [],
+        },
+      ],
+    }, null, 2)}\n`, 'utf8');
+    const script = [
+      "import { approveComponentCandidate } from './scripts/workspace-loop.lib.mjs';",
+      "await approveComponentCandidate(process.argv[1], JSON.parse(process.argv[2]));",
+    ].join('\n');
+    await Promise.all([
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, root, JSON.stringify({
+        id: 'card-a',
+        action: 'map_core',
+        coreType: 'card',
+      })], { cwd: ROOT }),
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, root, JSON.stringify({
+        id: 'nav-b',
+        action: 'map_core',
+        coreType: 'nav_menu',
+      })], { cwd: ROOT }),
+    ]);
+    const stored = JSON.parse(await readFile(join(root, '.aub', 'component-candidates.json'), 'utf8'));
+    const byId = new Map(stored.candidates.map((candidate) => [candidate.id, candidate]));
+    assert.equal(byId.get('card-a').approvedAs, 'card');
+    assert.equal(byId.get('nav-b').approvedAs, 'nav_menu');
+    assert.equal(byId.get('card-a').reviewHistory.length, 1);
+    assert.equal(byId.get('nav-b').reviewHistory.length, 1);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

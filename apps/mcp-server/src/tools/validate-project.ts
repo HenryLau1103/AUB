@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { relative, sep } from 'node:path';
+import { dirname, relative, sep } from 'node:path';
 import type { ServerContext } from '../context.js';
 import { resolveProjectRef } from '../workspace.js';
 import { formatAjvErrors } from '../schema.js';
@@ -23,6 +23,23 @@ export const config = {
   inputSchema,
 };
 
+const VALIDATE_PROJECT_CONCURRENCY = 8;
+
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (;;) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) return;
+      results[index] = await fn(items[index] as T, index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 export async function run(ctx: ServerContext, args: { ref?: string }) {
   if (!args.ref) {
     throw new Error('Provide a project "ref" (file path or project id).');
@@ -38,7 +55,8 @@ export async function run(ctx: ServerContext, args: { ref?: string }) {
     screensById: loaded.screensById,
   });
 
-  const screens = await Promise.all(loaded.screens.map(async (screen) => {
+  const knownTypesByDirectory = new Map<string, ReturnType<typeof resolveKnownTypesForBlueprint>>();
+  const screens = await mapLimit(loaded.screens, VALIDATE_PROJECT_CONCURRENCY, async (screen) => {
     if (!screen.blueprint) {
       return {
         id: screen.ref?.id ?? '',
@@ -54,10 +72,16 @@ export async function run(ctx: ServerContext, args: { ref?: string }) {
     const memberSemanticErrors: string[] = [];
     if (memberSchemaOk) {
       try {
-        const resolved = await resolveKnownTypesForBlueprint({
-          workspaceRoot: ctx.root,
-          blueprintAbsPath: screen.path,
-        });
+        const directoryKey = dirname(screen.path);
+        let knownTypesPromise = knownTypesByDirectory.get(directoryKey);
+        if (!knownTypesPromise) {
+          knownTypesPromise = resolveKnownTypesForBlueprint({
+            workspaceRoot: ctx.root,
+            blueprintAbsPath: screen.path,
+          });
+          knownTypesByDirectory.set(directoryKey, knownTypesPromise);
+        }
+        const resolved = await knownTypesPromise;
         memberSemanticErrors.push(
           ...validateBlueprintSemantics(screen.blueprint, { knownTypes: resolved.knownTypes })
         );
@@ -72,7 +96,7 @@ export async function run(ctx: ServerContext, args: { ref?: string }) {
       schemaErrors: memberSchemaErrors,
       semanticErrors: memberSemanticErrors,
     };
-  }));
+  });
 
   const valid =
     schemaOk &&

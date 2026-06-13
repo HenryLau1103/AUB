@@ -85,6 +85,7 @@ import { validateBlueprintSemantics } from '../../../scripts/validate-blueprint.
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const validateSchema = ajv.compile(schemaJson as object);
+const WORKSPACE_RPC_TOKEN_STORAGE_KEY = 'aub.rpcToken';
 
 interface AddNodeOptions {
   makeParentFreeform?: boolean;
@@ -261,7 +262,10 @@ export function App() {
   const [activeScreenId, setActiveScreenId] = useState<string | null>(null);
   const [extensionRegistry, setExtensionRegistry] = useState<string | null>(null);
   const [workspaceEndpoint, setWorkspaceEndpoint] = useState(initialWorkspaceEndpoint);
-  const [workspaceRpcToken, setWorkspaceRpcToken] = useState<string | undefined>();
+  const [workspaceRpcToken, setWorkspaceRpcToken] = useState<string | undefined>(() => {
+    if (typeof window === 'undefined') return undefined;
+    return window.sessionStorage.getItem(WORKSPACE_RPC_TOKEN_STORAGE_KEY) ?? undefined;
+  });
   const [workspaceConnection, setWorkspaceConnection] = useState<WorkspaceConnection | null>(null);
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus | null>(null);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
@@ -434,8 +438,12 @@ export function App() {
       const endpoint = attachWorkspaceTokenIfMissing(workspaceEndpoint, workspaceRpcToken);
       const { connection } = await connectWorkspace(endpoint);
       const status = await loadWorkspaceStatus(connection);
+      const nextRpcToken = connection.rpcToken ?? workspaceRpcToken;
       setWorkspaceConnection(connection);
-      setWorkspaceRpcToken(connection.rpcToken ?? workspaceRpcToken);
+      setWorkspaceRpcToken(nextRpcToken);
+      if (nextRpcToken && typeof window !== 'undefined') {
+        window.sessionStorage.setItem(WORKSPACE_RPC_TOKEN_STORAGE_KEY, nextRpcToken);
+      }
       setWorkspaceStatus(status);
       setWorkspaceEndpoint(connection.endpoint);
       setWorkspaceSavePath(status.session.activeBlueprint ?? (blueprint ? `${blueprint.screen.id}.ui.json` : ''));
@@ -1151,6 +1159,10 @@ export function App() {
               onConnect={() => void handleConnectWorkspace()}
               onDisconnect={() => {
                 setWorkspaceConnection(null);
+                setWorkspaceRpcToken(undefined);
+                if (typeof window !== 'undefined') {
+                  window.sessionStorage.removeItem(WORKSPACE_RPC_TOKEN_STORAGE_KEY);
+                }
                 setWorkspaceStatus(null);
                 setWorkspaceError(null);
               }}
