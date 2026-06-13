@@ -72,7 +72,7 @@ node dist/index.js /path/to/your/repo
 For Streamable HTTP, use the second entrypoint (bin: `aub-mcp-http`):
 
 ```bash
-node dist/http.js --workspace /path/to/your/repo --host 127.0.0.1 --port 3100
+node dist/http.js --workspace /path/to/your/repo --host 127.0.0.1 --port 3100 --rpc-token "$AUB_RPC_TOKEN"
 curl http://127.0.0.1:3100/health
 ```
 
@@ -85,13 +85,15 @@ workspace-connected mode. `/rpc` calls the same registered tool implementations
 as `/mcp`; it exists so browser UI code does not need to implement the full
 Streamable HTTP MCP session protocol.
 
-Security hardening for `/rpc` can be enabled by setting one or both of:
+HTTP RPC authentication is enabled by default. Configure:
 
 - `AUB_RPC_TOKEN` (or `--rpc-token`): one or more comma-separated tokens required via `Authorization: Bearer <token>`.
 - `AUB_RPC_ALLOWED_ORIGINS` (or `--rpc-allowed-origins`): comma-separated origin allow list.
+- `AUB_ALLOW_UNAUTHENTICATED_RPC=1` (or `--allow-unauthenticated-rpc`): explicit local-development opt-in for no-token mode.
 
-When neither is configured, `/rpc` keeps compatibility behavior while still limiting
-browser requests to localhost and `https://henrylau1103.github.io` origins.
+When no token is configured, `/rpc` and `/mcp` return `401` unless no-token mode is
+explicitly enabled. Origin checks still apply, but they are not treated as
+authorization.
 
 ## Register with an agent
 

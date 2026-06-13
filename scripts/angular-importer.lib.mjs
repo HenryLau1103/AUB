@@ -4,6 +4,7 @@ import scssSyntax from 'postcss-scss';
 import { defaultDesignSystem } from './migrate-blueprint.mjs';
 
 export const ANGULAR_IMPORTER_VERSION = '1.0.0';
+const MAX_TEMPLATE_NESTING_DEPTH = 200;
 
 const CONTAINER_TYPES = new Set([
   'app_shell', 'page', 'section', 'header', 'sidebar', 'top_bar', 'bottom_nav',
@@ -602,8 +603,18 @@ function collectAttributesDeep(node) {
 }
 
 function walkHtml(node, visitor) {
-  visitor(node);
-  for (const child of node.childNodes ?? []) walkHtml(child, visitor);
+  const stack = [{ node, depth: 0 }];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (current.depth > MAX_TEMPLATE_NESTING_DEPTH) {
+      throw new Error(`Angular template exceeds maximum nesting depth of ${MAX_TEMPLATE_NESTING_DEPTH}.`);
+    }
+    visitor(current.node);
+    const children = current.node.childNodes ?? [];
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      stack.push({ node: children[index], depth: current.depth + 1 });
+    }
+  }
 }
 
 function visibleText(node) {

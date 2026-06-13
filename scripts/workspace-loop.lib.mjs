@@ -1,5 +1,5 @@
-import { access, mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
-import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
+import { access, mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { defaultDesignSystem } from './migrate-blueprint.mjs';
 import { scoreImplementationSafety } from './implementation-report.lib.mjs';
 import { EXTENSION_NAME_PATTERN } from './registry.lib.mjs';
@@ -53,6 +53,8 @@ const HIDDEN_DIR_ALLOWLIST = new Set(['.storybook']);
 const SOURCE_EXTENSIONS = new Set(['.tsx', '.jsx', '.ts', '.js', '.vue', '.html']);
 const SOURCE_TEXT_CACHE_TTL_MS = 5 * 60 * 1000;
 const SOURCE_TEXT_CACHE_MAX_ENTRIES = 2000;
+const MAX_SCAN_FILES = 2000;
+const MAX_SOURCE_FILE_BYTES = 512 * 1024;
 const MAX_TEMPLATE_NAME_LENGTH = 120;
 const MAX_TEMPLATE_ID_LENGTH = 120;
 const MAX_ROUTE_LENGTH = 220;
@@ -110,9 +112,39 @@ const TAG_TYPE_MAP = new Map([
 
 export function resolveWorkspacePath(root, filePath) {
   const absRoot = resolve(root);
+  if (isAbsolute(filePath)) {
+    throw new Error(`Path must be relative to the workspace root: ${filePath}`);
+  }
   const absPath = resolve(absRoot, filePath);
   const rel = relative(absRoot, absPath);
-  if (rel === '..' || rel.startsWith(`..${sep}`) || rel === '' || rel.startsWith('/')) {
+  if (rel === '..' || rel.startsWith(`..${sep}`) || rel === '' || isAbsolute(rel)) {
+    throw new Error(`Path must stay inside the workspace root: ${filePath}`);
+  }
+  return absPath;
+}
+
+function isInsideRoot(absRoot, absPath) {
+  const rel = relative(absRoot, absPath);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+async function prepareWorkspaceWritePath(root, filePath) {
+  const lexicalRoot = resolve(root);
+  const absRoot = await realpath(lexicalRoot);
+  const absPath = resolveWorkspacePath(lexicalRoot, filePath);
+  let current = dirname(absPath);
+  while (!(await exists(current))) {
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  const realExistingParent = await realpath(current);
+  if (!isInsideRoot(absRoot, realExistingParent)) {
+    throw new Error(`Path must stay inside the workspace root: ${filePath}`);
+  }
+  await mkdir(dirname(absPath), { recursive: true });
+  const realParent = await realpath(dirname(absPath));
+  if (!isInsideRoot(absRoot, realParent)) {
     throw new Error(`Path must stay inside the workspace root: ${filePath}`);
   }
   return absPath;
@@ -133,12 +165,16 @@ async function readJsonIfExists(path, fallback) {
 }
 
 async function writeJsonAtomic(path, value) {
-  await mkdir(dirname(path), { recursive: true });
   const content = `${JSON.stringify(value, null, 2)}\n`;
   const tempPath = `${path}.${process.pid}.tmp`;
   await writeFile(tempPath, content, 'utf8');
   await rename(tempPath, path);
   return { bytes: Buffer.byteLength(content) };
+}
+
+async function writeWorkspaceJsonAtomic(root, filePath, value) {
+  const path = await prepareWorkspaceWritePath(root, filePath);
+  return writeJsonAtomic(path, value);
 }
 
 function toWorkspacePath(root, absPath) {
@@ -268,32 +304,46 @@ function cacheKey(file) {
 async function readSourceText(file) {
   try {
     const st = await stat(file.absPath);
+    if (st.size > MAX_SOURCE_FILE_BYTES) {
+      return { text: '', skipped: true };
+    }
     const cached = sourceTextCache.get(cacheKey(file));
     if (cached
       && cached.size === st.size
       && cached.mtimeMs === st.mtimeMs
       && Date.now() - cached.cachedAt <= SOURCE_TEXT_CACHE_TTL_MS
     ) {
-      return cached.text;
+      return { text: cached.text, skipped: false };
     }
     const text = await readFile(file.absPath, 'utf8');
     sourceTextCache.set(cacheKey(file), { size: st.size, mtimeMs: st.mtimeMs, text, cachedAt: Date.now() });
     pruneSourceTextCache();
-    return text;
+    return { text, skipped: false };
   } catch {
-    return '';
+    return { text: '', skipped: false };
   }
 }
 
 async function readSourceTexts(files) {
   const sourceFiles = files.filter((file) => SOURCE_EXTENSIONS.has(extname(file.path).toLowerCase()));
   const contents = new Map();
+  let skippedLargeFiles = 0;
   await Promise.all(
     sourceFiles.map(async (file) => {
-      contents.set(file.absPath, await readSourceText(file));
+      const result = await readSourceText(file);
+      if (result.skipped) skippedLargeFiles += 1;
+      contents.set(file.absPath, result.text);
     })
   );
-  return contents;
+  return { contents, skippedLargeFiles };
+}
+
+function normalizeScanLimit(limit) {
+  if (limit === undefined) return MAX_SCAN_FILES;
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new Error('scan_project_ui limit must be a positive integer.');
+  }
+  return Math.min(limit, MAX_SCAN_FILES);
 }
 
 function inferNamespace(root, packageJson) {
@@ -484,7 +534,7 @@ async function detectAngularRoutes(files) {
   const routingFiles = files.filter((file) => /\.routing\.ts$/.test(file.path) || /app\.routing\.ts$/.test(file.path));
   if (routingFiles.length === 0) return [];
   const fileByPath = new Map(files.map((file) => [file.path, file]));
-  const sourceTexts = await readSourceTexts(routingFiles.concat(files.filter((file) => /app-route-paths\.const\.ts$/.test(file.path))));
+  const { contents: sourceTexts } = await readSourceTexts(routingFiles.concat(files.filter((file) => /app-route-paths\.const\.ts$/.test(file.path))));
   const constants = extractAngularRouteConstants(sourceTexts);
   const routes = [];
 
@@ -498,7 +548,7 @@ async function detectAngularRoutes(files) {
       if (!route || componentName === 'undefined') continue;
       const componentPath = imports.get(componentName);
       const componentFile = componentPath ? fileByPath.get(componentPath) : null;
-      const componentContent = componentFile ? await readSourceText(componentFile) : '';
+      const componentContent = componentFile ? (await readSourceText(componentFile)).text : '';
       const htmlPath = componentPath
         ? resolveAngularTemplatePath(componentPath, componentContent, fileByPath)
         : null;
@@ -627,7 +677,7 @@ async function detectStorybook(files) {
   const storyFiles = files.filter((file) => /\.stories\.(jsx?|tsx?|mdx|vue)$/.test(file.path));
   const stories = [];
   for (const file of storyFiles.slice(0, 100)) {
-    const content = await readSourceText(file);
+    const content = (await readSourceText(file)).text;
     stories.push({
       path: file.path,
       title: content.match(/title:\s*['"`]([^'"`]+)['"`]/)?.[1] ?? null,
@@ -644,7 +694,7 @@ async function detectStorybook(files) {
 
 async function detectComponents(root, files, namespace, frameworks, storybook = null) {
   const candidates = [];
-  const sourceTexts = await readSourceTexts(files);
+  const { contents: sourceTexts, skippedLargeFiles } = await readSourceTexts(files);
   for (const file of files) {
     const ext = extname(file.path).toLowerCase();
     if (!SOURCE_EXTENSIONS.has(ext)) continue;
@@ -692,7 +742,7 @@ async function detectComponents(root, files, namespace, frameworks, storybook = 
   }
   const byId = new Map();
   for (const candidate of candidates) byId.set(candidate.id, candidate);
-  return [...byId.values()].slice(0, 100);
+  return { candidates: [...byId.values()].slice(0, 100), skippedLargeFiles };
 }
 
 function findStorybookStoriesForComponent(componentName, selector, storybook) {
@@ -758,7 +808,7 @@ export async function updateAubSession(root, patch = {}) {
     },
     updatedAt: new Date().toISOString(),
   };
-  await writeJsonAtomic(join(root, SESSION_PATH), next);
+  await writeWorkspaceJsonAtomic(root, SESSION_PATH, next);
   return { path: SESSION_PATH, session: next };
 }
 
@@ -781,7 +831,7 @@ async function writeComponentCandidates(root, candidates) {
     updatedAt: new Date().toISOString(),
     candidates,
   };
-  await writeJsonAtomic(join(root, COMPONENT_CANDIDATES_PATH), doc);
+  await writeWorkspaceJsonAtomic(root, COMPONENT_CANDIDATES_PATH, doc);
   return doc;
 }
 
@@ -888,7 +938,7 @@ function clampScanScore(value) {
 }
 
 async function writeScanReport(root, report) {
-  await writeJsonAtomic(join(root, SCAN_REPORT_PATH), report);
+  await writeWorkspaceJsonAtomic(root, SCAN_REPORT_PATH, report);
   return report;
 }
 
@@ -986,7 +1036,7 @@ async function readSafetyScoreForSession(root, session, report) {
 export async function scanProjectUi(root, options = {}) {
   clearSourceTextCacheIfRootChanged(root);
   const files = [];
-  const limit = Number.isInteger(options.limit) && options.limit > 0 ? options.limit : 2000;
+  const limit = normalizeScanLimit(options.limit);
   const walkState = await createWalkState(root);
   await walkWithState(root, root, files, limit, walkState);
   const packageJson = await readPackage(root);
@@ -994,7 +1044,7 @@ export async function scanProjectUi(root, options = {}) {
   const frameworks = detectFrameworks(packageJson, files);
   const routes = await detectRoutes(files);
   const storybook = await detectStorybook(files);
-  const candidates = await detectComponents(root, files, namespace, frameworks, storybook);
+  const { candidates, skippedLargeFiles } = await detectComponents(root, files, namespace, frameworks, storybook);
   const doc = await writeComponentCandidates(root, candidates);
   const scanReport = await writeScanReport(root, buildScanReport({
     packageJson,
@@ -1016,6 +1066,7 @@ export async function scanProjectUi(root, options = {}) {
     scanReport,
     routes,
     components: candidates,
+    skippedSourceFiles: skippedLargeFiles,
     componentCandidatesPath: COMPONENT_CANDIDATES_PATH,
     componentCandidates: doc,
   };
@@ -1023,7 +1074,7 @@ export async function scanProjectUi(root, options = {}) {
 
 async function makeBlueprint({ id, name, framework, source, route, root, files, candidates = [] }) {
   const sourceFile = files.find((file) => file.path === source.path);
-  const sourceText = sourceFile ? await readSourceText(sourceFile) : '';
+  const sourceText = sourceFile ? (await readSourceText(sourceFile)).text : '';
   const extracted = extractBlueprintStructure({
     sourcePath: source.path,
     sourceText,
@@ -1454,9 +1505,10 @@ export async function generateTemplateFromSource(root, args = {}) {
   const normalizedOutput = typeof args.output === 'string' && args.output.length > 0
     ? args.output
     : `${TEMPLATE_DIR}/${slugify(template.id)}.aub.template.json`;
-  const outputPath = resolveWorkspacePath(root, normalizedOutput.endsWith('.aub.template.json')
+  const outputRef = normalizedOutput.endsWith('.aub.template.json')
     ? normalizedOutput
-    : `${normalizedOutput.replace(/\.aub\.template\.json$/i, '').replace(/[/\\]+$/g, '')}.aub.template.json`);
+    : `${normalizedOutput.replace(/\.aub\.template\.json$/i, '').replace(/[/\\]+$/g, '')}.aub.template.json`;
+  const outputPath = await prepareWorkspaceWritePath(root, outputRef);
   await writeJsonAtomic(outputPath, template);
   return {
     savedPath: toWorkspacePath(root, outputPath),
@@ -1508,7 +1560,7 @@ export async function approveComponentCandidate(root, args = {}) {
   if (!namespacedType) {
     throw new Error(`Invalid namespaced type: ${inputNamespacedType}`);
   }
-  const registryPath = join(root, 'aub.registry.json');
+  const registryPath = await prepareWorkspaceWritePath(root, 'aub.registry.json');
   const registry = await readJsonIfExists(registryPath, {
     $schema: 'https://henrylau1103.github.io/AUB/schema/aub.registry.schema.json',
     version: '0.1.0',

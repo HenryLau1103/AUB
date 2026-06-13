@@ -8,7 +8,7 @@ import {
   validateBlueprintSemantics,
 } from '../aub.js';
 import { formatAjvErrors } from '../schema.js';
-import { resolveWorkspacePath } from '../workspace.js';
+import { resolveExistingWorkspacePath } from '../workspace.js';
 
 export const name = 'import_design_bridge';
 
@@ -45,7 +45,7 @@ export async function run(
   if (!args.path && !args.bridge) throw new Error('Provide either "path" or inline "bridge".');
   if (args.path && args.bridge) throw new Error('Provide only one of "path" or "bridge".');
 
-  const bridgePath = args.path ? resolveWorkspacePath(ctx.root, args.path) : null;
+  const bridgePath = args.path ? await resolveExistingWorkspacePath(ctx.root, args.path) : null;
   const bridge = bridgePath ? JSON.parse(await readFile(bridgePath, 'utf8')) : args.bridge;
   const bridgeOk = ctx.validators.validateDesignBridge(bridge) as boolean;
   if (!bridgeOk) {
@@ -60,7 +60,7 @@ export async function run(
   const schemaOk = ctx.validators.validateBlueprint(result.blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
   const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry ? resolveWorkspacePath(ctx.root, args.registry) : null,
+    extensionPath: args.registry ? await resolveExistingWorkspacePath(ctx.root, args.registry) : null,
     startDir: bridgePath ? dirname(bridgePath) : ctx.root,
   });
   const semanticErrors = schemaOk

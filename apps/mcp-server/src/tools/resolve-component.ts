@@ -1,7 +1,7 @@
-import { resolve } from 'node:path';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
 import { buildKnownTypes } from '../aub.js';
+import { resolveExistingWorkspacePath } from '../workspace.js';
 
 export const name = 'resolve_component';
 
@@ -34,7 +34,7 @@ export async function run(
     throw new Error('Provide a component "type".');
   }
   const resolved = await buildKnownTypes({
-    extensionPath: args.registry ? resolve(ctx.root, args.registry) : null,
+    extensionPath: args.registry ? await resolveExistingWorkspacePath(ctx.root, args.registry) : null,
     startDir: ctx.root,
   });
   const metadata = resolved.knownTypes.get(args.type);

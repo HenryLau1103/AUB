@@ -1,9 +1,9 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join, relative, sep } from 'node:path';
+import { writeFile } from 'node:fs/promises';
+import { relative, sep } from 'node:path';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
 import type { ImplementationReport } from '../aub.js';
-import { resolveBlueprint } from '../workspace.js';
+import { prepareWorkspaceWritePath, resolveBlueprint, safeFileStem } from '../workspace.js';
 import { formatAjvErrors } from '../schema.js';
 import { verifyImplementationReport } from '../aub.js';
 
@@ -48,10 +48,9 @@ export async function run(
       safety_score: verification.summary?.safety_score,
     };
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const screenId = entry.screenId || 'blueprint';
-    const dir = join(ctx.root, '.aub', 'reports');
-    await mkdir(dir, { recursive: true });
-    const absPath = join(dir, `${screenId}-${timestamp}.json`);
+    const screenId = safeFileStem(entry.screenId || 'blueprint', 'blueprint');
+    const outputRef = `.aub/reports/${screenId}-${timestamp}.json`;
+    const absPath = await prepareWorkspaceWritePath(ctx.root, outputRef);
     await writeFile(absPath, `${JSON.stringify(persistedReport, null, 2)}\n`, 'utf8');
     savedPath = relative(ctx.root, absPath).split(sep).join('/');
   }

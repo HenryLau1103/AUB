@@ -27,6 +27,10 @@ function parseList(value: string | undefined): string[] {
     });
 }
 
+function parseBoolean(value: string | undefined): boolean {
+  return /^(1|true|yes)$/i.test(value ?? '');
+}
+
 function isLocalOrigin(origin: string): boolean {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(origin);
 }
@@ -64,8 +68,11 @@ function checkRpcAuthorization(req: Request, cfg: ReturnType<typeof resolveRpcCo
     }
   }
 
-  if (cfg.tokens.length === 0) {
+  if (cfg.tokens.length === 0 && cfg.allowUnauthenticated) {
     return { ok: true };
+  }
+  if (cfg.tokens.length === 0) {
+    return { ok: false, status: 401, message: 'RPC token is required.' };
   }
 
   const rawAuth = req.get('authorization') ?? '';
@@ -81,9 +88,13 @@ function checkRpcAuthorization(req: Request, cfg: ReturnType<typeof resolveRpcCo
 function resolveRpcConfig() {
   const configuredToken = parseList(option('--rpc-token') ?? process.env.AUB_RPC_TOKEN);
   const configuredOrigins = parseList(option('--rpc-allowed-origins') ?? process.env.AUB_RPC_ALLOWED_ORIGINS);
+  const allowUnauthenticated =
+    process.argv.includes('--allow-unauthenticated-rpc') ||
+    parseBoolean(process.env.AUB_ALLOW_UNAUTHENTICATED_RPC);
   return {
     tokens: configuredToken,
     allowedOrigins: configuredOrigins,
+    allowUnauthenticated,
   };
 }
 

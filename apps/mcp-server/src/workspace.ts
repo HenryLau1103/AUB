@@ -1,6 +1,6 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, realpath } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import yaml from 'js-yaml';
 import type { Blueprint } from './aub.js';
 import { parseProjectText } from './aub.js';
@@ -34,12 +34,68 @@ const MAX_SCAN_FILES = 2000;
 
 export function resolveWorkspacePath(root: string, filePath: string): string {
   const absRoot = resolve(root);
+  if (isAbsolute(filePath)) {
+    throw new Error(`Path must be relative to the workspace root: ${filePath}`);
+  }
   const absPath = resolve(absRoot, filePath);
   const rel = relative(absRoot, absPath);
   if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     throw new Error(`Path must stay inside the workspace root: ${filePath}`);
   }
   return absPath;
+}
+
+function isInsideRoot(absRoot: string, absPath: string): boolean {
+  const rel = relative(absRoot, absPath);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+export async function resolveExistingWorkspacePath(root: string, filePath: string): Promise<string> {
+  const lexicalRoot = resolve(root);
+  const absRoot = await realpath(lexicalRoot);
+  const absPath = resolveWorkspacePath(lexicalRoot, filePath);
+  const realTarget = await realpath(absPath);
+  if (!isInsideRoot(absRoot, realTarget)) {
+    throw new Error(`Path must stay inside the workspace root: ${filePath}`);
+  }
+  return absPath;
+}
+
+export async function prepareWorkspaceWritePath(root: string, filePath: string): Promise<string> {
+  const lexicalRoot = resolve(root);
+  const absRoot = await realpath(lexicalRoot);
+  const absPath = resolveWorkspacePath(lexicalRoot, filePath);
+  let current = dirname(absPath);
+  while (!existsSync(current)) {
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  const realExistingParent = await realpath(current);
+  if (!isInsideRoot(absRoot, realExistingParent)) {
+    throw new Error(`Path must stay inside the workspace root: ${filePath}`);
+  }
+  await mkdir(dirname(absPath), { recursive: true });
+  const realParent = await realpath(dirname(absPath));
+  if (!isInsideRoot(absRoot, realParent)) {
+    throw new Error(`Path must stay inside the workspace root: ${filePath}`);
+  }
+  return absPath;
+}
+
+export function safeFileStem(value: string, fallback: string): string {
+  const input = value || fallback;
+  if (
+    input === '.' ||
+    input === '..' ||
+    input.includes('/') ||
+    input.includes('\\') ||
+    input.includes('..') ||
+    /[\u0000-\u001f\u007f]/.test(input)
+  ) {
+    throw new Error(`Unsafe file name segment: ${fallback}`);
+  }
+  return input;
 }
 
 function isYaml(filePath: string): boolean {
@@ -110,13 +166,14 @@ export async function resolveBlueprint(root: string, ref: string): Promise<Resol
   const trimmed = ref.trim();
   if (!trimmed) throw new Error('A blueprint ref (file path or screen id) is required.');
 
-  const candidate = isAbsolute(trimmed) ? trimmed : resolve(root, trimmed);
+  const candidate = resolve(root, trimmed);
   if (BLUEPRINT_PATTERN.test(trimmed) || existsSync(candidate)) {
     if (!existsSync(candidate)) {
       throw new Error(`Blueprint file not found: ${trimmed}`);
     }
-    const blueprint = await readBlueprintFile(candidate);
-    return { blueprint, entry: toEntry(root, candidate, blueprint) };
+    const absPath = await resolveExistingWorkspacePath(root, trimmed);
+    const blueprint = await readBlueprintFile(absPath);
+    return { blueprint, entry: toEntry(root, absPath, blueprint) };
   }
 
   const entries = await listBlueprints(root);
@@ -155,12 +212,12 @@ export async function resolveProjectRef(root: string, ref: string): Promise<{ pr
   const trimmed = ref.trim();
   if (!trimmed) throw new Error('A project ref (file path or project id) is required.');
 
-  const candidate = isAbsolute(trimmed) ? trimmed : resolve(root, trimmed);
+  const candidate = resolve(root, trimmed);
   if (PROJECT_PATTERN.test(trimmed) || existsSync(candidate)) {
     if (!existsSync(candidate)) {
       throw new Error(`Project file not found: ${trimmed}`);
     }
-    return { projectPath: candidate };
+    return { projectPath: await resolveExistingWorkspacePath(root, trimmed) };
   }
 
   const entries = await listProjects(root);
