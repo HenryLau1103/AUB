@@ -3,6 +3,8 @@ import JSZip from 'jszip';
 export const HANDOFF_FORMAT_VERSION = '1.2.0';
 export const HANDOFF_AGENT_ENTRYPOINT = 'AGENT-README.md';
 const SAFE_ZIP_SEGMENT_PATTERN = /^[A-Za-z0-9._-]+$/;
+const MAX_VIEWPORT_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_TOTAL_VIEWPORT_IMAGE_BYTES = 32 * 1024 * 1024;
 
 export async function createHandoffArchive({
   blueprint,
@@ -40,9 +42,25 @@ export async function createHandoffArchive({
     files['aub.registry.json'] = ensureTrailingNewline(extensionRegistry);
   }
 
+  let totalViewportImageBytes = 0;
   for (const [viewportId, dataUrl] of Object.entries(viewportImages)) {
     assertSafeZipSegment(viewportId, 'viewport id');
-    files[`screenshots/${viewportId}.png`] = dataUrlToBytes(dataUrl);
+    if (!blueprint.viewports?.some((viewport) => viewport.id === viewportId)) {
+      throw new Error(`Unknown viewport id: ${viewportId}`);
+    }
+    const estimatedImageBytes = estimatePngDataUrlBytes(dataUrl, viewportId);
+    if (estimatedImageBytes > MAX_VIEWPORT_IMAGE_BYTES) {
+      throw new Error(`Viewport ${viewportId} screenshot exceeds maximum size of ${MAX_VIEWPORT_IMAGE_BYTES} bytes.`);
+    }
+    if (totalViewportImageBytes + estimatedImageBytes > MAX_TOTAL_VIEWPORT_IMAGE_BYTES) {
+      throw new Error(`Viewport screenshots exceed maximum total size of ${MAX_TOTAL_VIEWPORT_IMAGE_BYTES} bytes.`);
+    }
+    const imageBytes = pngDataUrlToBytes(dataUrl, viewportId);
+    totalViewportImageBytes += imageBytes.byteLength;
+    if (totalViewportImageBytes > MAX_TOTAL_VIEWPORT_IMAGE_BYTES) {
+      throw new Error(`Viewport screenshots exceed maximum total size of ${MAX_TOTAL_VIEWPORT_IMAGE_BYTES} bytes.`);
+    }
+    files[`screenshots/${viewportId}.png`] = imageBytes;
   }
 
   const manifestFiles = {};
@@ -115,10 +133,37 @@ function ensureTrailingNewline(value) {
   return value.endsWith('\n') ? value : `${value}\n`;
 }
 
-function dataUrlToBytes(dataUrl) {
-  const base64 = dataUrl.split(',')[1] ?? '';
-  const binary = atob(base64);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+function pngDataUrlToBytes(dataUrl, viewportId) {
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(dataUrl));
+  if (!match) {
+    throw new Error(`Viewport ${viewportId} screenshot must be a PNG data URL.`);
+  }
+  const bytes = base64ToBytes(match[1]);
+  const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (bytes.length < pngSignature.length || !pngSignature.every((byte, index) => bytes[index] === byte)) {
+    throw new Error(`Viewport ${viewportId} screenshot is not a PNG.`);
+  }
+  return bytes;
+}
+
+function estimatePngDataUrlBytes(dataUrl, viewportId) {
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(dataUrl));
+  if (!match) {
+    throw new Error(`Viewport ${viewportId} screenshot must be a PNG data URL.`);
+  }
+  const base64 = match[1];
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
+}
+
+function base64ToBytes(base64) {
+  if (typeof globalThis.atob === 'function') {
+    return Uint8Array.from(globalThis.atob(base64), (ch) => ch.charCodeAt(0));
+  }
+  if (typeof Buffer !== 'undefined') {
+    return Uint8Array.from(Buffer.from(base64, 'base64'));
+  }
+  throw new Error('Base64 decoder is unavailable.');
 }
 
 async function sha256(bytes) {

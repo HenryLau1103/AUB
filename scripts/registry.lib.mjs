@@ -4,10 +4,10 @@
 // never collide with core snake_case types and are always explicit — agents still
 // resolve them, they are never free-guessed.
 
-import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { readFile, stat } from 'node:fs/promises';
+import { existsSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve, join } from 'node:path';
+import { basename, dirname, resolve, join, relative, sep, isAbsolute } from 'node:path';
 import { loadCoreRegistry, computeTypeLists } from './generate-registry-artifacts.lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -15,6 +15,11 @@ const ROOT = resolve(__dirname, '..');
 
 export const EXTENSION_REGISTRY_FILENAME = 'aub.registry.json';
 export const EXTENSION_NAME_PATTERN = /^[a-z][a-z0-9]*:[a-z][a-z0-9_]*$/;
+export const MAX_EXTENSION_REGISTRY_BYTES = 512 * 1024;
+export const MAX_EXTENSION_COMPONENTS = 500;
+export const MAX_EXTENSION_IMPLEMENTATIONS = 20;
+export const MAX_EXTENSION_PROPS = 200;
+export const MAX_EXTENSION_STRING_BYTES = 256 * 1024;
 
 /** Build a Map<typeName, metadata> for the core registry. */
 export async function buildCoreKnownTypes() {
@@ -49,6 +54,60 @@ export function discoverExtensionRegistry(startDir = process.cwd()) {
   return null;
 }
 
+function isInsideRoot(absRoot, absPath) {
+  const rel = relative(absRoot, absPath);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+/**
+ * Walk up from startDir looking for aub.registry.json without crossing the
+ * supplied workspace root. Use this for workspace-connected tools so a parent
+ * directory cannot influence validation for an unrelated child workspace.
+ */
+export function discoverWorkspaceExtensionRegistry(workspaceRoot, startDir = workspaceRoot) {
+  const root = realpathSync(resolve(workspaceRoot));
+  let dir = realpathSync(resolve(startDir));
+  if (!isInsideRoot(root, dir)) {
+    throw new Error(`Registry discovery start directory must stay inside workspace: ${startDir}`);
+  }
+  for (let i = 0; i < 64; i += 1) {
+    const candidate = join(dir, EXTENSION_REGISTRY_FILENAME);
+    if (existsSync(candidate)) {
+      const realCandidate = realpathSync(candidate);
+      if (!isInsideRoot(root, realCandidate)) {
+        throw new Error(`Registry path must stay inside workspace: ${candidate}`);
+      }
+      return realCandidate;
+    }
+    if (dir === root) break;
+    const parent = dirname(dir);
+    if (parent === dir || !isInsideRoot(root, parent)) break;
+    dir = parent;
+  }
+  return null;
+}
+
+export function resolveWorkspaceExtensionRegistry(workspaceRoot, registryPath) {
+  const root = realpathSync(resolve(workspaceRoot));
+  const candidate = isAbsolute(registryPath) ? resolve(registryPath) : resolve(workspaceRoot, registryPath);
+  const realCandidate = realpathSync(candidate);
+  if (!isInsideRoot(root, realCandidate)) {
+    throw new Error(`Registry path must stay inside workspace: ${registryPath}`);
+  }
+  if (basename(realCandidate).toLowerCase() !== EXTENSION_REGISTRY_FILENAME) {
+    throw new Error(`Registry path must point to ${EXTENSION_REGISTRY_FILENAME}: ${registryPath}`);
+  }
+  return realCandidate;
+}
+
+export async function resolveKnownTypesForBlueprint({ workspaceRoot, blueprintAbsPath, explicitRegistry } = {}) {
+  if (!workspaceRoot) throw new Error('workspaceRoot is required to resolve component types.');
+  const extensionPath = explicitRegistry
+    ? resolveWorkspaceExtensionRegistry(workspaceRoot, explicitRegistry)
+    : discoverWorkspaceExtensionRegistry(workspaceRoot, blueprintAbsPath ? dirname(blueprintAbsPath) : workspaceRoot);
+  return buildKnownTypes({ extensionPath, discover: false });
+}
+
 /**
  * Validate and normalize an extension registry document. Returns
  * { components: [{ name, isContainer, description, implementations }] }.
@@ -61,6 +120,13 @@ export function parseExtensionRegistry(doc, coreTypes, sourceLabel = EXTENSION_R
   const components = doc.components;
   if (!Array.isArray(components)) {
     throw new Error(`${sourceLabel}: missing required "components" array`);
+  }
+  if (components.length > MAX_EXTENSION_COMPONENTS) {
+    throw new Error(`${sourceLabel}: registry exceeds maximum component count of ${MAX_EXTENSION_COMPONENTS}`);
+  }
+  const stringBytes = registryStringBytes(doc);
+  if (stringBytes > MAX_EXTENSION_STRING_BYTES) {
+    throw new Error(`${sourceLabel}: registry string content exceeds ${MAX_EXTENSION_STRING_BYTES} bytes`);
   }
   const seen = new Set();
   const normalized = [];
@@ -100,6 +166,11 @@ function normalizeImplementations(input, componentName, sourceLabel) {
   if (!Array.isArray(input) || input.length === 0) {
     throw new Error(`${sourceLabel}: extension "${componentName}" implementations must be a non-empty array`);
   }
+  if (input.length > MAX_EXTENSION_IMPLEMENTATIONS) {
+    throw new Error(
+      `${sourceLabel}: extension "${componentName}" exceeds maximum implementation count of ${MAX_EXTENSION_IMPLEMENTATIONS}`
+    );
+  }
   const seen = new Set();
   return input.map((implementation) => {
     if (!implementation || typeof implementation !== 'object' || Array.isArray(implementation)) {
@@ -127,6 +198,11 @@ function normalizeImplementations(input, componentName, sourceLabel) {
     }
     if (props != null && (!props || typeof props !== 'object' || Array.isArray(props))) {
       throw new Error(`${sourceLabel}: extension "${componentName}" implementation "${id}" props must be an object`);
+    }
+    if (Object.keys(props ?? {}).length > MAX_EXTENSION_PROPS) {
+      throw new Error(
+        `${sourceLabel}: extension "${componentName}" implementation "${id}" exceeds maximum prop count of ${MAX_EXTENSION_PROPS}`
+      );
     }
     const normalizedProps = {};
     for (const [propName, mapping] of Object.entries(props ?? {})) {
@@ -182,6 +258,28 @@ function normalizeImplementations(input, componentName, sourceLabel) {
   });
 }
 
+function registryStringBytes(value) {
+  let bytes = 0;
+  const encoder = new TextEncoder();
+  const visit = (item) => {
+    if (typeof item === 'string') {
+      bytes += encoder.encode(item).byteLength;
+      return;
+    }
+    if (!item || typeof item !== 'object') return;
+    if (Array.isArray(item)) {
+      for (const child of item) visit(child);
+      return;
+    }
+    for (const [key, child] of Object.entries(item)) {
+      bytes += encoder.encode(key).byteLength;
+      visit(child);
+    }
+  };
+  visit(value);
+  return bytes;
+}
+
 /**
  * Resolve the full known-type map: core types plus any extension types. Discovery
  * order: explicit extensionPath > auto-discovered file from startDir. Pass
@@ -195,6 +293,10 @@ export async function buildKnownTypes({ extensionPath, startDir = process.cwd(),
   if (!path && discover) path = discoverExtensionRegistry(startDir);
   if (!path) return { knownTypes: known, extensionPath: null, extensions: [] };
 
+  const info = await stat(path);
+  if (info.size > MAX_EXTENSION_REGISTRY_BYTES) {
+    throw new Error(`${path}: registry exceeds ${MAX_EXTENSION_REGISTRY_BYTES} bytes`);
+  }
   const raw = await readFile(path, 'utf8');
   let doc;
   try {

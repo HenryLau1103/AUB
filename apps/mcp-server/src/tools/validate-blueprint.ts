@@ -1,10 +1,9 @@
 import { z } from 'zod';
-import { resolve } from 'node:path';
 import type { ServerContext } from '../context.js';
 import type { Blueprint } from '../aub.js';
 import { resolveBlueprint } from '../workspace.js';
 import { formatAjvErrors } from '../schema.js';
-import { validateBlueprintSemantics, buildKnownTypes } from '../aub.js';
+import { validateBlueprintSemantics, resolveKnownTypesForBlueprint } from '../aub.js';
 
 export const name = 'validate_blueprint';
 
@@ -38,6 +37,7 @@ export async function run(
 ) {
   let blueprint: Blueprint;
   let source: string;
+  let blueprintAbsPath: string | null = null;
 
   if (args.blueprint) {
     blueprint = args.blueprint as Blueprint;
@@ -46,6 +46,7 @@ export async function run(
     const resolved = await resolveBlueprint(ctx.root, args.ref);
     blueprint = resolved.blueprint;
     source = resolved.entry.path;
+    blueprintAbsPath = resolved.entry.absPath;
   } else {
     throw new Error('Provide either "ref" or "blueprint".');
   }
@@ -57,9 +58,10 @@ export async function run(
   let extensionRegistry: string | null = null;
   let registryError: string | null = null;
   try {
-    const resolved = await buildKnownTypes({
-      extensionPath: args.registry ? resolve(ctx.root, args.registry) : null,
-      startDir: ctx.root,
+    const resolved = await resolveKnownTypesForBlueprint({
+      workspaceRoot: ctx.root,
+      blueprintAbsPath,
+      explicitRegistry: args.registry,
     });
     knownTypes = resolved.knownTypes;
     extensionRegistry = resolved.extensionPath;

@@ -94,6 +94,11 @@ export interface WorkspaceStatus {
     directoriesSkipped: number;
     ignoredPatterns: string[];
     limitReached: boolean;
+    sourceBytesRead?: number;
+    sourceFilesRead?: number;
+    sourceFilesSkippedBySize?: number;
+    sourceFilesSkippedByBudget?: number;
+    sourceByteLimitReached?: boolean;
   };
   scanReport?: {
     path: string;
@@ -111,6 +116,11 @@ export interface WorkspaceStatus {
       filesSkipped: number;
       directoriesSkipped: number;
       limitReached: boolean;
+      sourceBytesRead?: number;
+      sourceFilesRead?: number;
+      sourceFilesSkippedBySize?: number;
+      sourceFilesSkippedByBudget?: number;
+      sourceByteLimitReached?: boolean;
       trustScore: number;
     };
     trust: {
@@ -124,6 +134,7 @@ export interface WorkspaceStatus {
         componentCandidateCount: number;
         storybookDetected: boolean;
         scanLimitReached: boolean;
+        sourceByteLimitReached?: boolean;
       };
       breakdown?: {
         frameworkDetected: boolean;
@@ -135,6 +146,11 @@ export interface WorkspaceStatus {
         filesSkipped: number;
         directoriesSkipped: number;
         scanLimitReached: boolean;
+        sourceBytesRead?: number;
+        sourceFilesRead?: number;
+        sourceFilesSkippedBySize?: number;
+        sourceFilesSkippedByBudget?: number;
+        sourceByteLimitReached?: boolean;
       };
     };
     storybook: {
@@ -159,6 +175,11 @@ export interface WorkspaceStatus {
       directoriesSkipped: number;
       ignoredPatterns: string[];
       limitReached: boolean;
+      sourceBytesRead?: number;
+      sourceFilesRead?: number;
+      sourceFilesSkippedBySize?: number;
+      sourceFilesSkippedByBudget?: number;
+      sourceByteLimitReached?: boolean;
     };
   } | null;
   routeCount: number;
@@ -216,6 +237,15 @@ export function normalizeWorkspaceEndpoint(value: string): WorkspaceConnection {
     healthUrl: `${url.origin}/health`,
     ...(rpcToken ? { rpcToken } : {}),
   };
+}
+
+export function attachWorkspaceTokenIfMissing(endpoint: string, rpcToken?: string): string {
+  if (!rpcToken) return endpoint;
+  const url = new URL(endpoint.trim() || 'http://127.0.0.1:3100/mcp');
+  if (!url.searchParams.has('token') && !url.searchParams.has('rpc-token')) {
+    url.searchParams.set('token', rpcToken);
+  }
+  return url.href;
 }
 
 export async function workspaceRpc<T = unknown>(

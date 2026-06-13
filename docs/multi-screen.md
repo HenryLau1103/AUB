@@ -43,7 +43,7 @@ A project file is named `*.aub.project.json` and validates against
 
 | Field | Meaning |
 |---|---|
-| `screens[]` | Member screens. Each `path` is **relative to the project file** and points at a `.ui.json`/`.ui.yaml`. Each `id` MUST match the referenced Blueprint's `screen.id`. |
+| `screens[]` | Member screens. Each `path` is **relative to the project file** and points at a `.ui.json`/`.ui.yaml`. Parent segments are allowed only when the resolved file remains inside the active workspace. Each `id` MUST match the referenced Blueprint's `screen.id`. |
 | `entry_screen` | The screen the flow starts on. Must be a declared screen id. |
 | `navigation[]` | Directed edges `{ from, to, trigger?, interaction_id?, label? }`. `from`/`to` must be declared screen ids. `trigger` ∈ `click` / `submit` / `change` / `load` / `system` / `gesture`. `interaction_id` optionally links the edge to the source screen's interaction. |
 | `design_system` | Optional project-level shared tokens. A member screen's own `design_system` overrides these (shallow merge, screen wins). |

@@ -35,10 +35,22 @@ export interface BuildKnownTypesResult {
 
 export const EXTENSION_REGISTRY_FILENAME: string;
 export const EXTENSION_NAME_PATTERN: RegExp;
+export const MAX_EXTENSION_REGISTRY_BYTES: number;
+export const MAX_EXTENSION_COMPONENTS: number;
+export const MAX_EXTENSION_IMPLEMENTATIONS: number;
+export const MAX_EXTENSION_PROPS: number;
+export const MAX_EXTENSION_STRING_BYTES: number;
 export const REPO_ROOT: string;
 
 export function buildCoreKnownTypes(): Promise<KnownTypes>;
 export function discoverExtensionRegistry(startDir?: string): string | null;
+export function discoverWorkspaceExtensionRegistry(workspaceRoot: string, startDir?: string): string | null;
+export function resolveWorkspaceExtensionRegistry(workspaceRoot: string, registryPath: string): string;
+export function resolveKnownTypesForBlueprint(options?: {
+  workspaceRoot: string;
+  blueprintAbsPath?: string | null;
+  explicitRegistry?: string | null;
+}): Promise<BuildKnownTypesResult>;
 export function parseExtensionRegistry(
   doc: unknown,
   coreTypes: Set<string>,

@@ -118,3 +118,26 @@ test('IR5: safety score exposes source, viewport, evidence, and unresolved risk'
   assert.ok(improved.lookalikePreventionCount > 0);
   assert.ok(improved.overall > initial.overall);
 });
+
+test('IR6: verifier rejects failed or mismatched machine evidence', async () => {
+  const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
+  const report = createImplementationReportTemplate(blueprint);
+  report.implementation = { framework: 'React', route: '/signup', files: ['src/Signup.tsx'] };
+  report.node_mappings = report.node_mappings.map((item) => ({
+    ...item,
+    status: 'mapped',
+    file: 'src/Signup.tsx',
+  }));
+  report.acceptance_results = report.acceptance_results.map((item, index) => ({
+    ...item,
+    status: 'pass',
+    evidence: index === 0
+      ? [{ type: 'dom_query', reference: '[data-aub-node="submit"]', expected: 1, actual: 0, pass: false }]
+      : [{ type: 'computed_style', reference: '.signup-card:display', expected: 'grid', actual: 'flex', pass: true }],
+  }));
+
+  const result = verifyImplementationReport(blueprint, report, { requireEvidence: true });
+  assert.equal(result.ready, false);
+  assert.ok(result.errors.some((error) => error.includes('Machine evidence failed')));
+  assert.ok(result.errors.some((error) => error.includes('Machine evidence mismatch')));
+});

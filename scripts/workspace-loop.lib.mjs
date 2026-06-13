@@ -1,4 +1,5 @@
-import { access, mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { access, link, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { defaultDesignSystem } from './migrate-blueprint.mjs';
 import { scoreImplementationSafety } from './implementation-report.lib.mjs';
@@ -55,12 +56,16 @@ const SOURCE_TEXT_CACHE_TTL_MS = 5 * 60 * 1000;
 const SOURCE_TEXT_CACHE_MAX_ENTRIES = 2000;
 const MAX_SCAN_FILES = 2000;
 const MAX_SOURCE_FILE_BYTES = 512 * 1024;
+const MAX_TOTAL_SOURCE_BYTES = 64 * 1024 * 1024;
 const MAX_TEMPLATE_NAME_LENGTH = 120;
 const MAX_TEMPLATE_ID_LENGTH = 120;
 const MAX_ROUTE_LENGTH = 220;
 const MAX_CATEGORY_LENGTH = 80;
 const MAX_SOURCE_KIND_LENGTH = 32;
 const MAX_FRAMEWORK_LENGTH = 32;
+const CROSS_PROCESS_LOCK_TIMEOUT_MS = 5000;
+const CROSS_PROCESS_LOCK_STALE_MS = 30000;
+const CROSS_PROCESS_LOCK_RETRY_MS = 25;
 const CORE_TYPE_PATTERN = /^[a-z][a-z0-9_]*$/;
 const CORE_KIND_BY_NAME = [
   [/badge|status|pill/i, 'badge'],
@@ -112,16 +117,15 @@ const TAG_TYPE_MAP = new Map([
 
 export function resolveWorkspacePath(root, filePath) {
   const absRoot = resolve(root);
-  if (isAbsolute(filePath)) {
-    throw new Error(`Path must be relative to the workspace root: ${filePath}`);
-  }
-  const absPath = resolve(absRoot, filePath);
+  const absPath = isAbsolute(filePath) ? resolve(filePath) : resolve(absRoot, filePath);
   const rel = relative(absRoot, absPath);
-  if (rel === '..' || rel.startsWith(`..${sep}`) || rel === '' || isAbsolute(rel)) {
+  if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     throw new Error(`Path must stay inside the workspace root: ${filePath}`);
   }
   return absPath;
 }
+
+const writeLocks = new Map();
 
 function isInsideRoot(absRoot, absPath) {
   const rel = relative(absRoot, absPath);
@@ -164,17 +168,125 @@ async function readJsonIfExists(path, fallback) {
   return JSON.parse(await readFile(path, 'utf8'));
 }
 
-async function writeJsonAtomic(path, value) {
+async function withPathLock(path, fn) {
+  const previous = writeLocks.get(path) ?? Promise.resolve();
+  let release;
+  const current = new Promise((resolveLock) => {
+    release = resolveLock;
+  });
+  const chained = previous.then(() => current);
+  writeLocks.set(path, chained);
+  try {
+    await previous;
+    const releaseCrossProcessLock = await acquireCrossProcessLock(path);
+    try {
+      return await fn();
+    } finally {
+      await releaseCrossProcessLock();
+    }
+  } finally {
+    release();
+    if (writeLocks.get(path) === chained) writeLocks.delete(path);
+  }
+}
+
+async function acquireCrossProcessLock(path) {
+  const lockPath = `${path}.lock`;
+  const startedAt = Date.now();
+  for (;;) {
+    const token = randomUUID();
+    try {
+      await mkdir(lockPath);
+      const ownerPath = join(lockPath, 'owner.json');
+      const writeOwner = () => writeFile(
+        ownerPath,
+        `${JSON.stringify({ token, pid: process.pid, updatedAt: new Date().toISOString(), target: path }, null, 2)}\n`,
+        'utf8'
+      );
+      try {
+        await writeOwner();
+      } catch (ownerError) {
+        await rm(lockPath, { recursive: true, force: true }).catch(() => {});
+        throw ownerError;
+      }
+      const heartbeat = setInterval(() => {
+        void writeOwner().catch(() => {});
+      }, Math.max(1000, Math.floor(CROSS_PROCESS_LOCK_STALE_MS / 3)));
+      return async () => {
+        clearInterval(heartbeat);
+        try {
+          const owner = JSON.parse(await readFile(ownerPath, 'utf8'));
+          if (owner?.token === token) {
+            await rm(lockPath, { recursive: true, force: true });
+          }
+        } catch (releaseError) {
+          if (releaseError?.code !== 'ENOENT') throw releaseError;
+        }
+      };
+    } catch (err) {
+      if (err?.code !== 'EEXIST') throw err;
+      try {
+        const info = await stat(lockPath);
+        if (Date.now() - info.mtimeMs > CROSS_PROCESS_LOCK_STALE_MS) {
+          await rm(lockPath, { recursive: true, force: true });
+          continue;
+        }
+      } catch (statError) {
+        if (statError?.code !== 'ENOENT') throw statError;
+        continue;
+      }
+      if (Date.now() - startedAt > CROSS_PROCESS_LOCK_TIMEOUT_MS) {
+        throw new Error(`Timed out waiting for workspace lock: ${lockPath}`);
+      }
+      await new Promise((resolveSleep) => setTimeout(resolveSleep, CROSS_PROCESS_LOCK_RETRY_MS));
+    }
+  }
+}
+
+async function writeJsonAtomicLocked(path, value, { overwrite = true } = {}) {
   const content = `${JSON.stringify(value, null, 2)}\n`;
-  const tempPath = `${path}.${process.pid}.tmp`;
-  await writeFile(tempPath, content, 'utf8');
-  await rename(tempPath, path);
-  return { bytes: Buffer.byteLength(content) };
+  const tempPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  await writeFile(tempPath, content, { encoding: 'utf8', flag: 'wx' });
+  if (!overwrite) {
+    try {
+      await link(tempPath, path);
+    } catch (err) {
+      if (err?.code === 'EEXIST') {
+        throw new Error(`Refusing to overwrite existing file: ${path}`);
+      }
+      throw err;
+    } finally {
+      await rm(tempPath, { force: true });
+    }
+  } else {
+    let renamed = false;
+    try {
+      await rename(tempPath, path);
+      renamed = true;
+    } finally {
+      if (!renamed) await rm(tempPath, { force: true });
+    }
+  }
+  return { bytes: new TextEncoder().encode(content).byteLength };
+}
+
+async function writeJsonAtomic(path, value, options = {}) {
+  return withPathLock(path, () => writeJsonAtomicLocked(path, value, options));
 }
 
 async function writeWorkspaceJsonAtomic(root, filePath, value) {
   const path = await prepareWorkspaceWritePath(root, filePath);
   return writeJsonAtomic(path, value);
+}
+
+async function updateWorkspaceJson(root, filePath, fallback, mutate) {
+  const path = await prepareWorkspaceWritePath(root, filePath);
+  return withPathLock(path, async () => {
+    const current = await readJsonIfExists(path, fallback);
+    const next = await mutate(current);
+    const write = await writeJsonAtomicLocked(path, next);
+    return { path, value: next, bytes: write.bytes };
+  });
 }
 
 function toWorkspacePath(root, absPath) {
@@ -324,18 +436,65 @@ async function readSourceText(file) {
   }
 }
 
-async function readSourceTexts(files) {
+function createSourceReader() {
+  const audit = {
+    skippedLargeFiles: 0,
+    skippedBudgetFiles: 0,
+    totalSourceBytes: 0,
+    sourceFilesRead: 0,
+  };
+  const accounted = new Map();
+  return {
+    audit,
+    async read(file) {
+      try {
+        const st = await stat(file.absPath);
+        if (accounted.has(file.absPath)) {
+          const prior = accounted.get(file.absPath);
+          if (prior === 'read') return readSourceText(file);
+          return { text: '', skipped: true, skippedReason: prior };
+        }
+        if (st.size > MAX_SOURCE_FILE_BYTES) {
+          audit.skippedLargeFiles += 1;
+          accounted.set(file.absPath, 'size');
+          return { text: '', skipped: true, skippedReason: 'size' };
+        }
+        if (audit.totalSourceBytes + st.size > MAX_TOTAL_SOURCE_BYTES) {
+          audit.skippedBudgetFiles += 1;
+          accounted.set(file.absPath, 'budget');
+          return { text: '', skipped: true, skippedReason: 'budget' };
+        }
+        audit.totalSourceBytes += st.size;
+        audit.sourceFilesRead += 1;
+        accounted.set(file.absPath, 'read');
+        const result = await readSourceText(file);
+        if (result.skipped) {
+          audit.skippedLargeFiles += 1;
+          accounted.set(file.absPath, 'size');
+          return { ...result, skippedReason: 'size' };
+        }
+        return result;
+      } catch {
+        return { text: '', skipped: false };
+      }
+    },
+  };
+}
+
+async function readSourceTexts(files, reader = createSourceReader()) {
   const sourceFiles = files.filter((file) => SOURCE_EXTENSIONS.has(extname(file.path).toLowerCase()));
   const contents = new Map();
-  let skippedLargeFiles = 0;
-  await Promise.all(
-    sourceFiles.map(async (file) => {
-      const result = await readSourceText(file);
-      if (result.skipped) skippedLargeFiles += 1;
-      contents.set(file.absPath, result.text);
-    })
-  );
-  return { contents, skippedLargeFiles };
+  const before = { ...reader.audit };
+  for (const file of sourceFiles) {
+    const result = await reader.read(file);
+    contents.set(file.absPath, result.text);
+  }
+  return {
+    contents,
+    skippedLargeFiles: reader.audit.skippedLargeFiles - before.skippedLargeFiles,
+    skippedBudgetFiles: reader.audit.skippedBudgetFiles - before.skippedBudgetFiles,
+    totalSourceBytes: reader.audit.totalSourceBytes - before.totalSourceBytes,
+  };
 }
 
 function normalizeScanLimit(limit) {
@@ -399,6 +558,11 @@ async function createWalkState(root) {
       directoriesSkipped: 0,
       ignoredPatterns,
       limitReached: false,
+      sourceBytesRead: 0,
+      sourceFilesRead: 0,
+      sourceFilesSkippedBySize: 0,
+      sourceFilesSkippedByBudget: 0,
+      sourceByteLimitReached: false,
     },
   };
 }
@@ -496,7 +660,7 @@ function routeFromPath(path) {
   return route === '/index' || route === '/app' ? '/' : route;
 }
 
-async function detectRoutes(files) {
+async function detectRoutes(files, reader = createSourceReader()) {
   const webRoutes = files
     .filter((file) => {
       const path = file.path;
@@ -511,7 +675,7 @@ async function detectRoutes(files) {
       kind: /\.vue$/.test(file.path) ? 'vue-route' : 'route',
     }));
 
-  const angularRoutes = await detectAngularRoutes(files);
+  const angularRoutes = await detectAngularRoutes(files, reader);
   const fallbackAngularTemplates = angularRoutes.length > 0
     ? []
     : files
@@ -530,11 +694,14 @@ async function detectRoutes(files) {
   return [...byKey.values()];
 }
 
-async function detectAngularRoutes(files) {
+async function detectAngularRoutes(files, reader = createSourceReader()) {
   const routingFiles = files.filter((file) => /\.routing\.ts$/.test(file.path) || /app\.routing\.ts$/.test(file.path));
   if (routingFiles.length === 0) return [];
   const fileByPath = new Map(files.map((file) => [file.path, file]));
-  const { contents: sourceTexts } = await readSourceTexts(routingFiles.concat(files.filter((file) => /app-route-paths\.const\.ts$/.test(file.path))));
+  const { contents: sourceTexts } = await readSourceTexts(
+    routingFiles.concat(files.filter((file) => /app-route-paths\.const\.ts$/.test(file.path))),
+    reader
+  );
   const constants = extractAngularRouteConstants(sourceTexts);
   const routes = [];
 
@@ -548,7 +715,7 @@ async function detectAngularRoutes(files) {
       if (!route || componentName === 'undefined') continue;
       const componentPath = imports.get(componentName);
       const componentFile = componentPath ? fileByPath.get(componentPath) : null;
-      const componentContent = componentFile ? (await readSourceText(componentFile)).text : '';
+      const componentContent = componentFile ? (await reader.read(componentFile)).text : '';
       const htmlPath = componentPath
         ? resolveAngularTemplatePath(componentPath, componentContent, fileByPath)
         : null;
@@ -672,12 +839,12 @@ function inferCoreType(name) {
   return CORE_KIND_BY_NAME.find(([regex]) => regex.test(name))?.[1] ?? 'card';
 }
 
-async function detectStorybook(files) {
+async function detectStorybook(files, reader = createSourceReader()) {
   const config = files.find((file) => /^\.storybook\/main\.(js|cjs|mjs|ts)$/.test(file.path));
   const storyFiles = files.filter((file) => /\.stories\.(jsx?|tsx?|mdx|vue)$/.test(file.path));
   const stories = [];
   for (const file of storyFiles.slice(0, 100)) {
-    const content = (await readSourceText(file)).text;
+    const content = (await reader.read(file)).text;
     stories.push({
       path: file.path,
       title: content.match(/title:\s*['"`]([^'"`]+)['"`]/)?.[1] ?? null,
@@ -692,9 +859,10 @@ async function detectStorybook(files) {
   };
 }
 
-async function detectComponents(root, files, namespace, frameworks, storybook = null) {
+async function detectComponents(root, files, namespace, frameworks, storybook = null, reader = createSourceReader()) {
   const candidates = [];
-  const { contents: sourceTexts, skippedLargeFiles } = await readSourceTexts(files);
+  const before = { ...reader.audit };
+  const { contents: sourceTexts } = await readSourceTexts(files, reader);
   for (const file of files) {
     const ext = extname(file.path).toLowerCase();
     if (!SOURCE_EXTENSIONS.has(ext)) continue;
@@ -742,7 +910,12 @@ async function detectComponents(root, files, namespace, frameworks, storybook = 
   }
   const byId = new Map();
   for (const candidate of candidates) byId.set(candidate.id, candidate);
-  return { candidates: [...byId.values()].slice(0, 100), skippedLargeFiles };
+  return {
+    candidates: [...byId.values()].slice(0, 100),
+    skippedLargeFiles: reader.audit.skippedLargeFiles - before.skippedLargeFiles,
+    skippedBudgetFiles: reader.audit.skippedBudgetFiles - before.skippedBudgetFiles,
+    totalSourceBytes: reader.audit.totalSourceBytes - before.totalSourceBytes,
+  };
 }
 
 function findStorybookStoriesForComponent(componentName, selector, storybook) {
@@ -798,8 +971,18 @@ export async function readAubSession(root) {
 }
 
 export async function updateAubSession(root, patch = {}) {
-  const current = await readAubSession(root);
-  const next = {
+  const result = await updateWorkspaceJson(root, SESSION_PATH, {
+    version: WORKSPACE_LOOP_VERSION,
+    activeBlueprint: null,
+    activeProject: null,
+    targetRoute: null,
+    preview: {
+      devServerUrl: null,
+      route: null,
+      lastImplementationReport: null,
+    },
+    updatedAt: null,
+  }, (current) => ({
     ...current,
     ...patch,
     preview: {
@@ -807,9 +990,8 @@ export async function updateAubSession(root, patch = {}) {
       ...(patch.preview ?? {}),
     },
     updatedAt: new Date().toISOString(),
-  };
-  await writeWorkspaceJsonAtomic(root, SESSION_PATH, next);
-  return { path: SESSION_PATH, session: next };
+  }));
+  return { path: SESSION_PATH, session: result.value };
 }
 
 export async function readComponentCandidates(root) {
@@ -835,6 +1017,36 @@ async function writeComponentCandidates(root, candidates) {
   return doc;
 }
 
+function mergeScannedCandidatesPreservingReviews(previousCandidates = [], nextCandidates = []) {
+  const previousById = new Map(previousCandidates.map((candidate) => [candidate.id, candidate]));
+  const nextIds = new Set(nextCandidates.map((candidate) => candidate.id));
+  const merged = nextCandidates.map((candidate) => {
+    const previous = previousById.get(candidate.id);
+    if (!previous) return candidate;
+    if (previous.status === 'candidate' && !previous.reviewedAt && !previous.approvedAs) {
+      return { ...previous, ...candidate, reviewHistory: previous.reviewHistory ?? candidate.reviewHistory ?? [] };
+    }
+    return {
+      ...candidate,
+      status: previous.status,
+      approvedAs: previous.approvedAs,
+      reviewedAt: previous.reviewedAt,
+      reviewHistory: previous.reviewHistory ?? [],
+    };
+  });
+
+  for (const previous of previousCandidates) {
+    if (nextIds.has(previous.id)) continue;
+    if (previous.status && previous.status !== 'candidate') {
+      merged.push({
+        ...previous,
+        stale: true,
+      });
+    }
+  }
+  return merged;
+}
+
 export async function readScanReport(root) {
   return readJsonIfExists(join(root, SCAN_REPORT_PATH), null);
 }
@@ -845,6 +1057,7 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
   if (routes.length === 0) warnings.push('No route entry files were detected.');
   if (candidates.length === 0) warnings.push('No reusable project components were detected.');
   if (scanAudit.limitReached) warnings.push('Scan file limit was reached; results may be incomplete.');
+  if (scanAudit.sourceByteLimitReached) warnings.push('Source byte limit was reached; some source files were skipped.');
 
   const confidenceInputs = {
     frameworkDetected: !frameworks.includes('unknown'),
@@ -852,6 +1065,7 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
     componentCandidateCount: candidates.length,
     storybookDetected: Boolean(storybook?.detected),
     scanLimitReached: Boolean(scanAudit.limitReached),
+    sourceByteLimitReached: Boolean(scanAudit.sourceByteLimitReached),
   };
   const trustScore = clampScanScore(
     30
@@ -860,6 +1074,7 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
     + Math.min(20, candidates.length * 2)
     + (confidenceInputs.storybookDetected ? 10 : 0)
     - (confidenceInputs.scanLimitReached ? 20 : 0)
+    - (confidenceInputs.sourceByteLimitReached ? 10 : 0)
   );
 
   return {
@@ -877,6 +1092,11 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
       filesSkipped: scanAudit.filesSkipped,
       directoriesSkipped: scanAudit.directoriesSkipped,
       limitReached: scanAudit.limitReached,
+      sourceBytesRead: scanAudit.sourceBytesRead ?? 0,
+      sourceFilesRead: scanAudit.sourceFilesRead ?? 0,
+      sourceFilesSkippedBySize: scanAudit.sourceFilesSkippedBySize ?? 0,
+      sourceFilesSkippedByBudget: scanAudit.sourceFilesSkippedByBudget ?? 0,
+      sourceByteLimitReached: Boolean(scanAudit.sourceByteLimitReached),
       trustScore,
     },
     trust: {
@@ -892,6 +1112,11 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
         filesSkipped: scanAudit.filesSkipped,
         directoriesSkipped: scanAudit.directoriesSkipped,
         scanLimitReached: Boolean(scanAudit.limitReached),
+        sourceBytesRead: scanAudit.sourceBytesRead ?? 0,
+        sourceFilesRead: scanAudit.sourceFilesRead ?? 0,
+        sourceFilesSkippedBySize: scanAudit.sourceFilesSkippedBySize ?? 0,
+        sourceFilesSkippedByBudget: scanAudit.sourceFilesSkippedByBudget ?? 0,
+        sourceByteLimitReached: Boolean(scanAudit.sourceByteLimitReached),
       },
       reasons: [
         confidenceInputs.frameworkDetected ? 'Supported framework detected.' : 'Framework fallback only.',
@@ -929,6 +1154,10 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
       directoriesSkipped: scanAudit.directoriesSkipped,
       ignoredPatterns: scanAudit.ignoredPatterns,
       limitReached: scanAudit.limitReached,
+      sourceBytesRead: scanAudit.sourceBytesRead ?? 0,
+      sourceFilesSkippedBySize: scanAudit.sourceFilesSkippedBySize ?? 0,
+      sourceFilesSkippedByBudget: scanAudit.sourceFilesSkippedByBudget ?? 0,
+      sourceByteLimitReached: Boolean(scanAudit.sourceByteLimitReached),
     },
   };
 }
@@ -968,14 +1197,33 @@ export async function getWorkspaceStatus(root) {
   const files = [];
   const walkState = await createWalkState(root);
   await walkWithState(root, root, files, 1500, walkState);
+  const sourceReader = createSourceReader();
   const packageJson = await readPackage(root);
   const frameworks = detectFrameworks(packageJson, files);
-  const routes = await detectRoutes(files);
-  const storybook = await detectStorybook(files);
+  const routes = await detectRoutes(files, sourceReader);
+  const storybook = await detectStorybook(files, sourceReader);
   const session = await readAubSession(root);
   const candidates = await readComponentCandidates(root);
   const templates = await listWorkspaceTemplates(root);
   const scanReport = await readScanReport(root);
+  walkState.audit.sourceBytesRead = Math.max(
+    sourceReader.audit.totalSourceBytes,
+    scanReport?.summary?.sourceBytesRead ?? 0
+  );
+  walkState.audit.sourceFilesRead = Math.max(
+    sourceReader.audit.sourceFilesRead,
+    scanReport?.summary?.sourceFilesRead ?? 0
+  );
+  walkState.audit.sourceFilesSkippedBySize = Math.max(
+    sourceReader.audit.skippedLargeFiles,
+    scanReport?.summary?.sourceFilesSkippedBySize ?? 0
+  );
+  walkState.audit.sourceFilesSkippedByBudget = Math.max(
+    sourceReader.audit.skippedBudgetFiles,
+    scanReport?.summary?.sourceFilesSkippedByBudget ?? 0
+  );
+  walkState.audit.sourceByteLimitReached = sourceReader.audit.skippedBudgetFiles > 0
+    || Boolean(scanReport?.summary?.sourceByteLimitReached);
   const implementationReport = await readImplementationReportSummary(root, session);
   return {
     root,
@@ -1039,13 +1287,25 @@ export async function scanProjectUi(root, options = {}) {
   const limit = normalizeScanLimit(options.limit);
   const walkState = await createWalkState(root);
   await walkWithState(root, root, files, limit, walkState);
+  const sourceReader = createSourceReader();
   const packageJson = await readPackage(root);
   const namespace = normalizeNamespace(options.namespace ?? inferNamespace(root, packageJson), 'app');
   const frameworks = detectFrameworks(packageJson, files);
-  const routes = await detectRoutes(files);
-  const storybook = await detectStorybook(files);
-  const { candidates, skippedLargeFiles } = await detectComponents(root, files, namespace, frameworks, storybook);
-  const doc = await writeComponentCandidates(root, candidates);
+  const routes = await detectRoutes(files, sourceReader);
+  const storybook = await detectStorybook(files, sourceReader);
+  const { candidates: scannedCandidates } = await detectComponents(root, files, namespace, frameworks, storybook, sourceReader);
+  walkState.audit.sourceBytesRead = sourceReader.audit.totalSourceBytes;
+  walkState.audit.sourceFilesRead = sourceReader.audit.sourceFilesRead;
+  walkState.audit.sourceFilesSkippedBySize = sourceReader.audit.skippedLargeFiles;
+  walkState.audit.sourceFilesSkippedByBudget = sourceReader.audit.skippedBudgetFiles;
+  walkState.audit.sourceByteLimitReached = sourceReader.audit.skippedBudgetFiles > 0;
+  await mkdir(join(root, AUB_DIR), { recursive: true });
+  const doc = await withPathLock(join(root, AUB_DIR, 'component-candidates.review'), async () => {
+    const previous = await readComponentCandidates(root);
+    const mergedCandidates = mergeScannedCandidatesPreservingReviews(previous.candidates, scannedCandidates);
+    return writeComponentCandidates(root, mergedCandidates);
+  });
+  const candidates = doc.candidates;
   const scanReport = await writeScanReport(root, buildScanReport({
     packageJson,
     namespace,
@@ -1066,15 +1326,15 @@ export async function scanProjectUi(root, options = {}) {
     scanReport,
     routes,
     components: candidates,
-    skippedSourceFiles: skippedLargeFiles,
+    skippedSourceFiles: sourceReader.audit.skippedLargeFiles,
     componentCandidatesPath: COMPONENT_CANDIDATES_PATH,
     componentCandidates: doc,
   };
 }
 
-async function makeBlueprint({ id, name, framework, source, route, root, files, candidates = [] }) {
+async function makeBlueprint({ id, name, framework, source, route, root, files, candidates = [], reader = createSourceReader() }) {
   const sourceFile = files.find((file) => file.path === source.path);
-  const sourceText = sourceFile ? (await readSourceText(sourceFile)).text : '';
+  const sourceText = sourceFile ? (await reader.read(sourceFile)).text : '';
   const extracted = extractBlueprintStructure({
     sourcePath: source.path,
     sourceText,
@@ -1458,6 +1718,7 @@ export async function generateTemplateFromSource(root, args = {}) {
   const files = [];
   const walkState = await createWalkState(root);
   await walkWithState(root, root, files, 2000, walkState);
+  const sourceReader = createSourceReader();
   const candidates = (await readComponentCandidates(root)).candidates;
   const framework = normalizeFrameworkLabel(
     typeof args.framework === 'string' ? args.framework : inferFrameworkFromPath(relPath),
@@ -1478,6 +1739,7 @@ export async function generateTemplateFromSource(root, args = {}) {
     files,
     source: { path: relPath },
     candidates,
+    reader: sourceReader,
   });
   const template = {
     format: TEMPLATE_FORMAT,
@@ -1526,78 +1788,142 @@ function inferFrameworkFromPath(path) {
 
 export async function approveComponentCandidate(root, args = {}) {
   if (!args.id) throw new Error('Provide candidate id.');
-  const doc = await readComponentCandidates(root);
-  const candidate = doc.candidates.find((item) => item.id === args.id);
-  if (!candidate) throw new Error(`Component candidate not found: ${args.id}`);
+  await mkdir(join(root, AUB_DIR), { recursive: true });
+  return withPathLock(join(root, AUB_DIR, 'component-candidates.review'), () =>
+    approveComponentCandidateLocked(root, args)
+  );
+}
 
+async function approveComponentCandidateLocked(root, args = {}) {
   if (args.action === 'ignore') {
-    candidate.status = 'ignored';
-    candidate.reviewedAt = new Date().toISOString();
-    candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'ignore', reviewedAt: candidate.reviewedAt }];
-    await writeComponentCandidates(root, doc.candidates);
-    return { candidate, registryPath: null };
+    const result = await updateWorkspaceJson(root, COMPONENT_CANDIDATES_PATH, {
+      format: 'aub-component-candidates',
+      format_version: WORKSPACE_LOOP_VERSION,
+      candidates: [],
+    }, (doc) => {
+      const candidate = (doc.candidates ?? []).find((item) => item.id === args.id);
+      if (!candidate) throw new Error(`Component candidate not found: ${args.id}`);
+      assertCandidateCanBeReviewed(candidate, args.id);
+      candidate.status = 'ignored';
+      candidate.reviewedAt = new Date().toISOString();
+      candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'ignore', reviewedAt: candidate.reviewedAt }];
+      return { ...doc, updatedAt: new Date().toISOString(), candidates: doc.candidates ?? [] };
+    });
+    return { candidate: result.value.candidates.find((item) => item.id === args.id), registryPath: null };
   }
 
   if (args.action === 'map_core') {
-    const normalizedCoreType = normalizeCoreType(args.coreType ?? candidate.suggestedCoreType);
-    if (!normalizedCoreType) {
-      throw new Error(`Invalid core type: ${args.coreType ?? candidate.suggestedCoreType}`);
-    }
-    candidate.status = 'approved';
-    candidate.approvedAs = normalizedCoreType;
-    candidate.reviewedAt = new Date().toISOString();
-    candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'map_core', approvedAs: normalizedCoreType, reviewedAt: candidate.reviewedAt }];
-    await writeComponentCandidates(root, doc.candidates);
-    return { candidate, registryPath: null };
+    const result = await updateWorkspaceJson(root, COMPONENT_CANDIDATES_PATH, {
+      format: 'aub-component-candidates',
+      format_version: WORKSPACE_LOOP_VERSION,
+      candidates: [],
+    }, (doc) => {
+      const candidate = (doc.candidates ?? []).find((item) => item.id === args.id);
+      if (!candidate) throw new Error(`Component candidate not found: ${args.id}`);
+      assertCandidateCanBeReviewed(candidate, args.id);
+      const normalizedCoreType = normalizeCoreType(args.coreType ?? candidate.suggestedCoreType);
+      if (!normalizedCoreType) {
+        throw new Error(`Invalid core type: ${args.coreType ?? candidate.suggestedCoreType}`);
+      }
+      candidate.status = 'approved';
+      candidate.approvedAs = normalizedCoreType;
+      candidate.reviewedAt = new Date().toISOString();
+      candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'map_core', approvedAs: normalizedCoreType, reviewedAt: candidate.reviewedAt }];
+      return { ...doc, updatedAt: new Date().toISOString(), candidates: doc.candidates ?? [] };
+    });
+    return { candidate: result.value.candidates.find((item) => item.id === args.id), registryPath: null };
   }
 
   if (args.action !== 'create_extension') {
     throw new Error('action must be one of create_extension, map_core, ignore.');
   }
 
+  const doc = await readComponentCandidates(root);
+  const candidate = doc.candidates.find((item) => item.id === args.id);
+  if (!candidate) throw new Error(`Component candidate not found: ${args.id}`);
+
   const inputNamespacedType = args.namespacedType ?? candidate.suggestedType;
   const namespacedType = normalizeExtensionType(inputNamespacedType);
   if (!namespacedType) {
     throw new Error(`Invalid namespaced type: ${inputNamespacedType}`);
   }
-  const registryPath = await prepareWorkspaceWritePath(root, 'aub.registry.json');
-  const registry = await readJsonIfExists(registryPath, {
+  const pendingResult = await updateWorkspaceJson(root, COMPONENT_CANDIDATES_PATH, {
+    format: 'aub-component-candidates',
+    format_version: WORKSPACE_LOOP_VERSION,
+    candidates: [],
+  }, (currentDoc) => {
+    const currentCandidate = (currentDoc.candidates ?? []).find((item) => item.id === args.id);
+    if (!currentCandidate) throw new Error(`Component candidate not found: ${args.id}`);
+    if (currentCandidate.status === 'review_pending' && currentCandidate.approvedAs === namespacedType) {
+      return { ...currentDoc, updatedAt: new Date().toISOString(), candidates: currentDoc.candidates ?? [] };
+    }
+    assertCandidateCanBeReviewed(currentCandidate, args.id);
+    currentCandidate.status = 'review_pending';
+    currentCandidate.approvedAs = namespacedType;
+    currentCandidate.reviewedAt = new Date().toISOString();
+    currentCandidate.reviewHistory = [
+      ...(currentCandidate.reviewHistory ?? []),
+      { action: 'create_extension_pending', approvedAs: namespacedType, reviewedAt: currentCandidate.reviewedAt },
+    ];
+    return { ...currentDoc, updatedAt: new Date().toISOString(), candidates: currentDoc.candidates ?? [] };
+  });
+  const pendingCandidate = pendingResult.value.candidates.find((item) => item.id === args.id);
+  let componentEntry;
+  await updateWorkspaceJson(root, 'aub.registry.json', {
     $schema: 'https://henrylau1103.github.io/AUB/schema/aub.registry.schema.json',
     version: '0.1.0',
     description: 'AUB workspace custom components.',
     components: [],
+  }, (registry) => {
+    if (!Array.isArray(registry.components)) registry.components = [];
+    const existing = registry.components.find((item) => item.name === namespacedType);
+    componentEntry = {
+      name: namespacedType,
+      isContainer: Boolean(args.isContainer ?? pendingCandidate.isContainer),
+      description: normalizeText(args.description, `${pendingCandidate.componentName} scanned from ${pendingCandidate.sourcePath}.`, 240),
+      implementations: [{
+        id: pendingCandidate.framework || 'app',
+        framework: normalizeFramework(pendingCandidate.framework),
+        module: normalizeText(args.module, pendingCandidate.sourcePath, 200),
+        export: normalizeText(args.export, pendingCandidate.componentName, 120),
+        importStyle: args.importStyle ?? 'named',
+        sourcePath: pendingCandidate.sourcePath,
+        props: Object.fromEntries((pendingCandidate.props ?? []).map((prop) => [prop, { from: `content.${prop}`, required: false }])),
+        notes: 'Approved from AUB component candidate review. Preserve production behavior.',
+      }],
+    };
+    if (existing) Object.assign(existing, componentEntry);
+    else registry.components.push(componentEntry);
+    return registry;
   });
-  if (!Array.isArray(registry.components)) registry.components = [];
-  const existing = registry.components.find((item) => item.name === namespacedType);
-  const componentEntry = {
-    name: namespacedType,
-    isContainer: Boolean(args.isContainer ?? candidate.isContainer),
-    description: normalizeText(args.description, `${candidate.componentName} scanned from ${candidate.sourcePath}.`, 240),
-    implementations: [{
-      id: candidate.framework || 'app',
-      framework: normalizeFramework(candidate.framework),
-      module: normalizeText(args.module, candidate.sourcePath, 200),
-      export: normalizeText(args.export, candidate.componentName, 120),
-      importStyle: args.importStyle ?? 'named',
-      sourcePath: candidate.sourcePath,
-      props: Object.fromEntries((candidate.props ?? []).map((prop) => [prop, { from: `content.${prop}`, required: false }])),
-      notes: 'Approved from AUB component candidate review. Preserve production behavior.',
-    }],
-  };
-  if (existing) Object.assign(existing, componentEntry);
-  else registry.components.push(componentEntry);
-  await writeJsonAtomic(registryPath, registry);
 
-  candidate.status = 'approved';
-  candidate.approvedAs = namespacedType;
-  candidate.reviewedAt = new Date().toISOString();
-  candidate.reviewHistory = [...(candidate.reviewHistory ?? []), { action: 'create_extension', approvedAs: namespacedType, reviewedAt: candidate.reviewedAt }];
-  await writeComponentCandidates(root, doc.candidates);
+  const candidateResult = await updateWorkspaceJson(root, COMPONENT_CANDIDATES_PATH, {
+    format: 'aub-component-candidates',
+    format_version: WORKSPACE_LOOP_VERSION,
+    candidates: [],
+  }, (currentDoc) => {
+    const currentCandidate = (currentDoc.candidates ?? []).find((item) => item.id === args.id);
+    if (!currentCandidate) throw new Error(`Component candidate not found: ${args.id}`);
+    if (currentCandidate.status !== 'review_pending' || currentCandidate.approvedAs !== namespacedType) {
+      throw new Error(`Component candidate review state changed before finalization: ${args.id}`);
+    }
+    currentCandidate.status = 'approved';
+    currentCandidate.approvedAs = namespacedType;
+    currentCandidate.reviewedAt = new Date().toISOString();
+    currentCandidate.reviewHistory = [...(currentCandidate.reviewHistory ?? []), { action: 'create_extension', approvedAs: namespacedType, reviewedAt: currentCandidate.reviewedAt }];
+    return { ...currentDoc, updatedAt: new Date().toISOString(), candidates: currentDoc.candidates ?? [] };
+  });
   return {
-    candidate,
+    candidate: candidateResult.value.candidates.find((item) => item.id === args.id),
     registryPath: 'aub.registry.json',
     registryComponent: componentEntry,
   };
+}
+
+function assertCandidateCanBeReviewed(candidate, id) {
+  if ((candidate.status ?? 'candidate') !== 'candidate') {
+    throw new Error(`Component candidate is already reviewed: ${id}`);
+  }
 }
 
 function normalizeFramework(framework) {

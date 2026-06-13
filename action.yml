@@ -54,6 +54,7 @@ runs:
         AUB_CONFIG_INPUT: ${{ inputs.config }}
         AUB_REQUIRE_REPORTS: ${{ inputs.require-reports }}
         AUB_REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
+        AUB_MIN_SAFETY_SCORE: ${{ inputs.min-safety-score }}
       run: |
         args=(--workspace "$GITHUB_WORKSPACE" --config "$AUB_CONFIG_INPUT")
         if [[ "$AUB_REQUIRE_REPORTS" == "true" ]]; then
@@ -62,8 +63,8 @@ runs:
         if [[ "$AUB_REQUIRE_EVIDENCE" == "true" ]]; then
           args+=(--require-evidence)
         fi
-        if [[ -n "${{ inputs.min-safety-score }}" ]]; then
-          args+=(--min-safety-score "${{ inputs.min-safety-score }}")
+        if [[ -n "$AUB_MIN_SAFETY_SCORE" ]]; then
+          args+=(--min-safety-score "$AUB_MIN_SAFETY_SCORE")
         fi
         node "$GITHUB_ACTION_PATH/scripts/ci-verify.mjs" "${args[@]}"
 
@@ -72,23 +73,25 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
+        AUB_CONFIG_INPUT: ${{ inputs.config }}
         AUB_REQUIRE_REPORTS: ${{ inputs.require-reports }}
         AUB_REQUIRE_EVIDENCE: ${{ inputs.require-evidence }}
+        AUB_MIN_SAFETY_SCORE: ${{ inputs.min-safety-score }}
         AUB_PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
         if [[ -z "$GH_TOKEN" ]]; then
           echo "AUB PR Safety Score comment skipped because github-token is empty."
           exit 0
         fi
-        args=(--workspace "$GITHUB_WORKSPACE" --config "${{ inputs.config }}" --output "$RUNNER_TEMP/aub-pr-safety-comment.md")
+        args=(--workspace "$GITHUB_WORKSPACE" --config "$AUB_CONFIG_INPUT" --output "$RUNNER_TEMP/aub-pr-safety-comment.md")
         if [[ "$AUB_REQUIRE_REPORTS" == "true" ]]; then
           args+=(--require-reports)
         fi
         if [[ "$AUB_REQUIRE_EVIDENCE" == "true" ]]; then
           args+=(--require-evidence)
         fi
-        if [[ -n "${{ inputs.min-safety-score }}" ]]; then
-          args+=(--min-safety-score "${{ inputs.min-safety-score }}")
+        if [[ -n "$AUB_MIN_SAFETY_SCORE" ]]; then
+          args+=(--min-safety-score "$AUB_MIN_SAFETY_SCORE")
         fi
         node "$GITHUB_ACTION_PATH/scripts/create-pr-safety-comment.mjs" "${args[@]}"
         existing_comment_id="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${AUB_PR_NUMBER}/comments" --jq '.[] | select(.body | contains("<!-- aub-pr-safety-comment -->")) | .id' | tail -n 1)"

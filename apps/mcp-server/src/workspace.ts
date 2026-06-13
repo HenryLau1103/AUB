@@ -1,6 +1,7 @@
-import { mkdir, readdir, readFile, realpath } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { link, mkdir, readdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import yaml from 'js-yaml';
 import type { Blueprint } from './aub.js';
 import { parseProjectText } from './aub.js';
@@ -34,10 +35,7 @@ const MAX_SCAN_FILES = 2000;
 
 export function resolveWorkspacePath(root: string, filePath: string): string {
   const absRoot = resolve(root);
-  if (isAbsolute(filePath)) {
-    throw new Error(`Path must be relative to the workspace root: ${filePath}`);
-  }
-  const absPath = resolve(absRoot, filePath);
+  const absPath = isAbsolute(filePath) ? resolve(filePath) : resolve(absRoot, filePath);
   const rel = relative(absRoot, absPath);
   if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     throw new Error(`Path must stay inside the workspace root: ${filePath}`);
@@ -61,10 +59,17 @@ export async function resolveExistingWorkspacePath(root: string, filePath: strin
   return absPath;
 }
 
-export async function prepareWorkspaceWritePath(root: string, filePath: string): Promise<string> {
+export async function resolveWorkspaceRegistryPath(root: string, filePath: string): Promise<string> {
+  const registryPath = await resolveExistingWorkspacePath(root, filePath);
+  if (basename(registryPath).toLowerCase() !== 'aub.registry.json') {
+    throw new Error(`Registry path must point to aub.registry.json: ${filePath}`);
+  }
+  return registryPath;
+}
+
+async function assertWorkspaceWriteParent(root: string, absPath: string, displayPath: string): Promise<void> {
   const lexicalRoot = resolve(root);
   const absRoot = await realpath(lexicalRoot);
-  const absPath = resolveWorkspacePath(lexicalRoot, filePath);
   let current = dirname(absPath);
   while (!existsSync(current)) {
     const parent = dirname(current);
@@ -73,13 +78,19 @@ export async function prepareWorkspaceWritePath(root: string, filePath: string):
   }
   const realExistingParent = await realpath(current);
   if (!isInsideRoot(absRoot, realExistingParent)) {
-    throw new Error(`Path must stay inside the workspace root: ${filePath}`);
+    throw new Error(`Path must stay inside the workspace root: ${displayPath}`);
   }
   await mkdir(dirname(absPath), { recursive: true });
   const realParent = await realpath(dirname(absPath));
   if (!isInsideRoot(absRoot, realParent)) {
-    throw new Error(`Path must stay inside the workspace root: ${filePath}`);
+    throw new Error(`Path must stay inside the workspace root: ${displayPath}`);
   }
+}
+
+export async function prepareWorkspaceWritePath(root: string, filePath: string): Promise<string> {
+  const lexicalRoot = resolve(root);
+  const absPath = resolveWorkspacePath(lexicalRoot, filePath);
+  await assertWorkspaceWriteParent(root, absPath, filePath);
   return absPath;
 }
 
@@ -96,6 +107,85 @@ export function safeFileStem(value: string, fallback: string): string {
     throw new Error(`Unsafe file name segment: ${fallback}`);
   }
   return input;
+}
+
+export function encodeSafeFileStem(value: string, fallback: string): string {
+  const input = value || fallback;
+  const encoded = input
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/\.+/g, '.')
+    .replace(/^-+|-+$/g, '')
+    .replace(/^\.+|\.+$/g, '');
+  const cleaned = encoded
+    .replace(/\.\./g, '.')
+    .slice(0, 120)
+    .replace(/^-+|-+$/g, '')
+    .replace(/^\.+|\.+$/g, '');
+  return cleaned || fallback;
+}
+
+const writeLocks = new Map<string, Promise<void>>();
+
+export interface AtomicWriteOptions {
+  overwrite?: boolean;
+  root?: string;
+  displayPath?: string;
+}
+
+export async function withWorkspacePathLock<T>(outputPath: string, fn: () => Promise<T>): Promise<T> {
+  const previous = writeLocks.get(outputPath) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolveLock) => {
+    release = resolveLock;
+  });
+  const chained = previous.then(() => current);
+  writeLocks.set(outputPath, chained);
+  try {
+    await previous;
+    return await fn();
+  } finally {
+    release();
+    if (writeLocks.get(outputPath) === chained) {
+      writeLocks.delete(outputPath);
+    }
+  }
+}
+
+export async function writeFileAtomic(
+  outputPath: string,
+  content: string | Uint8Array,
+  options: AtomicWriteOptions = {}
+): Promise<void> {
+  await withWorkspacePathLock(outputPath, async () => {
+    if (options.root) {
+      await assertWorkspaceWriteParent(options.root, outputPath, options.displayPath ?? outputPath);
+    }
+    const tempPath = `${outputPath}.${process.pid}.${randomUUID()}.tmp`;
+    await writeFile(tempPath, content, { flag: 'wx' });
+    if (!options.overwrite) {
+      try {
+        await link(tempPath, outputPath);
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === 'EEXIST') {
+          throw new Error(`Refusing to overwrite existing file: ${options.displayPath ?? outputPath}`);
+        }
+        throw err;
+      } finally {
+        await rm(tempPath, { force: true });
+      }
+      return;
+    }
+    let renamed = false;
+    try {
+      await rename(tempPath, outputPath);
+      renamed = true;
+    } finally {
+      if (!renamed) await rm(tempPath, { force: true });
+    }
+  });
 }
 
 function isYaml(filePath: string): boolean {

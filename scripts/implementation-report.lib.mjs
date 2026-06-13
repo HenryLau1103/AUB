@@ -88,6 +88,17 @@ export function verifyImplementationReport(blueprint, report, options = {}) {
         if (options.requireEvidence) errors.push(message);
         else warnings.push(message);
       }
+      if (isMachineEvidenceType(evidence?.type) && evidence.pass === false) {
+        errors.push(`Machine evidence failed: ${acceptanceId} (${evidence.reference ?? evidence.type})`);
+      }
+      if (
+        isMachineEvidenceType(evidence?.type)
+        && Object.hasOwn(evidence, 'expected')
+        && Object.hasOwn(evidence, 'actual')
+        && !Object.is(evidence.expected, evidence.actual)
+      ) {
+        errors.push(`Machine evidence mismatch: ${acceptanceId} (${evidence.reference ?? evidence.type})`);
+      }
       if (evidence.type === 'overflow' && evidence.pass === false) {
         errors.push(`Overflow evidence failed: ${acceptanceId} (${evidence.reference})`);
       }
@@ -207,6 +218,10 @@ function isMachineEvidence(evidence) {
   if (evidence.type === 'screenshot') return Boolean(evidence.reference) && Number(evidence.bytes) > 0;
   if (evidence.type === 'overflow') return evidence.pass === true;
   return Boolean(evidence.reference);
+}
+
+function isMachineEvidenceType(type) {
+  return MACHINE_EVIDENCE_TYPES.has(type);
 }
 
 function isCustomOrRegistryType(type) {

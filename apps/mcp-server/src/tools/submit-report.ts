@@ -1,9 +1,9 @@
-import { writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { relative, sep } from 'node:path';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
 import type { ImplementationReport } from '../aub.js';
-import { prepareWorkspaceWritePath, resolveBlueprint, safeFileStem } from '../workspace.js';
+import { encodeSafeFileStem, prepareWorkspaceWritePath, resolveBlueprint, writeFileAtomic } from '../workspace.js';
 import { formatAjvErrors } from '../schema.js';
 import { verifyImplementationReport } from '../aub.js';
 
@@ -48,10 +48,15 @@ export async function run(
       safety_score: verification.summary?.safety_score,
     };
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const screenId = safeFileStem(entry.screenId || 'blueprint', 'blueprint');
-    const outputRef = `.aub/reports/${screenId}-${timestamp}.json`;
+    const suffix = randomUUID();
+    const screenId = encodeSafeFileStem(entry.screenId || 'blueprint', 'blueprint');
+    const outputRef = `.aub/reports/${screenId}-${timestamp}-${suffix}.json`;
     const absPath = await prepareWorkspaceWritePath(ctx.root, outputRef);
-    await writeFile(absPath, `${JSON.stringify(persistedReport, null, 2)}\n`, 'utf8');
+    await writeFileAtomic(absPath, `${JSON.stringify(persistedReport, null, 2)}\n`, {
+      overwrite: false,
+      root: ctx.root,
+      displayPath: outputRef,
+    });
     savedPath = relative(ctx.root, absPath).split(sep).join('/');
   }
 

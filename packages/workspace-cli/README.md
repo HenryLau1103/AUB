@@ -56,7 +56,13 @@ npx aub-workspace demo
 npx aub-workspace --workspace /path/to/app
 npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open
+npx aub-workspace --no-open --print-auth-url
 ```
+
+`--no-open` keeps the browser closed and prints only a redacted editor URL. If
+you need to copy a working manual URL, use `--no-open --print-auth-url` from a
+trusted local terminal. That URL contains the local RPC token; do not paste it
+into issues, PRs, logs, or chat.
 
 `demo` creates a synthetic workspace that proves the safety loop without using a
 real project. It includes a scan report, generated template, Blueprint, failing

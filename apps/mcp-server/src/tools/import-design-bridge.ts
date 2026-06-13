@@ -1,10 +1,9 @@
 import { readFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
 import {
-  buildKnownTypes,
   importDesignBridge,
+  resolveKnownTypesForBlueprint,
   validateBlueprintSemantics,
 } from '../aub.js';
 import { formatAjvErrors } from '../schema.js';
@@ -59,9 +58,10 @@ export async function run(
   const result = importDesignBridge(bridge as any);
   const schemaOk = ctx.validators.validateBlueprint(result.blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
-  const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry ? await resolveExistingWorkspacePath(ctx.root, args.registry) : null,
-    startDir: bridgePath ? dirname(bridgePath) : ctx.root,
+  const knownTypes = await resolveKnownTypesForBlueprint({
+    workspaceRoot: ctx.root,
+    blueprintAbsPath: bridgePath,
+    explicitRegistry: args.registry,
   });
   const semanticErrors = schemaOk
     ? validateBlueprintSemantics(result.blueprint, { knownTypes: knownTypes.knownTypes })

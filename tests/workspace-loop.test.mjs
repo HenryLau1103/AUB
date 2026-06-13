@@ -1,15 +1,18 @@
-import { cp, mkdtemp, rm, readFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { promisify } from 'node:util';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
-import { scanProjectUi, generateTemplateFromSource } from '../scripts/workspace-loop.lib.mjs';
+import { approveComponentCandidate, scanProjectUi, generateTemplateFromSource } from '../scripts/workspace-loop.lib.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMA = JSON.parse(await readFile(resolve(ROOT, 'schema/ui-blueprint.schema.json'), 'utf8'));
+const execFileAsync = promisify(execFile);
 
 async function copyFixture(name) {
   const source = resolve(ROOT, 'examples', 'workspace-fixtures', name);
@@ -97,6 +100,206 @@ test('WL2: Angular scanner resolves templateUrl routes and selector candidates',
     assert.ok(result.template.sourceReferences.some((reference) => reference.selector?.includes('app-domain-card')));
     assert.equal(result.template.trustBreakdown.routeResolved, true);
     assert.ok(result.template.trustBreakdown.unresolvedCustomComponents >= 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('WL3: scanner records aggregate source byte budget skips', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-scan-budget-'));
+  try {
+    await mkdir(join(root, 'components'), { recursive: true });
+    await writeFile(join(root, 'package.json'), '{"name":"budget-demo","dependencies":{"next":"latest"}}\n', 'utf8');
+    const base = 'export function BudgetWidget(){ return <section>Budget</section>; }\n';
+    const filler = 'x'.repeat((512 * 1024) - base.length);
+    for (let index = 0; index < 130; index += 1) {
+      await writeFile(join(root, 'components', `BudgetWidget${index}.tsx`), `${base}${filler}`, 'utf8');
+    }
+    const scan = await scanProjectUi(root);
+    assert.equal(scan.scanAudit.sourceByteLimitReached, true);
+    assert.ok(scan.scanAudit.sourceFilesSkippedByBudget > 0);
+    assert.ok(scan.scanReport.trust.breakdown.sourceByteLimitReached);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('WL4: workspace session updates are serialized across processes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-session-cross-process-'));
+  try {
+    const script = [
+      "import { updateAubSession } from './scripts/workspace-loop.lib.mjs';",
+      "await updateAubSession(process.argv[1], JSON.parse(process.argv[2]));",
+    ].join('\n');
+    await Promise.all([
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, root, JSON.stringify({
+        activeBlueprint: 'screens/settings.ui.json',
+      })], { cwd: ROOT }),
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, root, JSON.stringify({
+        preview: { route: '/settings' },
+      })], { cwd: ROOT }),
+    ]);
+    const stored = JSON.parse(await readFile(join(root, '.aub', 'session.json'), 'utf8'));
+    assert.equal(stored.activeBlueprint, 'screens/settings.ui.json');
+    assert.equal(stored.preview.route, '/settings');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('WL5: component candidate reviews are serialized across processes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-candidates-cross-process-'));
+  try {
+    await mkdir(join(root, '.aub'), { recursive: true });
+    await writeFile(join(root, '.aub', 'component-candidates.json'), `${JSON.stringify({
+      format: 'aub-component-candidates',
+      format_version: '0.1.0',
+      candidates: [
+        {
+          id: 'card-a',
+          status: 'candidate',
+          sourcePath: 'src/CardA.tsx',
+          framework: 'react',
+          componentName: 'CardA',
+          suggestedType: 'app:card_a',
+          suggestedCoreType: 'card',
+          props: [],
+          reviewHistory: [],
+        },
+        {
+          id: 'nav-b',
+          status: 'candidate',
+          sourcePath: 'src/NavB.tsx',
+          framework: 'react',
+          componentName: 'NavB',
+          suggestedType: 'app:nav_b',
+          suggestedCoreType: 'nav_menu',
+          props: [],
+          reviewHistory: [],
+        },
+      ],
+    }, null, 2)}\n`, 'utf8');
+    const script = [
+      "import { approveComponentCandidate } from './scripts/workspace-loop.lib.mjs';",
+      "await approveComponentCandidate(process.argv[1], JSON.parse(process.argv[2]));",
+    ].join('\n');
+    await Promise.all([
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, root, JSON.stringify({
+        id: 'card-a',
+        action: 'map_core',
+        coreType: 'card',
+      })], { cwd: ROOT }),
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, root, JSON.stringify({
+        id: 'nav-b',
+        action: 'map_core',
+        coreType: 'nav_menu',
+      })], { cwd: ROOT }),
+    ]);
+    const stored = JSON.parse(await readFile(join(root, '.aub', 'component-candidates.json'), 'utf8'));
+    const byId = new Map(stored.candidates.map((candidate) => [candidate.id, candidate]));
+    assert.equal(byId.get('card-a').approvedAs, 'card');
+    assert.equal(byId.get('nav-b').approvedAs, 'nav_menu');
+    assert.equal(byId.get('card-a').reviewHistory.length, 1);
+    assert.equal(byId.get('nav-b').reviewHistory.length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('WL6: rescanning preserves reviewed component candidate state', async () => {
+  const root = await copyFixture('next-dashboard');
+  try {
+    const firstScan = await scanProjectUi(root);
+    const candidate = firstScan.components.find((item) => item.componentName === 'RiskSummaryCard');
+    assert.ok(candidate);
+
+    await approveComponentCandidate(root, {
+      id: candidate.id,
+      action: 'ignore',
+    });
+
+    const secondScan = await scanProjectUi(root);
+    const reviewed = secondScan.components.find((item) => item.id === candidate.id);
+    assert.equal(reviewed.status, 'ignored');
+    assert.ok(reviewed.reviewedAt);
+    assert.equal(reviewed.reviewHistory.length, 1);
+
+    await rm(join(root, 'components', 'RiskSummaryCard.tsx'), { force: true });
+    const thirdScan = await scanProjectUi(root);
+    const stale = thirdScan.components.find((item) => item.id === candidate.id);
+    assert.equal(stale.status, 'ignored');
+    assert.equal(stale.stale, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('WL7: extension candidate review is strict and can recover pending state', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-candidates-state-machine-'));
+  try {
+    await mkdir(join(root, '.aub'), { recursive: true });
+    await writeFile(join(root, '.aub', 'component-candidates.json'), `${JSON.stringify({
+      format: 'aub-component-candidates',
+      format_version: '0.1.0',
+      candidates: [
+        {
+          id: 'card-a',
+          status: 'candidate',
+          sourcePath: 'src/CardA.tsx',
+          framework: 'react',
+          componentName: 'CardA',
+          suggestedType: 'app:card_a',
+          suggestedCoreType: 'card',
+          props: ['title'],
+          reviewHistory: [],
+        },
+        {
+          id: 'card-b',
+          status: 'review_pending',
+          approvedAs: 'app:card_b',
+          sourcePath: 'src/CardB.tsx',
+          framework: 'react',
+          componentName: 'CardB',
+          suggestedType: 'app:card_b',
+          suggestedCoreType: 'card',
+          props: [],
+          reviewHistory: [{ action: 'create_extension_pending', approvedAs: 'app:card_b' }],
+        },
+      ],
+    }, null, 2)}\n`, 'utf8');
+
+    const approved = await approveComponentCandidate(root, {
+      id: 'card-a',
+      action: 'create_extension',
+      namespacedType: 'app:card_a',
+    });
+    assert.equal(approved.candidate.status, 'approved');
+    assert.equal(approved.candidate.approvedAs, 'app:card_a');
+    assert.deepEqual(
+      approved.candidate.reviewHistory.map((item) => item.action),
+      ['create_extension_pending', 'create_extension']
+    );
+
+    await assert.rejects(
+      approveComponentCandidate(root, {
+        id: 'card-a',
+        action: 'map_core',
+        coreType: 'card',
+      }),
+      /already reviewed/
+    );
+
+    const recovered = await approveComponentCandidate(root, {
+      id: 'card-b',
+      action: 'create_extension',
+      namespacedType: 'app:card_b',
+    });
+    assert.equal(recovered.candidate.status, 'approved');
+    assert.equal(recovered.candidate.approvedAs, 'app:card_b');
+    assert.deepEqual(
+      recovered.candidate.reviewHistory.map((item) => item.action),
+      ['create_extension_pending', 'create_extension']
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

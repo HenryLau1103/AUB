@@ -14,12 +14,12 @@
     },
     "blueprints": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
+      "items": { "$ref": "#/$defs/workspaceRelativePath" },
       "uniqueItems": true
     },
     "projects": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
+      "items": { "$ref": "#/$defs/workspaceRelativePath" },
       "uniqueItems": true
     },
     "reports": {
@@ -29,8 +29,8 @@
         "additionalProperties": false,
         "required": ["blueprint", "report"],
         "properties": {
-          "blueprint": { "type": "string", "minLength": 1 },
-          "report": { "type": "string", "minLength": 1 }
+          "blueprint": { "$ref": "#/$defs/workspaceRelativePath" },
+          "report": { "$ref": "#/$defs/workspaceRelativePath" }
         }
       }
     },
@@ -39,6 +39,20 @@
       "minimum": 0,
       "maximum": 100,
       "description": "Optional minimum implementation safety score required for configured reports."
+    }
+  },
+  "$defs": {
+    "workspaceRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "not": {
+        "anyOf": [
+          { "pattern": "^/" },
+          { "pattern": "^[A-Za-z]:" },
+          { "pattern": "(^|[\\\\/])\\.\\.($|[\\\\/])" }
+        ]
+      },
+      "description": "Workspace-relative path. Absolute paths and parent-directory traversal are rejected."
     }
   }
 }

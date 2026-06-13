@@ -56,7 +56,13 @@ npx aub-workspace demo
 npx aub-workspace --workspace /path/to/app
 npx aub-workspace --mcp-port 3100 --editor-port 3110
 npx aub-workspace --no-open
+npx aub-workspace --no-open --print-auth-url
 ```
+
+`--no-open`은 브라우저를 열지 않고 token 이 가려진 editor URL 만 출력합니다.
+수동으로 연결 가능한 URL 을 복사해야 한다면 신뢰할 수 있는 로컬 터미널에서
+`--no-open --print-auth-url`을 사용하세요. 이 URL 에는 로컬 RPC token 이
+포함되므로 issue, PR, log, chat 에 붙여 넣지 마세요.
 
 `demo` 는 실제 프로젝트 없이 safety loop 를 확인할 수 있는 합성 workspace 를 만듭니다. scan report, generated template, Blueprint, 실패하는 implementation report, 통과 가능한 implementation report, fail/pass PR safety comment 가 포함됩니다.
 

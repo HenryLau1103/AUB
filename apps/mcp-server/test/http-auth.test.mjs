@@ -108,6 +108,20 @@ test('HTTP RPC accepts requests with a configured bearer token', async () => {
   }
 });
 
+test('HTTP RPC rejects non-ASCII invalid tokens with 401 instead of 500', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-http-auth-unicode-'));
+  const { child, port } = await startServer(root, ['--rpc-token', 'abcd']);
+  try {
+    const response = await rpc(port, { authorization: 'Bearer ábcd' });
+    assert.equal(response.status, 401);
+    const body = await response.json();
+    assert.equal(body.ok, false);
+  } finally {
+    await stopServer(child);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('HTTP RPC allows no-token mode only with explicit opt-in', async () => {
   const root = await mkdtemp(join(tmpdir(), 'aub-http-auth-optin-'));
   const { child, port } = await startServer(root, ['--allow-unauthenticated-rpc']);
@@ -116,6 +130,53 @@ test('HTTP RPC allows no-token mode only with explicit opt-in', async () => {
     assert.equal(response.status, 200);
     const body = await response.json();
     assert.equal(body.ok, true);
+  } finally {
+    await stopServer(child);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('HTTP RPC uses configured allowed origins for CORS and auth', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-http-auth-cors-'));
+  const allowedOrigin = 'https://workspace.example.test';
+  const { child, port } = await startServer(root, [
+    '--rpc-token',
+    'secret-token',
+    '--rpc-allowed-origins',
+    allowedOrigin,
+  ]);
+  try {
+    const preflight = await fetch(`http://127.0.0.1:${port}/rpc`, {
+      method: 'OPTIONS',
+      headers: {
+        origin: allowedOrigin,
+        'access-control-request-method': 'POST',
+      },
+    });
+    assert.equal(preflight.status, 204);
+    assert.equal(preflight.headers.get('access-control-allow-origin'), allowedOrigin);
+
+    const blockedPreflight = await fetch(`http://127.0.0.1:${port}/rpc`, {
+      method: 'OPTIONS',
+      headers: {
+        origin: 'https://blocked.example.test',
+        'access-control-request-method': 'POST',
+      },
+    });
+    assert.equal(blockedPreflight.status, 204);
+    assert.equal(blockedPreflight.headers.get('access-control-allow-origin'), null);
+
+    const allowedRpc = await rpc(port, {
+      origin: allowedOrigin,
+      authorization: 'Bearer secret-token',
+    });
+    assert.equal(allowedRpc.status, 200);
+
+    const blockedRpc = await rpc(port, {
+      origin: 'https://blocked.example.test',
+      authorization: 'Bearer secret-token',
+    });
+    assert.equal(blockedRpc.status, 403);
   } finally {
     await stopServer(child);
     await rm(root, { recursive: true, force: true });

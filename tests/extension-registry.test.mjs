@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, mkdtemp, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdtemp, writeFile, mkdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { validateBlueprintSemantics } from '../scripts/validate-blueprint.lib.mjs';
@@ -9,7 +9,13 @@ import {
   buildCoreKnownTypes,
   parseExtensionRegistry,
   discoverExtensionRegistry,
+  discoverWorkspaceExtensionRegistry,
+  resolveKnownTypesForBlueprint,
   EXTENSION_NAME_PATTERN,
+  MAX_EXTENSION_COMPONENTS,
+  MAX_EXTENSION_IMPLEMENTATIONS,
+  MAX_EXTENSION_PROPS,
+  MAX_EXTENSION_REGISTRY_BYTES,
 } from '../scripts/registry.lib.mjs';
 
 const EXAMPLE = new URL('../examples/extensions/analytics-insights.ui.json', import.meta.url).pathname;
@@ -101,6 +107,50 @@ test('parseExtensionRegistry rejects bad names, duplicates, and missing isContai
   assert.throws(() => parseExtensionRegistry({}, new Set()), /missing required "components" array/);
 });
 
+test('parseExtensionRegistry enforces component, implementation, and prop caps', () => {
+  assert.throws(
+    () => parseExtensionRegistry({
+      components: Array.from({ length: MAX_EXTENSION_COMPONENTS + 1 }, (_, index) => ({
+        name: `acme:card_${index}`,
+        isContainer: true,
+      })),
+    }, new Set()),
+    /maximum component count/
+  );
+  assert.throws(
+    () => parseExtensionRegistry({
+      components: [{
+        name: 'acme:card',
+        isContainer: true,
+        implementations: Array.from({ length: MAX_EXTENSION_IMPLEMENTATIONS + 1 }, (_, index) => ({
+          id: `react-${index}`,
+          framework: 'react',
+          module: '@acme/ui',
+        })),
+      }],
+    }, new Set()),
+    /maximum implementation count/
+  );
+  assert.throws(
+    () => parseExtensionRegistry({
+      components: [{
+        name: 'acme:card',
+        isContainer: true,
+        implementations: [{
+          id: 'react',
+          framework: 'react',
+          module: '@acme/ui',
+          props: Object.fromEntries(Array.from({ length: MAX_EXTENSION_PROPS + 1 }, (_, index) => [
+            `prop${index}`,
+            { from: `content.prop${index}` },
+          ])),
+        }],
+      }],
+    }, new Set()),
+    /maximum prop count/
+  );
+});
+
 test('EXTENSION_NAME_PATTERN accepts team:component and rejects core/snake names', () => {
   assert.ok(EXTENSION_NAME_PATTERN.test('acme:data_card'));
   assert.ok(EXTENSION_NAME_PATTERN.test('a:b'));
@@ -119,6 +169,60 @@ test('discoverExtensionRegistry finds aub.registry.json by walking up', async ()
   assert.equal(found, join(base, 'aub.registry.json'));
 });
 
+test('discoverWorkspaceExtensionRegistry does not cross the workspace root', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'aub-reg-parent-'));
+  try {
+    const workspace = join(base, 'workspace');
+    const nested = join(workspace, 'src', 'screens');
+    await mkdir(nested, { recursive: true });
+    await writeFile(join(base, 'aub.registry.json'), '{"components":[]}\n');
+    assert.equal(discoverWorkspaceExtensionRegistry(workspace, nested), null);
+    await writeFile(join(workspace, 'aub.registry.json'), '{"components":[]}\n');
+    assert.ok(discoverWorkspaceExtensionRegistry(workspace, nested)?.endsWith('/workspace/aub.registry.json'));
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test('discoverWorkspaceExtensionRegistry rejects symlinked discovery starts outside the workspace', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'aub-reg-link-'));
+  try {
+    const workspace = join(base, 'workspace');
+    const outside = join(base, 'outside');
+    await mkdir(workspace, { recursive: true });
+    await mkdir(outside, { recursive: true });
+    await writeFile(join(outside, 'aub.registry.json'), '{"components":[]}\n');
+    await symlink(outside, join(workspace, 'linked-outside'));
+
+    assert.throws(
+      () => discoverWorkspaceExtensionRegistry(workspace, join(workspace, 'linked-outside')),
+      /Registry discovery start directory must stay inside workspace/
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test('resolveKnownTypesForBlueprint discovers only registries contained by the workspace', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'aub-reg-helper-'));
+  try {
+    const workspace = join(base, 'workspace');
+    const screens = join(workspace, 'screens');
+    await mkdir(screens, { recursive: true });
+    await writeFile(join(workspace, 'aub.registry.json'), await readFile(EXAMPLE_REGISTRY, 'utf8'));
+    await writeFile(join(screens, 'analytics.ui.json'), await readFile(EXAMPLE, 'utf8'));
+
+    const { knownTypes, extensionPath } = await resolveKnownTypesForBlueprint({
+      workspaceRoot: workspace,
+      blueprintAbsPath: join(screens, 'analytics.ui.json'),
+    });
+    assert.ok(extensionPath.endsWith('/workspace/aub.registry.json'));
+    assert.equal(knownTypes.get('acme:insight_card')?.isContainer, true);
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
 test('buildKnownTypes auto-discovers from a start directory', async () => {
   const { knownTypes, extensionPath, extensions } = await buildKnownTypes({
     startDir: new URL('../examples/extensions', import.meta.url).pathname,
@@ -133,6 +237,20 @@ test('buildKnownTypes auto-discovers from a start directory', async () => {
     knownTypes.get('acme:insight_card')?.implementations[0].props.title.from,
     'content.title'
   );
+});
+
+test('buildKnownTypes rejects oversized extension registry files before JSON parsing', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'aub-reg-size-'));
+  try {
+    const registryPath = join(base, 'aub.registry.json');
+    await writeFile(registryPath, `${' '.repeat(MAX_EXTENSION_REGISTRY_BYTES + 1)}`, 'utf8');
+    await assert.rejects(
+      () => buildKnownTypes({ extensionPath: registryPath, discover: false }),
+      /registry exceeds/
+    );
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
 });
 
 test('parseExtensionRegistry validates production implementation mappings', () => {

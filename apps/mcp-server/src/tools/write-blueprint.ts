@@ -1,12 +1,11 @@
-import { access, rename, writeFile } from 'node:fs/promises';
 import { extname, relative, sep } from 'node:path';
 import yaml from 'js-yaml';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
 import type { Blueprint } from '../aub.js';
-import { buildKnownTypes, validateBlueprintSemantics } from '../aub.js';
+import { resolveKnownTypesForBlueprint, validateBlueprintSemantics } from '../aub.js';
 import { formatAjvErrors } from '../schema.js';
-import { prepareWorkspaceWritePath, resolveExistingWorkspacePath } from '../workspace.js';
+import { prepareWorkspaceWritePath, writeFileAtomic } from '../workspace.js';
 
 export const name = 'write_blueprint';
 
@@ -29,15 +28,6 @@ export const config = {
   inputSchema,
 };
 
-async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function run(
   ctx: ServerContext,
   args: {
@@ -53,11 +43,13 @@ export async function run(
   if (!args.blueprint) throw new Error('Provide a complete "blueprint" object.');
 
   const blueprint = args.blueprint as Blueprint;
+  const outputPath = await prepareWorkspaceWritePath(ctx.root, args.path);
   const schemaOk = ctx.validators.validateBlueprint(blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
-  const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry ? await resolveExistingWorkspacePath(ctx.root, args.registry) : null,
-    startDir: ctx.root,
+  const knownTypes = await resolveKnownTypesForBlueprint({
+    workspaceRoot: ctx.root,
+    blueprintAbsPath: outputPath,
+    explicitRegistry: args.registry,
   });
   const semanticErrors = schemaOk
     ? validateBlueprintSemantics(blueprint, { knownTypes: knownTypes.knownTypes })
@@ -68,24 +60,22 @@ export async function run(
     );
   }
 
-  const outputPath = await prepareWorkspaceWritePath(ctx.root, args.path);
-  if (!args.overwrite && (await exists(outputPath))) {
-    throw new Error(`Refusing to overwrite existing file: ${args.path}`);
-  }
   const ext = extname(outputPath).toLowerCase();
   const content =
     ext === '.yaml' || ext === '.yml'
       ? yaml.dump(blueprint, { noRefs: true, lineWidth: 120 })
       : `${JSON.stringify(blueprint, null, 2)}\n`;
-  const tempPath = `${outputPath}.${process.pid}.tmp`;
-  await writeFile(tempPath, content, 'utf8');
-  await rename(tempPath, outputPath);
+  await writeFileAtomic(outputPath, content, {
+    overwrite: Boolean(args.overwrite),
+    root: ctx.root,
+    displayPath: args.path,
+  });
 
   return {
     savedPath: relative(ctx.root, outputPath).split(sep).join('/'),
     screenId: blueprint.screen.id,
     format: ext === '.json' ? 'json' : 'yaml',
-    bytes: Buffer.byteLength(content),
+    bytes: new TextEncoder().encode(content).byteLength,
     extensionRegistry: knownTypes.extensionPath,
   };
 }

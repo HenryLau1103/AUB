@@ -5,6 +5,14 @@ import { defaultDesignSystem } from './migrate-blueprint.mjs';
 
 export const ANGULAR_IMPORTER_VERSION = '1.0.0';
 const MAX_TEMPLATE_NESTING_DEPTH = 200;
+const MAX_ANGULAR_BUNDLE_BYTES = 16 * 1024 * 1024;
+const MAX_ANGULAR_SOURCE_FILES = 2000;
+const MAX_ANGULAR_SOURCE_PATH_LENGTH = 512;
+const MAX_ANGULAR_COMPONENTS = 500;
+const MAX_TEMPLATE_NODES = 5000;
+const MAX_TEMPLATE_TAGS_BEFORE_PARSE = 5000;
+const MAX_IMPORT_TEMPLATE_NODES = 20000;
+const MAX_ATTRIBUTES_PER_NODE = 80;
 
 const CONTAINER_TYPES = new Set([
   'app_shell', 'page', 'section', 'header', 'sidebar', 'top_bar', 'bottom_nav',
@@ -29,13 +37,25 @@ export function normalizeAngularBundle(input) {
   if (!Array.isArray(files) || files.length === 0) {
     throw new Error('Angular import requires at least one source file.');
   }
+  if (files.length > MAX_ANGULAR_SOURCE_FILES) {
+    throw new Error(`Angular source bundle exceeds maximum file count of ${MAX_ANGULAR_SOURCE_FILES}.`);
+  }
   const seen = new Set();
+  let totalBytes = 0;
   return files.map((file) => {
     const path = sanitizeSourcePath(file.path ?? file.name ?? '');
     if (!path) throw new Error('Every Angular source file requires a relative path.');
+    if (path.length > MAX_ANGULAR_SOURCE_PATH_LENGTH) {
+      throw new Error(`Angular source path exceeds maximum length of ${MAX_ANGULAR_SOURCE_PATH_LENGTH}: ${path}`);
+    }
     if (seen.has(path)) throw new Error(`Duplicate source path: ${path}`);
     seen.add(path);
-    return { path, content: String(file.content ?? '') };
+    const content = String(file.content ?? '');
+    totalBytes += new TextEncoder().encode(content).byteLength;
+    if (totalBytes > MAX_ANGULAR_BUNDLE_BYTES) {
+      throw new Error(`Angular source bundle exceeds maximum size of ${MAX_ANGULAR_BUNDLE_BYTES} bytes.`);
+    }
+    return { path, content };
   });
 }
 
@@ -68,6 +88,9 @@ export function discoverAngularComponents(input) {
         label: file.path.replace(/\.component\.html$|\.html$/i, ''),
       });
     }
+  }
+  if (components.length > MAX_ANGULAR_COMPONENTS) {
+    throw new Error(`Angular component count exceeds maximum of ${MAX_ANGULAR_COMPONENTS}.`);
   }
   return components;
 }
@@ -186,6 +209,7 @@ function createBuilder(context) {
   const ids = new Map();
   const signatures = new Map();
   const parsedComponents = new Set();
+  let importTemplateNodes = 0;
 
   function addNode(input) {
     const id = uniqueId(input.idHint || input.name || input.type, ids);
@@ -243,7 +267,15 @@ function createBuilder(context) {
       return;
     }
     parsedComponents.add(cycleKey);
+    const roughTagCount = (file.content.match(/<[A-Za-z][^>]*>/g) ?? []).length;
+    if (roughTagCount > MAX_TEMPLATE_TAGS_BEFORE_PARSE) {
+      throw new Error(`Angular template exceeds maximum pre-parse tag count of ${MAX_TEMPLATE_TAGS_BEFORE_PARSE}.`);
+    }
     const document = parseFragment(file.content, { sourceCodeLocationInfo: true });
+    importTemplateNodes += walkHtml(document, () => {});
+    if (importTemplateNodes > MAX_IMPORT_TEMPLATE_NODES) {
+      throw new Error(`Angular import exceeds maximum aggregate template node count of ${MAX_IMPORT_TEMPLATE_NODES}.`);
+    }
     walkChildren(document.childNodes ?? [], parentId, file, [...ancestors, cycleKey]);
   }
 
@@ -604,10 +636,18 @@ function collectAttributesDeep(node) {
 
 function walkHtml(node, visitor) {
   const stack = [{ node, depth: 0 }];
+  let visited = 0;
   while (stack.length > 0) {
     const current = stack.pop();
     if (current.depth > MAX_TEMPLATE_NESTING_DEPTH) {
       throw new Error(`Angular template exceeds maximum nesting depth of ${MAX_TEMPLATE_NESTING_DEPTH}.`);
+    }
+    visited += 1;
+    if (visited > MAX_TEMPLATE_NODES) {
+      throw new Error(`Angular template exceeds maximum node count of ${MAX_TEMPLATE_NODES}.`);
+    }
+    if ((current.node.attrs?.length ?? 0) > MAX_ATTRIBUTES_PER_NODE) {
+      throw new Error(`Angular template node exceeds maximum attribute count of ${MAX_ATTRIBUTES_PER_NODE}.`);
     }
     visitor(current.node);
     const children = current.node.childNodes ?? [];
@@ -615,6 +655,7 @@ function walkHtml(node, visitor) {
       stack.push({ node: children[index], depth: current.depth + 1 });
     }
   }
+  return visited;
 }
 
 function visibleText(node) {

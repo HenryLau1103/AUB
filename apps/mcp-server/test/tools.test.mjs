@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
+import { promisify } from 'node:util';
 import JSZip from 'jszip';
 import { findRepoRoot } from '../dist/repo.js';
 import { loadValidators } from '../dist/schema.js';
@@ -34,6 +36,8 @@ import { registeredToolNames } from '../dist/server.js';
 
 const SCREEN_ID = 'dashboard.overview';
 const ctx = { root: findRepoRoot(), validators: await loadValidators() };
+const execFileAsync = promisify(execFile);
+const MCP_SERVER_ROOT = new URL('..', import.meta.url).pathname;
 
 function passingReport(blueprint) {
   const report = createImplementationReportTemplate(blueprint);
@@ -89,6 +93,76 @@ test('get_blueprint and get_project reject refs outside the workspace', async ()
   }
 });
 
+test('get_blueprint and get_project accept absolute refs inside the workspace', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-ref-inside-'));
+  try {
+    await mkdir(join(root, 'screens'), { recursive: true });
+    const blueprintText = await readFile(join(findRepoRoot(), 'examples', 'dashboard.ui.json'), 'utf8');
+    await writeFile(join(root, 'screens', 'dashboard.ui.json'), blueprintText, 'utf8');
+    await writeFile(join(root, 'app.aub.project.json'), `${JSON.stringify({
+      version: '0.1.0',
+      id: 'demo-app',
+      name: 'Demo App',
+      entry_screen: SCREEN_ID,
+      screens: [{ id: SCREEN_ID, path: 'screens/dashboard.ui.json' }],
+      navigation: [],
+    }, null, 2)}\n`, 'utf8');
+
+    const byAbsBlueprint = await getBlueprint({ ...ctx, root }, { ref: join(root, 'screens', 'dashboard.ui.json') });
+    assert.equal(byAbsBlueprint.blueprint.screen.id, SCREEN_ID);
+
+    const byAbsProject = await getProject({ ...ctx, root }, { ref: join(root, 'app.aub.project.json'), inlineScreens: true });
+    assert.equal(byAbsProject.screens.length, 1);
+    assert.ok(byAbsProject.screens[0].blueprint);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('get_project and validate_project contain member screen paths inside the workspace', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-project-root-'));
+  const outside = await mkdtemp(join(tmpdir(), 'aub-project-outside-'));
+  try {
+    await writeFile(
+      join(outside, 'outside.ui.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'dashboard.ui.json'), 'utf8'),
+      'utf8'
+    );
+    await writeFile(join(root, 'escape.aub.project.json'), `${JSON.stringify({
+      version: '0.1.0',
+      id: 'escape-app',
+      name: 'Escape App',
+      entry_screen: SCREEN_ID,
+      screens: [{ id: SCREEN_ID, path: join(outside, 'outside.ui.json') }],
+      navigation: [],
+    }, null, 2)}\n`, 'utf8');
+    await writeFile(join(root, 'escape-parent.aub.project.json'), `${JSON.stringify({
+      version: '0.1.0',
+      id: 'escape-parent-app',
+      name: 'Escape Parent App',
+      entry_screen: SCREEN_ID,
+      screens: [{ id: SCREEN_ID, path: '../outside.ui.json' }],
+      navigation: [],
+    }, null, 2)}\n`, 'utf8');
+
+    const project = await getProject({ ...ctx, root }, { ref: 'escape.aub.project.json', inlineScreens: true });
+    assert.equal(project.screens[0].loaded, false);
+    assert.equal(project.screens[0].path, join(outside, 'outside.ui.json'));
+    assert.ok(project.loadErrors.some((error) => /Screen path must be relative/.test(error)));
+
+    const validation = await validateProject({ ...ctx, root }, { ref: 'escape.aub.project.json' });
+    assert.equal(validation.valid, false);
+    assert.ok(validation.schemaErrors.length > 0 || validation.loadErrors.length > 0);
+
+    const parentValidation = await validateProject({ ...ctx, root }, { ref: 'escape-parent.aub.project.json' });
+    assert.equal(parentValidation.valid, false);
+    assert.ok(parentValidation.schemaErrors.length > 0 || parentValidation.loadErrors.length > 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
 test('get_blueprint returns markdown and yaml formats', async () => {
   const md = await getBlueprint(ctx, { ref: SCREEN_ID, format: 'markdown' });
   assert.equal(md.format, 'markdown');
@@ -123,6 +197,73 @@ test('validate_blueprint resolves extension types via an explicit registry', asy
   });
   assert.equal(result.valid, true, JSON.stringify(result.semanticErrors));
   assert.ok(result.extensionRegistry?.endsWith('aub.registry.json'));
+});
+
+test('validate_blueprint rejects registry paths outside the workspace', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-registry-root-'));
+  const outside = await mkdtemp(join(tmpdir(), 'aub-registry-outside-'));
+  try {
+    await mkdir(join(root, 'screens'), { recursive: true });
+    await writeFile(
+      join(root, 'screens', 'dashboard.ui.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'dashboard.ui.json'), 'utf8'),
+      'utf8'
+    );
+    await writeFile(join(outside, 'aub.registry.json'), '{"version":"0.1.0","components":[]}\n', 'utf8');
+    const result = await validateBlueprint({ ...ctx, root }, {
+      ref: 'screens/dashboard.ui.json',
+      registry: join(outside, 'aub.registry.json'),
+    });
+    assert.equal(result.valid, false);
+    assert.ok(result.semanticErrors.some((error) => /registry: Registry path must stay inside workspace/.test(error)));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test('validate_blueprint rejects registry filenames that only end with aub.registry.json', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-registry-suffix-'));
+  try {
+    await mkdir(join(root, 'screens'), { recursive: true });
+    await writeFile(
+      join(root, 'screens', 'dashboard.ui.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'dashboard.ui.json'), 'utf8'),
+      'utf8'
+    );
+    await writeFile(join(root, 'evil-aub.registry.json'), '{"version":"0.1.0","components":[]}\n', 'utf8');
+    const result = await validateBlueprint({ ...ctx, root }, {
+      ref: 'screens/dashboard.ui.json',
+      registry: 'evil-aub.registry.json',
+    });
+    assert.equal(result.valid, false);
+    assert.ok(result.semanticErrors.some((error) => /Registry path must point to aub\.registry\.json/.test(error)));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('validate_blueprint does not auto-discover a parent registry outside the workspace', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'aub-parent-registry-'));
+  try {
+    const root = join(base, 'workspace');
+    await mkdir(join(root, 'screens'), { recursive: true });
+    await writeFile(
+      join(base, 'aub.registry.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'extensions', 'aub.registry.json'), 'utf8'),
+      'utf8'
+    );
+    await writeFile(
+      join(root, 'screens', 'analytics.ui.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'extensions', 'analytics-insights.ui.json'), 'utf8'),
+      'utf8'
+    );
+    const result = await validateBlueprint({ ...ctx, root }, { ref: 'screens/analytics.ui.json' });
+    assert.equal(result.valid, false);
+    assert.ok(result.semanticErrors.some((error) => /unknown component type "acme:/.test(error)));
+  } finally {
+    await rm(base, { recursive: true, force: true });
+  }
 });
 
 test('validate_blueprint reports unknown extension types without a registry', async () => {
@@ -169,7 +310,7 @@ test('resolve_component rejects registries outside the workspace', async () => {
         type: 'acme:insight_card',
         registry: relative(root, join(outside, 'aub.registry.json')),
       }),
-      /inside the workspace root|relative to the workspace root/
+      /inside workspace|relative to the workspace root/
     );
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -255,6 +396,36 @@ test('write_blueprint validates, writes atomically, and rejects paths outside th
   }
 });
 
+test('write_blueprint discovers extension registries from the destination blueprint path', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-write-nested-registry-'));
+  try {
+    await mkdir(join(root, 'apps', 'analytics'), { recursive: true });
+    await writeFile(
+      join(root, 'apps', 'analytics', 'aub.registry.json'),
+      await readFile(join(findRepoRoot(), 'examples', 'extensions', 'aub.registry.json'), 'utf8'),
+      'utf8'
+    );
+    const blueprint = JSON.parse(
+      await readFile(join(findRepoRoot(), 'examples', 'extensions', 'analytics-insights.ui.json'), 'utf8')
+    );
+    const result = await writeBlueprint({ ...ctx, root }, {
+      path: 'apps/analytics/analytics-insights.ui.json',
+      blueprint,
+    });
+    assert.equal(result.extensionRegistry?.endsWith('/apps/analytics/aub.registry.json'), true);
+
+    await assert.rejects(
+      () => writeBlueprint({ ...ctx, root }, {
+        path: 'other/analytics-insights.ui.json',
+        blueprint,
+      }),
+      /unknown component type "acme:/
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('write_blueprint rejects symlinked output parents outside the workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'aub-mcp-write-link-'));
   const outside = await mkdtemp(join(tmpdir(), 'aub-mcp-write-outside-'));
@@ -276,6 +447,67 @@ test('write_blueprint rejects symlinked output parents outside the workspace', a
   }
 });
 
+test('write_blueprint concurrent writes do not collide on temp paths', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-write-race-'));
+  try {
+    const first = structuredClone((await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint);
+    const second = structuredClone(first);
+    first.screen.name = 'Concurrent First';
+    second.screen.name = 'Concurrent Second';
+    const localCtx = { ...ctx, root };
+    await Promise.all([
+      writeBlueprint(localCtx, { path: 'specs/race.ui.json', blueprint: first, overwrite: true }),
+      writeBlueprint(localCtx, { path: 'specs/race.ui.json', blueprint: second, overwrite: true }),
+    ]);
+    const stored = JSON.parse(await readFile(join(root, 'specs', 'race.ui.json'), 'utf8'));
+    assert.ok(['Concurrent First', 'Concurrent Second'].includes(stored.screen.name));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('write_blueprint concurrent overwrite:false writes allow exactly one creator', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-write-create-race-'));
+  try {
+    const first = structuredClone((await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint);
+    const second = structuredClone(first);
+    first.screen.name = 'Create Race First';
+    second.screen.name = 'Create Race Second';
+    const localCtx = { ...ctx, root };
+    const results = await Promise.allSettled([
+      writeBlueprint(localCtx, { path: 'specs/race.ui.json', blueprint: first, overwrite: false }),
+      writeBlueprint(localCtx, { path: 'specs/race.ui.json', blueprint: second, overwrite: false }),
+    ]);
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(results.filter((result) => result.status === 'rejected').length, 1);
+    const stored = JSON.parse(await readFile(join(root, 'specs', 'race.ui.json'), 'utf8'));
+    assert.ok(['Create Race First', 'Create Race Second'].includes(stored.screen.name));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('writeFileAtomic overwrite:false is safe across separate processes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-cross-process-create-race-'));
+  try {
+    await mkdir(join(root, 'specs'), { recursive: true });
+    const outputPath = join(root, 'specs', 'race.txt');
+    const script = [
+      "import { writeFileAtomic } from './dist/workspace.js';",
+      "await writeFileAtomic(process.argv[1], `${process.argv[2]}\\n`, { overwrite: false, root: process.argv[3], displayPath: 'specs/race.txt' });",
+    ].join('\n');
+    const results = await Promise.allSettled([
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, outputPath, 'first', root], { cwd: MCP_SERVER_ROOT }),
+      execFileAsync(process.execPath, ['--input-type=module', '-e', script, outputPath, 'second', root], { cwd: MCP_SERVER_ROOT }),
+    ]);
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(results.filter((result) => result.status === 'rejected').length, 1);
+    assert.match(await readFile(outputPath, 'utf8'), /^(first|second)\n$/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('export_handoff writes a verifiable package inside the workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'aub-mcp-handoff-'));
   try {
@@ -287,6 +519,25 @@ test('export_handoff writes a verifiable package inside the workspace', async ()
     assert.ok(zip.file('AGENT-README.md'));
     assert.ok(zip.file(`${SCREEN_ID}.ui.json`));
     assert.ok(zip.file('implementation-report.schema.json'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('export_handoff concurrent overwrite:false writes allow exactly one creator', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-mcp-handoff-race-'));
+  try {
+    const blueprint = (await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint;
+    await writeFile(join(root, 'dashboard.ui.json'), `${JSON.stringify(blueprint, null, 2)}\n`);
+    const localCtx = { ...ctx, root };
+    const results = await Promise.allSettled([
+      exportHandoff(localCtx, { ref: 'dashboard.ui.json', output: '.aub/handoffs/race.aub.zip' }),
+      exportHandoff(localCtx, { ref: 'dashboard.ui.json', output: '.aub/handoffs/race.aub.zip' }),
+    ]);
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(results.filter((result) => result.status === 'rejected').length, 1);
+    const zip = await JSZip.loadAsync(await readFile(join(root, '.aub', 'handoffs', 'race.aub.zip')));
+    assert.ok(zip.file('manifest.json'));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -473,6 +724,22 @@ test('workspace session tools read and update .aub/session.json', async () => {
   }
 });
 
+test('workspace session concurrent updates preserve independent fields', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-session-race-'));
+  try {
+    const localCtx = { ...ctx, root };
+    await Promise.all([
+      updateAubSession(localCtx, { patch: { activeBlueprint: 'screens/settings.ui.json' } }),
+      updateAubSession(localCtx, { patch: { preview: { route: '/settings' } } }),
+    ]);
+    const stored = JSON.parse(await readFile(join(root, '.aub', 'session.json'), 'utf8'));
+    assert.equal(stored.activeBlueprint, 'screens/settings.ui.json');
+    assert.equal(stored.preview.route, '/settings');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('scan_project_ui writes component candidates without touching aub.registry.json', async () => {
   const root = await createWorkspaceLoopFixture();
   try {
@@ -483,6 +750,18 @@ test('scan_project_ui writes component candidates without touching aub.registry.
     const candidates = JSON.parse(await readFile(join(root, '.aub', 'component-candidates.json'), 'utf8'));
     assert.ok(candidates.candidates.length > 0);
     await assert.rejects(() => readFile(join(root, 'aub.registry.json'), 'utf8'), /ENOENT/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('get_workspace_status reports source read accounting after scans', async () => {
+  const root = await createWorkspaceLoopFixture();
+  try {
+    await scanProjectUi({ ...ctx, root }, {});
+    const status = await getWorkspaceStatus({ ...ctx, root });
+    assert.ok(status.scanAudit.sourceBytesRead > 0, JSON.stringify(status.scanAudit));
+    assert.ok(status.scanAudit.sourceFilesRead > 0, JSON.stringify(status.scanAudit));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -570,15 +849,82 @@ test('approve_component_candidate only writes registry for extension approval', 
     });
     assert.equal(mapped.registryPath, null);
     await assert.rejects(() => readFile(join(root, 'aub.registry.json'), 'utf8'), /ENOENT/);
+    await assert.rejects(
+      () => approveComponentCandidate({ ...ctx, root }, {
+        id: candidate.id,
+        action: 'create_extension',
+        namespacedType: 'webapp:insight_card',
+      }),
+      /already reviewed/
+    );
+
+    const candidatesPath = join(root, '.aub', 'component-candidates.json');
+    const doc = JSON.parse(await readFile(candidatesPath, 'utf8'));
+    doc.candidates.push({
+      ...candidate,
+      id: 'src-components-insight-panel.tsx-insight_panel',
+      componentName: 'InsightPanel',
+      sourcePath: 'src/components/InsightPanel.tsx',
+      suggestedType: 'webapp:insight_panel',
+      status: 'candidate',
+      approvedAs: undefined,
+      reviewedAt: undefined,
+      reviewHistory: [],
+    });
+    await writeFile(candidatesPath, `${JSON.stringify(doc, null, 2)}\n`, 'utf8');
 
     const extension = await approveComponentCandidate({ ...ctx, root }, {
-      id: candidate.id,
+      id: 'src-components-insight-panel.tsx-insight_panel',
       action: 'create_extension',
-      namespacedType: 'webapp:insight_card',
+      namespacedType: 'webapp:insight_panel',
     });
     assert.equal(extension.registryPath, 'aub.registry.json');
     const registry = JSON.parse(await readFile(join(root, 'aub.registry.json'), 'utf8'));
-    assert.equal(registry.components[0].name, 'webapp:insight_card');
+    assert.equal(registry.components[0].name, 'webapp:insight_panel');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('approve_component_candidate concurrent reviews preserve independent decisions', async () => {
+  const root = await createWorkspaceLoopFixture();
+  try {
+    const scan = await scanProjectUi({ ...ctx, root }, {});
+    const first = scan.components.find((component) => component.suggestedType === 'webapp:insight_card');
+    assert.ok(first);
+    const candidatesPath = join(root, '.aub', 'component-candidates.json');
+    const doc = JSON.parse(await readFile(candidatesPath, 'utf8'));
+    const second = {
+      ...first,
+      id: 'src-components-action-bar-tsx-action_bar',
+      componentName: 'ActionBar',
+      sourcePath: 'src/components/ActionBar.tsx',
+      suggestedType: 'webapp:action_bar',
+      suggestedCoreType: 'nav_menu',
+      sourceUsage: [{ path: 'app/settings/page.tsx', line: 3, kind: 'jsx' }],
+      reviewHistory: [],
+    };
+    doc.candidates.push(second);
+    await writeFile(candidatesPath, `${JSON.stringify(doc, null, 2)}\n`, 'utf8');
+
+    await Promise.all([
+      approveComponentCandidate({ ...ctx, root }, {
+        id: first.id,
+        action: 'map_core',
+        coreType: 'card',
+      }),
+      approveComponentCandidate({ ...ctx, root }, {
+        id: second.id,
+        action: 'map_core',
+        coreType: 'nav_menu',
+      }),
+    ]);
+    const stored = JSON.parse(await readFile(candidatesPath, 'utf8'));
+    const byId = new Map(stored.candidates.map((candidate) => [candidate.id, candidate]));
+    assert.equal(byId.get(first.id).approvedAs, 'card');
+    assert.equal(byId.get(second.id).approvedAs, 'nav_menu');
+    assert.equal(byId.get(first.id).reviewHistory.length, 1);
+    assert.equal(byId.get(second.id).reviewHistory.length, 1);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -609,17 +955,19 @@ test('submit_report accepts a fully mapped, passing report', async () => {
   assert.equal(result.summary.acceptance_passed, result.summary.acceptance_total);
 });
 
-test('submit_report rejects unsafe accepted-report file name stems', async () => {
+test('submit_report safely persists schema-valid dotted screen ids', async () => {
   const root = await mkdtemp(join(tmpdir(), 'aub-report-stem-'));
   try {
     const blueprint = structuredClone((await getBlueprint(ctx, { ref: SCREEN_ID })).blueprint);
     blueprint.screen.id = 'bad..id';
     await writeFile(join(root, 'bad.ui.json'), `${JSON.stringify(blueprint, null, 2)}\n`);
     const report = passingReport(blueprint);
-    await assert.rejects(
-      () => submitReport({ ...ctx, root }, { ref: 'bad.ui.json', report }),
-      /Unsafe file name segment/
-    );
+    const result = await submitReport({ ...ctx, root }, { ref: 'bad.ui.json', report });
+    assert.equal(result.accepted, true, JSON.stringify(result.errors));
+    assert.ok(result.savedPath);
+    assert.match(result.savedPath, /^\.aub\/reports\/bad\.id-.*-[0-9a-f-]{36}\.json$/);
+    const persisted = JSON.parse(await readFile(join(root, result.savedPath), 'utf8'));
+    assert.equal(persisted.blueprint.screen_id, 'bad..id');
   } finally {
     await rm(root, { recursive: true, force: true });
   }

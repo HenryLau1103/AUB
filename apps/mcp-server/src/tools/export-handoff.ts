@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { access, readFile, writeFile } from 'node:fs/promises';
-import { dirname, relative, resolve, sep } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
 import {
@@ -9,11 +9,12 @@ import {
   createImplementationReportTemplate,
   exportAgentPrompt,
   exportMarkdown,
+  resolveKnownTypesForBlueprint,
   validateBlueprintSemantics,
 } from '../aub.js';
 import { findRepoRoot } from '../repo.js';
 import { formatAjvErrors } from '../schema.js';
-import { prepareWorkspaceWritePath, resolveBlueprint, resolveExistingWorkspacePath } from '../workspace.js';
+import { prepareWorkspaceWritePath, resolveBlueprint, writeFileAtomic } from '../workspace.js';
 
 export const name = 'export_handoff';
 
@@ -38,15 +39,6 @@ export const config = {
   inputSchema,
 };
 
-async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function run(
   ctx: ServerContext,
   args: {
@@ -61,9 +53,10 @@ export async function run(
   const { blueprint, entry } = await resolveBlueprint(ctx.root, args.ref);
   const schemaOk = ctx.validators.validateBlueprint(blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
-  const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry ? await resolveExistingWorkspacePath(ctx.root, args.registry) : null,
-    startDir: dirname(entry.absPath),
+  const knownTypes = await resolveKnownTypesForBlueprint({
+    workspaceRoot: ctx.root,
+    blueprintAbsPath: entry.absPath,
+    explicitRegistry: args.registry,
   });
   const semanticErrors = schemaOk
     ? validateBlueprintSemantics(blueprint, { knownTypes: knownTypes.knownTypes })
@@ -77,9 +70,6 @@ export async function run(
   const outputRef = args.output ?? `.aub/handoffs/${blueprint.screen.id}.aub.zip`;
   if (!outputRef.endsWith('.aub.zip')) throw new Error('Handoff output must end in .aub.zip.');
   const outputPath = await prepareWorkspaceWritePath(ctx.root, outputRef);
-  if (!args.overwrite && (await exists(outputPath))) {
-    throw new Error(`Refusing to overwrite existing file: ${outputRef}`);
-  }
 
   const repoRoot = findRepoRoot();
   const [agentGuide, agentGuideZhHant, extensionRegistry] = await Promise.all([
@@ -99,7 +89,11 @@ export async function run(
     viewportImages: args.viewportImages ?? {},
     extensionRegistry,
   });
-  await writeFile(outputPath, bytes);
+  await writeFileAtomic(outputPath, bytes, {
+    overwrite: Boolean(args.overwrite),
+    root: ctx.root,
+    displayPath: outputRef,
+  });
 
   return {
     savedPath: relative(ctx.root, outputPath).split(sep).join('/'),

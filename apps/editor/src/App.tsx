@@ -62,6 +62,7 @@ import {
 } from './lib/personal-templates';
 import type { ViewportQualityReport } from './lib/viewport-quality';
 import {
+  attachWorkspaceTokenIfMissing,
   connectWorkspace,
   workspaceRpc,
   type ComponentCandidate,
@@ -84,6 +85,7 @@ import { validateBlueprintSemantics } from '../../../scripts/validate-blueprint.
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const validateSchema = ajv.compile(schemaJson as object);
+const WORKSPACE_RPC_TOKEN_STORAGE_KEY = 'aub.rpcToken';
 
 interface AddNodeOptions {
   makeParentFreeform?: boolean;
@@ -260,6 +262,10 @@ export function App() {
   const [activeScreenId, setActiveScreenId] = useState<string | null>(null);
   const [extensionRegistry, setExtensionRegistry] = useState<string | null>(null);
   const [workspaceEndpoint, setWorkspaceEndpoint] = useState(initialWorkspaceEndpoint);
+  const [workspaceRpcToken, setWorkspaceRpcToken] = useState<string | undefined>(() => {
+    if (typeof window === 'undefined') return undefined;
+    return window.sessionStorage.getItem(WORKSPACE_RPC_TOKEN_STORAGE_KEY) ?? undefined;
+  });
   const [workspaceConnection, setWorkspaceConnection] = useState<WorkspaceConnection | null>(null);
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceStatus | null>(null);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
@@ -271,6 +277,14 @@ export function App() {
   const autoConnectWorkspaceRef = useRef(false);
   const blueprint = history.present;
   const selectedId = selectedIds[0] ?? null;
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !initialHasWorkspaceEndpoint) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('mcp');
+    const sanitized = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, document.title, sanitized);
+  }, [initialHasWorkspaceEndpoint]);
 
   useEffect(() => {
     try {
@@ -421,9 +435,15 @@ export function App() {
     setWorkspaceLoading(true);
     setWorkspaceError(null);
     try {
-      const { connection } = await connectWorkspace(workspaceEndpoint);
+      const endpoint = attachWorkspaceTokenIfMissing(workspaceEndpoint, workspaceRpcToken);
+      const { connection } = await connectWorkspace(endpoint);
       const status = await loadWorkspaceStatus(connection);
+      const nextRpcToken = connection.rpcToken ?? workspaceRpcToken;
       setWorkspaceConnection(connection);
+      setWorkspaceRpcToken(nextRpcToken);
+      if (nextRpcToken && typeof window !== 'undefined') {
+        window.sessionStorage.setItem(WORKSPACE_RPC_TOKEN_STORAGE_KEY, nextRpcToken);
+      }
       setWorkspaceStatus(status);
       setWorkspaceEndpoint(connection.endpoint);
       setWorkspaceSavePath(status.session.activeBlueprint ?? (blueprint ? `${blueprint.screen.id}.ui.json` : ''));
@@ -1139,6 +1159,10 @@ export function App() {
               onConnect={() => void handleConnectWorkspace()}
               onDisconnect={() => {
                 setWorkspaceConnection(null);
+                setWorkspaceRpcToken(undefined);
+                if (typeof window !== 'undefined') {
+                  window.sessionStorage.removeItem(WORKSPACE_RPC_TOKEN_STORAGE_KEY);
+                }
                 setWorkspaceStatus(null);
                 setWorkspaceError(null);
               }}

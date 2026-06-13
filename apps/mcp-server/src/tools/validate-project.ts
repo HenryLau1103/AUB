@@ -1,9 +1,14 @@
 import { z } from 'zod';
-import { relative, sep } from 'node:path';
+import { dirname, relative, sep } from 'node:path';
 import type { ServerContext } from '../context.js';
 import { resolveProjectRef } from '../workspace.js';
 import { formatAjvErrors } from '../schema.js';
-import { loadProject, validateProjectSemantics, validateBlueprintSemantics, buildKnownTypes } from '../aub.js';
+import {
+  loadProject,
+  validateProjectSemantics,
+  validateBlueprintSemantics,
+  resolveKnownTypesForBlueprint,
+} from '../aub.js';
 
 export const name = 'validate_project';
 
@@ -18,12 +23,29 @@ export const config = {
   inputSchema,
 };
 
+const VALIDATE_PROJECT_CONCURRENCY = 8;
+
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (;;) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= items.length) return;
+      results[index] = await fn(items[index] as T, index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 export async function run(ctx: ServerContext, args: { ref?: string }) {
   if (!args.ref) {
     throw new Error('Provide a project "ref" (file path or project id).');
   }
   const { projectPath } = await resolveProjectRef(ctx.root, args.ref);
-  const loaded = await loadProject(projectPath);
+  const loaded = await loadProject(projectPath, { workspaceRoot: ctx.root });
   const source = relative(ctx.root, loaded.projectPath).split(sep).join('/');
 
   const schemaOk = ctx.validators.validateProject(loaded.project) as boolean;
@@ -33,16 +55,8 @@ export async function run(ctx: ServerContext, args: { ref?: string }) {
     screensById: loaded.screensById,
   });
 
-  let knownTypes: Awaited<ReturnType<typeof buildKnownTypes>>['knownTypes'] | undefined;
-  let registryError: string | null = null;
-  try {
-    const resolved = await buildKnownTypes({ extensionPath: null, startDir: ctx.root });
-    knownTypes = resolved.knownTypes;
-  } catch (err) {
-    registryError = err instanceof Error ? err.message : String(err);
-  }
-
-  const screens = loaded.screens.map((screen) => {
+  const knownTypesByDirectory = new Map<string, ReturnType<typeof resolveKnownTypesForBlueprint>>();
+  const screens = await mapLimit(loaded.screens, VALIDATE_PROJECT_CONCURRENCY, async (screen) => {
     if (!screen.blueprint) {
       return {
         id: screen.ref?.id ?? '',
@@ -55,14 +69,30 @@ export async function run(ctx: ServerContext, args: { ref?: string }) {
     const memberSchemaErrors = memberSchemaOk
       ? []
       : formatAjvErrors(ctx.validators.validateBlueprint);
-    const memberSemanticErrors =
-      memberSchemaOk && !registryError
-        ? validateBlueprintSemantics(screen.blueprint, { knownTypes })
-        : [];
-    if (registryError) memberSemanticErrors.push(`registry: ${registryError}`);
+    const memberSemanticErrors: string[] = [];
+    if (memberSchemaOk) {
+      try {
+        const directoryKey = dirname(screen.path);
+        let knownTypesPromise = knownTypesByDirectory.get(directoryKey);
+        if (!knownTypesPromise) {
+          knownTypesPromise = resolveKnownTypesForBlueprint({
+            workspaceRoot: ctx.root,
+            blueprintAbsPath: screen.path,
+          });
+          knownTypesByDirectory.set(directoryKey, knownTypesPromise);
+        }
+        const resolved = await knownTypesPromise;
+        memberSemanticErrors.push(
+          ...validateBlueprintSemantics(screen.blueprint, { knownTypes: resolved.knownTypes })
+        );
+      } catch (err) {
+        const registryError = err instanceof Error ? err.message : String(err);
+        memberSemanticErrors.push(`registry: ${registryError}`);
+      }
+    }
     return {
       id: screen.ref?.id ?? '',
-      valid: memberSchemaOk && !registryError && memberSemanticErrors.length === 0,
+      valid: memberSchemaOk && memberSemanticErrors.length === 0,
       schemaErrors: memberSchemaErrors,
       semanticErrors: memberSemanticErrors,
     };
