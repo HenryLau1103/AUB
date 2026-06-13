@@ -8,7 +8,7 @@ import {
   validateBlueprintSemantics,
 } from '../aub.js';
 import { formatAjvErrors } from '../schema.js';
-import { resolveExistingWorkspacePath } from '../workspace.js';
+import { resolveExistingWorkspacePath, resolveWorkspaceRegistryPath } from '../workspace.js';
 
 export const name = 'import_design_bridge';
 
@@ -60,7 +60,7 @@ export async function run(
   const schemaOk = ctx.validators.validateBlueprint(result.blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
   const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry ? await resolveExistingWorkspacePath(ctx.root, args.registry) : null,
+    extensionPath: args.registry ? await resolveWorkspaceRegistryPath(ctx.root, args.registry) : null,
     startDir: bridgePath ? dirname(bridgePath) : ctx.root,
   });
   const semanticErrors = schemaOk

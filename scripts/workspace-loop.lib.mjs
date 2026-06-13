@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { access, mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { defaultDesignSystem } from './migrate-blueprint.mjs';
@@ -55,6 +56,8 @@ const SOURCE_TEXT_CACHE_TTL_MS = 5 * 60 * 1000;
 const SOURCE_TEXT_CACHE_MAX_ENTRIES = 2000;
 const MAX_SCAN_FILES = 2000;
 const MAX_SOURCE_FILE_BYTES = 512 * 1024;
+const MAX_TOTAL_SOURCE_BYTES = 64 * 1024 * 1024;
+const SOURCE_READ_CONCURRENCY = 32;
 const MAX_TEMPLATE_NAME_LENGTH = 120;
 const MAX_TEMPLATE_ID_LENGTH = 120;
 const MAX_ROUTE_LENGTH = 220;
@@ -112,16 +115,15 @@ const TAG_TYPE_MAP = new Map([
 
 export function resolveWorkspacePath(root, filePath) {
   const absRoot = resolve(root);
-  if (isAbsolute(filePath)) {
-    throw new Error(`Path must be relative to the workspace root: ${filePath}`);
-  }
-  const absPath = resolve(absRoot, filePath);
+  const absPath = isAbsolute(filePath) ? resolve(filePath) : resolve(absRoot, filePath);
   const rel = relative(absRoot, absPath);
   if (rel === '..' || rel.startsWith(`..${sep}`) || rel === '' || isAbsolute(rel)) {
     throw new Error(`Path must stay inside the workspace root: ${filePath}`);
   }
   return absPath;
 }
+
+const writeLocks = new Map();
 
 function isInsideRoot(absRoot, absPath) {
   const rel = relative(absRoot, absPath);
@@ -166,9 +168,22 @@ async function readJsonIfExists(path, fallback) {
 
 async function writeJsonAtomic(path, value) {
   const content = `${JSON.stringify(value, null, 2)}\n`;
-  const tempPath = `${path}.${process.pid}.tmp`;
-  await writeFile(tempPath, content, 'utf8');
-  await rename(tempPath, path);
+  const previous = writeLocks.get(path) ?? Promise.resolve();
+  let release;
+  const current = new Promise((resolveLock) => {
+    release = resolveLock;
+  });
+  const chained = previous.then(() => current);
+  writeLocks.set(path, chained);
+  try {
+    await previous;
+    const tempPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
+    await writeFile(tempPath, content, { encoding: 'utf8', flag: 'wx' });
+    await rename(tempPath, path);
+  } finally {
+    release();
+    if (writeLocks.get(path) === chained) writeLocks.delete(path);
+  }
   return { bytes: Buffer.byteLength(content) };
 }
 
@@ -328,14 +343,42 @@ async function readSourceTexts(files) {
   const sourceFiles = files.filter((file) => SOURCE_EXTENSIONS.has(extname(file.path).toLowerCase()));
   const contents = new Map();
   let skippedLargeFiles = 0;
-  await Promise.all(
-    sourceFiles.map(async (file) => {
+  let skippedBudgetFiles = 0;
+  let totalSourceBytes = 0;
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < sourceFiles.length) {
+      const file = sourceFiles[nextIndex];
+      nextIndex += 1;
+      let size = 0;
+      try {
+        size = (await stat(file.absPath)).size;
+      } catch {
+        contents.set(file.absPath, '');
+        continue;
+      }
+      if (size > MAX_SOURCE_FILE_BYTES) {
+        skippedLargeFiles += 1;
+        contents.set(file.absPath, '');
+        continue;
+      }
+      if (totalSourceBytes + size > MAX_TOTAL_SOURCE_BYTES) {
+        skippedBudgetFiles += 1;
+        contents.set(file.absPath, '');
+        continue;
+      }
+      totalSourceBytes += size;
       const result = await readSourceText(file);
       if (result.skipped) skippedLargeFiles += 1;
       contents.set(file.absPath, result.text);
-    })
+    }
+  }
+  const workers = Array.from(
+    { length: Math.min(SOURCE_READ_CONCURRENCY, sourceFiles.length) },
+    () => worker()
   );
-  return { contents, skippedLargeFiles };
+  await Promise.all(workers);
+  return { contents, skippedLargeFiles, skippedBudgetFiles, totalSourceBytes };
 }
 
 function normalizeScanLimit(limit) {
@@ -399,6 +442,10 @@ async function createWalkState(root) {
       directoriesSkipped: 0,
       ignoredPatterns,
       limitReached: false,
+      sourceBytesRead: 0,
+      sourceFilesSkippedBySize: 0,
+      sourceFilesSkippedByBudget: 0,
+      sourceByteLimitReached: false,
     },
   };
 }
@@ -694,7 +741,7 @@ async function detectStorybook(files) {
 
 async function detectComponents(root, files, namespace, frameworks, storybook = null) {
   const candidates = [];
-  const { contents: sourceTexts, skippedLargeFiles } = await readSourceTexts(files);
+  const { contents: sourceTexts, skippedLargeFiles, skippedBudgetFiles, totalSourceBytes } = await readSourceTexts(files);
   for (const file of files) {
     const ext = extname(file.path).toLowerCase();
     if (!SOURCE_EXTENSIONS.has(ext)) continue;
@@ -742,7 +789,7 @@ async function detectComponents(root, files, namespace, frameworks, storybook = 
   }
   const byId = new Map();
   for (const candidate of candidates) byId.set(candidate.id, candidate);
-  return { candidates: [...byId.values()].slice(0, 100), skippedLargeFiles };
+  return { candidates: [...byId.values()].slice(0, 100), skippedLargeFiles, skippedBudgetFiles, totalSourceBytes };
 }
 
 function findStorybookStoriesForComponent(componentName, selector, storybook) {
@@ -845,6 +892,7 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
   if (routes.length === 0) warnings.push('No route entry files were detected.');
   if (candidates.length === 0) warnings.push('No reusable project components were detected.');
   if (scanAudit.limitReached) warnings.push('Scan file limit was reached; results may be incomplete.');
+  if (scanAudit.sourceByteLimitReached) warnings.push('Source byte limit was reached; some source files were skipped.');
 
   const confidenceInputs = {
     frameworkDetected: !frameworks.includes('unknown'),
@@ -852,6 +900,7 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
     componentCandidateCount: candidates.length,
     storybookDetected: Boolean(storybook?.detected),
     scanLimitReached: Boolean(scanAudit.limitReached),
+    sourceByteLimitReached: Boolean(scanAudit.sourceByteLimitReached),
   };
   const trustScore = clampScanScore(
     30
@@ -860,6 +909,7 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
     + Math.min(20, candidates.length * 2)
     + (confidenceInputs.storybookDetected ? 10 : 0)
     - (confidenceInputs.scanLimitReached ? 20 : 0)
+    - (confidenceInputs.sourceByteLimitReached ? 10 : 0)
   );
 
   return {
@@ -877,6 +927,10 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
       filesSkipped: scanAudit.filesSkipped,
       directoriesSkipped: scanAudit.directoriesSkipped,
       limitReached: scanAudit.limitReached,
+      sourceBytesRead: scanAudit.sourceBytesRead ?? 0,
+      sourceFilesSkippedBySize: scanAudit.sourceFilesSkippedBySize ?? 0,
+      sourceFilesSkippedByBudget: scanAudit.sourceFilesSkippedByBudget ?? 0,
+      sourceByteLimitReached: Boolean(scanAudit.sourceByteLimitReached),
       trustScore,
     },
     trust: {
@@ -892,6 +946,10 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
         filesSkipped: scanAudit.filesSkipped,
         directoriesSkipped: scanAudit.directoriesSkipped,
         scanLimitReached: Boolean(scanAudit.limitReached),
+        sourceBytesRead: scanAudit.sourceBytesRead ?? 0,
+        sourceFilesSkippedBySize: scanAudit.sourceFilesSkippedBySize ?? 0,
+        sourceFilesSkippedByBudget: scanAudit.sourceFilesSkippedByBudget ?? 0,
+        sourceByteLimitReached: Boolean(scanAudit.sourceByteLimitReached),
       },
       reasons: [
         confidenceInputs.frameworkDetected ? 'Supported framework detected.' : 'Framework fallback only.',
@@ -929,6 +987,10 @@ function buildScanReport({ packageJson, namespace, frameworks, routes, candidate
       directoriesSkipped: scanAudit.directoriesSkipped,
       ignoredPatterns: scanAudit.ignoredPatterns,
       limitReached: scanAudit.limitReached,
+      sourceBytesRead: scanAudit.sourceBytesRead ?? 0,
+      sourceFilesSkippedBySize: scanAudit.sourceFilesSkippedBySize ?? 0,
+      sourceFilesSkippedByBudget: scanAudit.sourceFilesSkippedByBudget ?? 0,
+      sourceByteLimitReached: Boolean(scanAudit.sourceByteLimitReached),
     },
   };
 }
@@ -1044,7 +1106,11 @@ export async function scanProjectUi(root, options = {}) {
   const frameworks = detectFrameworks(packageJson, files);
   const routes = await detectRoutes(files);
   const storybook = await detectStorybook(files);
-  const { candidates, skippedLargeFiles } = await detectComponents(root, files, namespace, frameworks, storybook);
+  const { candidates, skippedLargeFiles, skippedBudgetFiles, totalSourceBytes } = await detectComponents(root, files, namespace, frameworks, storybook);
+  walkState.audit.sourceBytesRead = totalSourceBytes;
+  walkState.audit.sourceFilesSkippedBySize = skippedLargeFiles;
+  walkState.audit.sourceFilesSkippedByBudget = skippedBudgetFiles;
+  walkState.audit.sourceByteLimitReached = skippedBudgetFiles > 0;
   const doc = await writeComponentCandidates(root, candidates);
   const scanReport = await writeScanReport(root, buildScanReport({
     packageJson,

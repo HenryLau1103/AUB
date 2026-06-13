@@ -5,6 +5,9 @@ import { defaultDesignSystem } from './migrate-blueprint.mjs';
 
 export const ANGULAR_IMPORTER_VERSION = '1.0.0';
 const MAX_TEMPLATE_NESTING_DEPTH = 200;
+const MAX_ANGULAR_BUNDLE_BYTES = 16 * 1024 * 1024;
+const MAX_TEMPLATE_NODES = 5000;
+const MAX_ATTRIBUTES_PER_NODE = 80;
 
 const CONTAINER_TYPES = new Set([
   'app_shell', 'page', 'section', 'header', 'sidebar', 'top_bar', 'bottom_nav',
@@ -30,12 +33,18 @@ export function normalizeAngularBundle(input) {
     throw new Error('Angular import requires at least one source file.');
   }
   const seen = new Set();
+  let totalBytes = 0;
   return files.map((file) => {
     const path = sanitizeSourcePath(file.path ?? file.name ?? '');
     if (!path) throw new Error('Every Angular source file requires a relative path.');
     if (seen.has(path)) throw new Error(`Duplicate source path: ${path}`);
     seen.add(path);
-    return { path, content: String(file.content ?? '') };
+    const content = String(file.content ?? '');
+    totalBytes += Buffer.byteLength(content);
+    if (totalBytes > MAX_ANGULAR_BUNDLE_BYTES) {
+      throw new Error(`Angular source bundle exceeds maximum size of ${MAX_ANGULAR_BUNDLE_BYTES} bytes.`);
+    }
+    return { path, content };
   });
 }
 
@@ -604,10 +613,18 @@ function collectAttributesDeep(node) {
 
 function walkHtml(node, visitor) {
   const stack = [{ node, depth: 0 }];
+  let visited = 0;
   while (stack.length > 0) {
     const current = stack.pop();
     if (current.depth > MAX_TEMPLATE_NESTING_DEPTH) {
       throw new Error(`Angular template exceeds maximum nesting depth of ${MAX_TEMPLATE_NESTING_DEPTH}.`);
+    }
+    visited += 1;
+    if (visited > MAX_TEMPLATE_NODES) {
+      throw new Error(`Angular template exceeds maximum node count of ${MAX_TEMPLATE_NODES}.`);
+    }
+    if ((current.node.attrs?.length ?? 0) > MAX_ATTRIBUTES_PER_NODE) {
+      throw new Error(`Angular template node exceeds maximum attribute count of ${MAX_ATTRIBUTES_PER_NODE}.`);
     }
     visitor(current.node);
     const children = current.node.childNodes ?? [];

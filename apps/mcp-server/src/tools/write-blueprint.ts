@@ -1,4 +1,4 @@
-import { access, rename, writeFile } from 'node:fs/promises';
+import { access } from 'node:fs/promises';
 import { extname, relative, sep } from 'node:path';
 import yaml from 'js-yaml';
 import { z } from 'zod';
@@ -6,7 +6,7 @@ import type { ServerContext } from '../context.js';
 import type { Blueprint } from '../aub.js';
 import { buildKnownTypes, validateBlueprintSemantics } from '../aub.js';
 import { formatAjvErrors } from '../schema.js';
-import { prepareWorkspaceWritePath, resolveExistingWorkspacePath } from '../workspace.js';
+import { prepareWorkspaceWritePath, resolveWorkspaceRegistryPath, writeFileAtomic } from '../workspace.js';
 
 export const name = 'write_blueprint';
 
@@ -56,7 +56,7 @@ export async function run(
   const schemaOk = ctx.validators.validateBlueprint(blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
   const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry ? await resolveExistingWorkspacePath(ctx.root, args.registry) : null,
+    extensionPath: args.registry ? await resolveWorkspaceRegistryPath(ctx.root, args.registry) : null,
     startDir: ctx.root,
   });
   const semanticErrors = schemaOk
@@ -77,9 +77,7 @@ export async function run(
     ext === '.yaml' || ext === '.yml'
       ? yaml.dump(blueprint, { noRefs: true, lineWidth: 120 })
       : `${JSON.stringify(blueprint, null, 2)}\n`;
-  const tempPath = `${outputPath}.${process.pid}.tmp`;
-  await writeFile(tempPath, content, 'utf8');
-  await rename(tempPath, outputPath);
+  await writeFileAtomic(outputPath, content);
 
   return {
     savedPath: relative(ctx.root, outputPath).split(sep).join('/'),

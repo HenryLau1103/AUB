@@ -12,6 +12,11 @@ export function validateProjectSemantics(
 ): string[];
 
 export function resolveScreenPath(projectFilePath: string, screenPath: string): string;
+export function resolveContainedScreenPath(
+  projectFilePath: string,
+  screenPath: string,
+  workspaceRoot?: string
+): Promise<string>;
 
 export function readBlueprintFile(absPath: string): Promise<Blueprint>;
 
@@ -29,7 +34,10 @@ export interface LoadedProject {
   errors: string[];
 }
 
-export function loadProject(projectPathArg: string): Promise<LoadedProject>;
+export function loadProject(
+  projectPathArg: string,
+  options?: { workspaceRoot?: string }
+): Promise<LoadedProject>;
 
 export function mergeDesignSystem(
   project: Project,

@@ -42,7 +42,10 @@ export async function createHandoffArchive({
 
   for (const [viewportId, dataUrl] of Object.entries(viewportImages)) {
     assertSafeZipSegment(viewportId, 'viewport id');
-    files[`screenshots/${viewportId}.png`] = dataUrlToBytes(dataUrl);
+    if (!blueprint.viewports?.some((viewport) => viewport.id === viewportId)) {
+      throw new Error(`Unknown viewport id: ${viewportId}`);
+    }
+    files[`screenshots/${viewportId}.png`] = pngDataUrlToBytes(dataUrl, viewportId);
   }
 
   const manifestFiles = {};
@@ -115,10 +118,17 @@ function ensureTrailingNewline(value) {
   return value.endsWith('\n') ? value : `${value}\n`;
 }
 
-function dataUrlToBytes(dataUrl) {
-  const base64 = dataUrl.split(',')[1] ?? '';
-  const binary = atob(base64);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+function pngDataUrlToBytes(dataUrl, viewportId) {
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(dataUrl));
+  if (!match) {
+    throw new Error(`Viewport ${viewportId} screenshot must be a PNG data URL.`);
+  }
+  const bytes = Uint8Array.from(Buffer.from(match[1], 'base64'));
+  const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (bytes.length < pngSignature.length || !pngSignature.every((byte, index) => bytes[index] === byte)) {
+    throw new Error(`Viewport ${viewportId} screenshot is not a PNG.`);
+  }
+  return bytes;
 }
 
 async function sha256(bytes) {

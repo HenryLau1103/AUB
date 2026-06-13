@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { resolve } from 'node:path';
 import type { ServerContext } from '../context.js';
 import type { Blueprint } from '../aub.js';
 import { resolveBlueprint } from '../workspace.js';
+import { resolveWorkspaceRegistryPath } from '../workspace.js';
 import { formatAjvErrors } from '../schema.js';
 import { validateBlueprintSemantics, buildKnownTypes } from '../aub.js';
 
@@ -58,7 +58,7 @@ export async function run(
   let registryError: string | null = null;
   try {
     const resolved = await buildKnownTypes({
-      extensionPath: args.registry ? resolve(ctx.root, args.registry) : null,
+      extensionPath: args.registry ? await resolveWorkspaceRegistryPath(ctx.root, args.registry) : null,
       startDir: ctx.root,
     });
     knownTypes = resolved.knownTypes;

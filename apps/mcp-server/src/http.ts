@@ -36,8 +36,10 @@ function isLocalOrigin(origin: string): boolean {
 }
 
 function safeEquals(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
 }
 
 function rpcErrorPayload(status: number, message: string, code = -32000) {

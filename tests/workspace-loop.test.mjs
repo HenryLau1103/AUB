@@ -1,4 +1,4 @@
-import { cp, mkdtemp, rm, readFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -97,6 +97,25 @@ test('WL2: Angular scanner resolves templateUrl routes and selector candidates',
     assert.ok(result.template.sourceReferences.some((reference) => reference.selector?.includes('app-domain-card')));
     assert.equal(result.template.trustBreakdown.routeResolved, true);
     assert.ok(result.template.trustBreakdown.unresolvedCustomComponents >= 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('WL3: scanner records aggregate source byte budget skips', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-scan-budget-'));
+  try {
+    await mkdir(join(root, 'components'), { recursive: true });
+    await writeFile(join(root, 'package.json'), '{"name":"budget-demo","dependencies":{"next":"latest"}}\n', 'utf8');
+    const base = 'export function BudgetWidget(){ return <section>Budget</section>; }\n';
+    const filler = 'x'.repeat((512 * 1024) - base.length);
+    for (let index = 0; index < 130; index += 1) {
+      await writeFile(join(root, 'components', `BudgetWidget${index}.tsx`), `${base}${filler}`, 'utf8');
+    }
+    const scan = await scanProjectUi(root);
+    assert.equal(scan.scanAudit.sourceByteLimitReached, true);
+    assert.ok(scan.scanAudit.sourceFilesSkippedByBudget > 0);
+    assert.ok(scan.scanReport.trust.breakdown.sourceByteLimitReached);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -131,7 +131,7 @@ async function verifyProjectFile(root, ref, validators) {
   const path = resolveRef(root, ref);
   const failures = [];
   try {
-    const loaded = await loadProject(path);
+    const loaded = await loadProject(path, { workspaceRoot: root });
     if (!validators.validateProject(loaded.project)) {
       for (const error of formatAjvErrors(validators.validateProject)) {
         failures.push({ path: ref, message: `Project schema: ${error}` });

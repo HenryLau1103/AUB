@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { access, readFile, writeFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import type { ServerContext } from '../context.js';
@@ -13,7 +13,7 @@ import {
 } from '../aub.js';
 import { findRepoRoot } from '../repo.js';
 import { formatAjvErrors } from '../schema.js';
-import { prepareWorkspaceWritePath, resolveBlueprint, resolveExistingWorkspacePath } from '../workspace.js';
+import { prepareWorkspaceWritePath, resolveBlueprint, resolveWorkspaceRegistryPath, writeFileAtomic } from '../workspace.js';
 
 export const name = 'export_handoff';
 
@@ -62,7 +62,7 @@ export async function run(
   const schemaOk = ctx.validators.validateBlueprint(blueprint) as boolean;
   const schemaErrors = schemaOk ? [] : formatAjvErrors(ctx.validators.validateBlueprint);
   const knownTypes = await buildKnownTypes({
-    extensionPath: args.registry ? await resolveExistingWorkspacePath(ctx.root, args.registry) : null,
+    extensionPath: args.registry ? await resolveWorkspaceRegistryPath(ctx.root, args.registry) : null,
     startDir: dirname(entry.absPath),
   });
   const semanticErrors = schemaOk
@@ -99,7 +99,7 @@ export async function run(
     viewportImages: args.viewportImages ?? {},
     extensionRegistry,
   });
-  await writeFile(outputPath, bytes);
+  await writeFileAtomic(outputPath, bytes);
 
   return {
     savedPath: relative(ctx.root, outputPath).split(sep).join('/'),

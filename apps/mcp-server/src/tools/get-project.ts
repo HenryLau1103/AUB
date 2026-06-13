@@ -28,7 +28,7 @@ export async function run(ctx: ServerContext, args: { ref?: string; inlineScreen
     throw new Error('Provide a project "ref" (file path or project id).');
   }
   const { projectPath } = await resolveProjectRef(ctx.root, args.ref);
-  const loaded = await loadProject(projectPath);
+  const loaded = await loadProject(projectPath, { workspaceRoot: ctx.root });
   const inline = args.inlineScreens === true;
 
   const screens = loaded.screens.map((screen) => {

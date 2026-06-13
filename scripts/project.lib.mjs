@@ -8,8 +8,8 @@
 // resolution into clearly-named async helpers so callers (CLI/MCP) can load a
 // project and its member screens. It never mutates inputs.
 
-import { readFile } from 'node:fs/promises';
-import { extname, dirname, resolve, isAbsolute } from 'node:path';
+import { readFile, realpath } from 'node:fs/promises';
+import { extname, dirname, resolve, isAbsolute, relative, sep } from 'node:path';
 import yaml from 'js-yaml';
 
 export const NAVIGATION_TRIGGERS = ['click', 'submit', 'change', 'load', 'system', 'gesture'];
@@ -98,6 +98,30 @@ export function resolveScreenPath(projectFilePath, screenPath) {
   return resolve(dirname(projectFilePath), screenPath);
 }
 
+function isInsideRoot(absRoot, absPath) {
+  const rel = relative(absRoot, absPath);
+  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+export async function resolveContainedScreenPath(projectFilePath, screenPath, workspaceRoot) {
+  if (isAbsolute(screenPath)) {
+    throw new Error(`Screen path must be relative to the project file: ${screenPath}`);
+  }
+  const candidate = resolve(dirname(projectFilePath), screenPath);
+  const projectDir = dirname(projectFilePath);
+  const lexicalRel = relative(projectDir, candidate);
+  if (lexicalRel === '..' || lexicalRel.startsWith(`..${sep}`) || isAbsolute(lexicalRel)) {
+    throw new Error(`Screen path must stay inside the project directory: ${screenPath}`);
+  }
+  if (!workspaceRoot) return candidate;
+  const realRoot = await realpath(workspaceRoot);
+  const realTarget = await realpath(candidate);
+  if (!isInsideRoot(realRoot, realTarget)) {
+    throw new Error(`Screen path must stay inside workspace: ${screenPath}`);
+  }
+  return candidate;
+}
+
 /** Read and parse a single Blueprint file (json or yaml). */
 export async function readBlueprintFile(absPath) {
   const raw = await readFile(absPath, 'utf8');
@@ -114,7 +138,7 @@ export async function readBlueprintFile(absPath) {
  * Missing member files are reported via the `errors` array rather than thrown,
  * so callers can surface every problem at once.
  */
-export async function loadProject(projectPathArg) {
+export async function loadProject(projectPathArg, options = {}) {
   const projectPath = resolve(projectPathArg);
   const raw = await readFile(projectPath, 'utf8');
   const project = parseProjectText(raw, projectPath);
@@ -124,14 +148,17 @@ export async function loadProject(projectPathArg) {
   const errors = [];
 
   for (const ref of project?.screens ?? []) {
-    const memberPath = resolveScreenPath(projectPath, ref.path);
+    let memberPath = resolveScreenPath(projectPath, ref.path);
     try {
+      memberPath = options.workspaceRoot
+        ? await resolveContainedScreenPath(projectPath, ref.path, options.workspaceRoot)
+        : memberPath;
       const blueprint = await readBlueprintFile(memberPath);
       screens.push({ ref, path: memberPath, blueprint });
       screensById.set(ref.id, blueprint);
     } catch (err) {
       errors.push(`screen "${ref.id}": cannot read ${ref.path} (${err.message})`);
-      screens.push({ ref, path: memberPath, blueprint: null });
+      screens.push({ ref, path: String(ref.path ?? ''), blueprint: null });
     }
   }
 

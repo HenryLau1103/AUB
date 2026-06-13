@@ -108,6 +108,20 @@ test('HTTP RPC accepts requests with a configured bearer token', async () => {
   }
 });
 
+test('HTTP RPC rejects non-ASCII invalid tokens with 401 instead of 500', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aub-http-auth-unicode-'));
+  const { child, port } = await startServer(root, ['--rpc-token', 'abcd']);
+  try {
+    const response = await rpc(port, { authorization: 'Bearer ábcd' });
+    assert.equal(response.status, 401);
+    const body = await response.json();
+    assert.equal(body.ok, false);
+  } finally {
+    await stopServer(child);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('HTTP RPC allows no-token mode only with explicit opt-in', async () => {
   const root = await mkdtemp(join(tmpdir(), 'aub-http-auth-optin-'));
   const { child, port } = await startServer(root, ['--allow-unauthenticated-rpc']);

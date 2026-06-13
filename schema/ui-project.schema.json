@@ -93,6 +93,12 @@
         "path": {
           "type": "string",
           "description": "Relative path (from the project file) to a single-screen .ui.json or .ui.yaml Blueprint.",
+          "not": {
+            "anyOf": [
+              { "pattern": "^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)" },
+              { "pattern": "(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)" }
+            ]
+          },
           "minLength": 1,
           "maxLength": 1024
         }

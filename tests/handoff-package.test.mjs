@@ -177,3 +177,61 @@ test('HP5: handoff rejects traversal-style viewport screenshot ids', async () =>
     /Unsafe viewport id/
   );
 });
+
+test('HP6: handoff rejects screenshots for undeclared viewports', async () => {
+  const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
+  const reportSchema = JSON.parse(await readFile(REPORT_SCHEMA_URL, 'utf8'));
+  await assert.rejects(
+    async () => createHandoffArchive({
+      blueprint,
+      markdown: exportMarkdown(blueprint),
+      genericPrompt: exportAgentPrompt(blueprint, { adapter: 'generic', task: 'implement' }),
+      codexPrompt: exportAgentPrompt(blueprint, { adapter: 'codex', task: 'implement' }),
+      agentGuide: await readFile(GUIDE_URL, 'utf8'),
+      agentGuideZhHant: await readFile(GUIDE_ZH_URL, 'utf8'),
+      reportTemplate: createImplementationReportTemplate(blueprint),
+      reportSchema,
+      viewportImages: {
+        desktop_extra: 'data:image/png;base64,iVBORw0KGgo=',
+      },
+    }),
+    /Unknown viewport id: desktop_extra/
+  );
+});
+
+test('HP7: handoff rejects non-PNG screenshot data URLs', async () => {
+  const blueprint = JSON.parse(await readFile(BLUEPRINT_URL, 'utf8'));
+  const reportSchema = JSON.parse(await readFile(REPORT_SCHEMA_URL, 'utf8'));
+  await assert.rejects(
+    async () => createHandoffArchive({
+      blueprint,
+      markdown: exportMarkdown(blueprint),
+      genericPrompt: exportAgentPrompt(blueprint, { adapter: 'generic', task: 'implement' }),
+      codexPrompt: exportAgentPrompt(blueprint, { adapter: 'codex', task: 'implement' }),
+      agentGuide: await readFile(GUIDE_URL, 'utf8'),
+      agentGuideZhHant: await readFile(GUIDE_ZH_URL, 'utf8'),
+      reportTemplate: createImplementationReportTemplate(blueprint),
+      reportSchema,
+      viewportImages: {
+        desktop: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+      },
+    }),
+    /must be a PNG data URL/
+  );
+  await assert.rejects(
+    async () => createHandoffArchive({
+      blueprint,
+      markdown: exportMarkdown(blueprint),
+      genericPrompt: exportAgentPrompt(blueprint, { adapter: 'generic', task: 'implement' }),
+      codexPrompt: exportAgentPrompt(blueprint, { adapter: 'codex', task: 'implement' }),
+      agentGuide: await readFile(GUIDE_URL, 'utf8'),
+      agentGuideZhHant: await readFile(GUIDE_ZH_URL, 'utf8'),
+      reportTemplate: createImplementationReportTemplate(blueprint),
+      reportSchema,
+      viewportImages: {
+        desktop: 'data:image/png;base64,ZmFrZQ==',
+      },
+    }),
+    /is not a PNG/
+  );
+});

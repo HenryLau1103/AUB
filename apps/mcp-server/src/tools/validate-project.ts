@@ -23,7 +23,7 @@ export async function run(ctx: ServerContext, args: { ref?: string }) {
     throw new Error('Provide a project "ref" (file path or project id).');
   }
   const { projectPath } = await resolveProjectRef(ctx.root, args.ref);
-  const loaded = await loadProject(projectPath);
+  const loaded = await loadProject(projectPath, { workspaceRoot: ctx.root });
   const source = relative(ctx.root, loaded.projectPath).split(sep).join('/');
 
   const schemaOk = ctx.validators.validateProject(loaded.project) as boolean;

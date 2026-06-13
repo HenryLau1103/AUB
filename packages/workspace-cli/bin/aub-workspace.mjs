@@ -910,13 +910,14 @@ async function main() {
   });
 
   const mcpUrl = `http://${args.host}:${mcpPort}/mcp`;
+  const mcpEndpoint = new URL(mcpUrl);
+  mcpEndpoint.searchParams.set('token', rpcToken);
   await waitForHealth(`http://${args.host}:${mcpPort}/health`);
 
   const editorServer = createEditorServer(editorRoot);
   const editorPort = await listen(editorServer, args.host, args.editorPort);
   const editorUrl = new URL(`http://${args.host}:${editorPort}/`);
-  editorUrl.searchParams.set('mcp', mcpUrl);
-  editorUrl.searchParams.set('token', rpcToken);
+  editorUrl.searchParams.set('mcp', mcpEndpoint.href);
 
   console.error('');
   console.error('AUB Workspace is running');

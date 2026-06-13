@@ -1,4 +1,5 @@
-import { mkdir, readdir, readFile, realpath } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readdir, readFile, realpath, rename, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import yaml from 'js-yaml';
@@ -34,10 +35,7 @@ const MAX_SCAN_FILES = 2000;
 
 export function resolveWorkspacePath(root: string, filePath: string): string {
   const absRoot = resolve(root);
-  if (isAbsolute(filePath)) {
-    throw new Error(`Path must be relative to the workspace root: ${filePath}`);
-  }
-  const absPath = resolve(absRoot, filePath);
+  const absPath = isAbsolute(filePath) ? resolve(filePath) : resolve(absRoot, filePath);
   const rel = relative(absRoot, absPath);
   if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     throw new Error(`Path must stay inside the workspace root: ${filePath}`);
@@ -59,6 +57,14 @@ export async function resolveExistingWorkspacePath(root: string, filePath: strin
     throw new Error(`Path must stay inside the workspace root: ${filePath}`);
   }
   return absPath;
+}
+
+export async function resolveWorkspaceRegistryPath(root: string, filePath: string): Promise<string> {
+  const registryPath = await resolveExistingWorkspacePath(root, filePath);
+  if (!/aub\.registry\.json$/i.test(registryPath)) {
+    throw new Error(`Registry path must point to aub.registry.json: ${filePath}`);
+  }
+  return registryPath;
 }
 
 export async function prepareWorkspaceWritePath(root: string, filePath: string): Promise<string> {
@@ -96,6 +102,46 @@ export function safeFileStem(value: string, fallback: string): string {
     throw new Error(`Unsafe file name segment: ${fallback}`);
   }
   return input;
+}
+
+export function encodeSafeFileStem(value: string, fallback: string): string {
+  const input = value || fallback;
+  const encoded = input
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/\.+/g, '.')
+    .replace(/^-+|-+$/g, '')
+    .replace(/^\.+|\.+$/g, '');
+  const cleaned = encoded
+    .replace(/\.\./g, '.')
+    .slice(0, 120)
+    .replace(/^-+|-+$/g, '')
+    .replace(/^\.+|\.+$/g, '');
+  return cleaned || fallback;
+}
+
+const writeLocks = new Map<string, Promise<void>>();
+
+export async function writeFileAtomic(outputPath: string, content: string | Uint8Array): Promise<void> {
+  const previous = writeLocks.get(outputPath) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolveLock) => {
+    release = resolveLock;
+  });
+  const chained = previous.then(() => current);
+  writeLocks.set(outputPath, chained);
+  try {
+    await previous;
+    const tempPath = `${outputPath}.${process.pid}.${randomUUID()}.tmp`;
+    await writeFile(tempPath, content, { flag: 'wx' });
+    await rename(tempPath, outputPath);
+  } finally {
+    release();
+    if (writeLocks.get(outputPath) === chained) {
+      writeLocks.delete(outputPath);
+    }
+  }
 }
 
 function isYaml(filePath: string): boolean {

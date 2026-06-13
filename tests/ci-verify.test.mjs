@@ -35,8 +35,15 @@ test('CI2: require-reports fails a Blueprint without implementation evidence', a
 test('CI3: composite action passes config through env without shell execution', async () => {
   const action = yaml.load(await readFile(resolve(ROOT, 'action.yml'), 'utf8'));
   const verifyStep = action.runs.steps.find((step) => step.name === 'Verify AUB contracts');
+  const commentStep = action.runs.steps.find((step) => step.name === 'Comment PR Safety Score');
   assert.equal(verifyStep.env.AUB_CONFIG_INPUT, '${{ inputs.config }}');
+  assert.equal(verifyStep.env.AUB_MIN_SAFETY_SCORE, '${{ inputs.min-safety-score }}');
   assert.ok(!verifyStep.run.includes('${{ inputs.config }}'));
+  assert.ok(!verifyStep.run.includes('${{ inputs.min-safety-score }}'));
+  assert.equal(commentStep.env.AUB_CONFIG_INPUT, '${{ inputs.config }}');
+  assert.equal(commentStep.env.AUB_MIN_SAFETY_SCORE, '${{ inputs.min-safety-score }}');
+  assert.ok(!commentStep.run.includes('${{ inputs.config }}'));
+  assert.ok(!commentStep.run.includes('${{ inputs.min-safety-score }}'));
 
   const dir = await mkdtemp(join(tmpdir(), 'aub-action-shell-'));
   const sentinel = join(dir, 'sentinel');

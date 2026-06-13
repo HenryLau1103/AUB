@@ -71,6 +71,42 @@ test('ANG4: deeply nested templates fail with an explicit depth error', async ()
   );
 });
 
+test('ANG5: wide templates fail with an explicit node-count error', async () => {
+  const wideTemplate = `<section>${'<span>Item</span>'.repeat(5005)}</section>`;
+  await assert.rejects(
+    () => importAngularComponent([
+      {
+        path: 'wide/wide.component.ts',
+        content: `
+          import { Component } from '@angular/core';
+          @Component({ selector: 'app-wide', templateUrl: './wide.component.html' })
+          export class WideComponent {}
+        `,
+      },
+      { path: 'wide/wide.component.html', content: wideTemplate },
+    ], { entry: 'app-wide' }),
+    /Angular template exceeds maximum node count of 5000/
+  );
+});
+
+test('ANG6: nodes with excessive attributes fail explicitly', async () => {
+  const attrs = Array.from({ length: 81 }, (_, index) => `data-a${index}="${index}"`).join(' ');
+  await assert.rejects(
+    () => importAngularComponent([
+      {
+        path: 'attrs/attrs.component.ts',
+        content: `
+          import { Component } from '@angular/core';
+          @Component({ selector: 'app-attrs', templateUrl: './attrs.component.html' })
+          export class AttrsComponent {}
+        `,
+      },
+      { path: 'attrs/attrs.component.html', content: `<button ${attrs}>Run</button>` },
+    ], { entry: 'app-attrs' }),
+    /Angular template node exceeds maximum attribute count of 80/
+  );
+});
+
 async function walk(directory) {
   const result = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
